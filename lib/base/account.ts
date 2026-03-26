@@ -5,7 +5,7 @@ export type BaseAccountAdapter = {
 };
 
 type BaseAccountModule = {
-  version?: string;
+  VERSION?: string;
 };
 
 export async function loadBaseAccountModule(): Promise<BaseAccountModule | null> {
@@ -22,7 +22,7 @@ export async function createBaseAccountAdapter(): Promise<BaseAccountAdapter> {
 
   return {
     sdkAvailable: baseAccountModule !== null,
-    sdkVersion: baseAccountModule?.version ?? null,
+    sdkVersion: baseAccountModule?.VERSION ?? null,
     async connect() {
       // TODO(Sprint1): bind Base Account runtime context to wagmi connection flow.
       throw new Error("Base Account connect flow is intentionally deferred to Sprint 1.");

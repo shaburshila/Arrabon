@@ -38,13 +38,15 @@ NEXT_PUBLIC_BASE_CHAIN_ID=
 NEXT_PUBLIC_BUILDER_CODE=
 ```
 
+`NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but Sprint 0 does not use it at runtime yet. There is no `dataSuffix` wiring in the current runtime, so Builder Code is not integrated yet and is intentionally deferred to a later sprint.
+
 ## Sprint 0 Includes
 
 - Next.js app router shell with TypeScript
 - project structure aligned to frozen docs
 - Base chain configuration via wagmi and viem
 - React Query provider wiring
-- Base Account adapter skeleton
+- Base Account adapter skeleton only
 - placeholder health endpoint
 - deploy-ready docs and env template
 
@@ -57,3 +59,5 @@ NEXT_PUBLIC_BUILDER_CODE=
 - reveal endpoint
 - disputes, funding flow, or paymaster business logic
 - production-ready Base Account connect UX
+- Base Account full connect flow and wallet connectors (planned for Sprint 1)
+- Builder Code runtime attribution via `dataSuffix`

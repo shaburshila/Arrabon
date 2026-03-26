@@ -31,6 +31,7 @@
 - Coinbase Paymaster используется только через backend proxy allowlist
 - Base Pay не используется как основной payment rail
 - Все timestamps хранятся в UTC
+- Identity invariant for `consultation_links`: `users.wallet` must match `consultation_links.expert_address` for the owning creator record
 
 ---
 
