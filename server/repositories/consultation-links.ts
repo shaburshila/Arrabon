@@ -8,6 +8,16 @@ type ConsultationLinksTable =
   Database["public"]["Tables"]["consultation_links"];
 type ConsultationLinkInsert = ConsultationLinksTable["Insert"];
 
+export class ConsultationLinksRepositoryError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ConsultationLinksRepositoryError";
+    this.code = code;
+  }
+}
+
 export interface CreateConsultationLinkInput {
   creatorUserId: string;
   expertAddress: string;
@@ -31,7 +41,7 @@ function toUtcIsoString(value: Date): string {
 export async function createLink(
   input: CreateConsultationLinkInput,
 ): Promise<ConsultationLinkRow> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const payload: ConsultationLinkInsert = {
     creator_user_id: input.creatorUserId,
     expert_address: input.expertAddress,
@@ -49,21 +59,23 @@ export async function createLink(
   };
 
   const { data, error } = await db
-    .schema("public")
     .from("consultation_links")
     .insert(payload)
-    .select()
+    .select("*")
     .single();
 
   if (error) {
-    throw new Error(`Failed to create consultation link: ${error.message}`);
+    throw new ConsultationLinksRepositoryError(
+      `Failed to create consultation link: ${error.message}`,
+      error.code,
+    );
   }
 
-  return data as ConsultationLinkRow;
+  return data;
 }
 
 export async function getById(id: string): Promise<ConsultationLinkRow | null> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const { data, error } = await db
     .from("consultation_links")
     .select("*")
@@ -71,8 +83,11 @@ export async function getById(id: string): Promise<ConsultationLinkRow | null> {
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load consultation link: ${error.message}`);
+    throw new ConsultationLinksRepositoryError(
+      `Failed to load consultation link: ${error.message}`,
+      error.code,
+    );
   }
 
-  return data as ConsultationLinkRow | null;
+  return data;
 }
