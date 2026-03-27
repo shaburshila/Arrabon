@@ -17,14 +17,14 @@ export async function getByWallet(wallet: string): Promise<UserRow | null> {
 }
 
 export async function createUser(wallet: string): Promise<UserRow> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const payload: UserInsert = {
     wallet,
   };
 
   const { data, error } = await db
     .from("users")
-    .insert(payload as never)
+    .insert(payload)
     .select()
     .single();
 
@@ -33,4 +33,29 @@ export async function createUser(wallet: string): Promise<UserRow> {
   }
 
   return data as UserRow;
+}
+
+export async function getOrCreateUser(wallet: string): Promise<UserRow> {
+  const existingUser = await getByWallet(wallet);
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  try {
+    return await createUser(wallet);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("duplicate key") || error.message.includes("23505"))
+    ) {
+      const user = await getByWallet(wallet);
+
+      if (user) {
+        return user;
+      }
+    }
+
+    throw error;
+  }
 }

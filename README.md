@@ -2,7 +2,7 @@
 
 Base Consult Link is a mobile-first web app for selling a single scheduled consultation slot with USDC escrow on Base.
 
-This repository currently contains the Sprint 0 runnable skeleton only. It prepares the Next.js app shell, Base chain wiring, wagmi and viem setup, and the minimal Base Account integration point needed to start Sprint 1 safely.
+This repository now includes the Sprint 0 runnable skeleton plus Sprint 1 auth foundations: SIWE nonce issuance, backend signature verification, short-lived cookie sessions, logout, and a protected smoke route.
 
 ## Local Run
 
@@ -36,28 +36,68 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_TREASURY_WALLET=
 NEXT_PUBLIC_BASE_CHAIN_ID=
 NEXT_PUBLIC_BUILDER_CODE=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+AUTH_DOMAIN=
+ADMIN_WALLETS=
 ```
 
-`NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but Sprint 0 does not use it at runtime yet. There is no `dataSuffix` wiring in the current runtime, so Builder Code is not integrated yet and is intentionally deferred to a later sprint.
+`AUTH_DOMAIN` is the preferred host override for SIWE domain validation. If it is not set, auth falls back to the incoming request host.
 
-## Sprint 0 Includes
+`ADMIN_WALLETS` is a comma-separated wallet allowlist used to compute `is_admin` server-side.
 
-- Next.js app router shell with TypeScript
-- project structure aligned to frozen docs
-- Base chain configuration via wagmi and viem
-- React Query provider wiring
-- Base Account adapter skeleton only
-- placeholder health endpoint
-- deploy-ready docs and env template
+`NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but runtime attribution is still intentionally deferred.
+
+## Sprint 1 Auth Includes
+
+- `POST /api/auth/siwe/nonce`
+- `POST /api/auth/siwe/verify`
+- `POST /api/auth/logout`
+- `GET /api/private/ping`
+- `HttpOnly` short-lived session cookie with `SameSite=Lax`
+- session token hashing before DB persistence
+- single-use nonce enforcement through the existing repository layer
+- internal auth guards for server-side user/session access
+
+## Auth Smoke Test
+
+1. Request a nonce:
+
+```bash
+curl -i -X POST http://localhost:3000/api/auth/siwe/nonce \
+  -H 'content-type: application/json' \
+  -d '{"wallet":"0xYourWalletAddress"}'
+```
+
+2. Build an EIP-4361 message for the returned nonce using the same domain as `AUTH_DOMAIN` or your local host, sign it with your wallet, then verify:
+
+```bash
+curl -i -X POST http://localhost:3000/api/auth/siwe/verify \
+  -H 'content-type: application/json' \
+  -d '{"message":"<full siwe message>","signature":"0x..."}'
+```
+
+3. Reuse the returned cookie against the protected smoke route:
+
+```bash
+curl -i http://localhost:3000/api/private/ping \
+  --cookie 'bcl_session=<session token>'
+```
+
+4. Logout:
+
+```bash
+curl -i -X POST http://localhost:3000/api/auth/logout \
+  --cookie 'bcl_session=<session token>'
+```
+
+Without a valid cookie, `GET /api/private/ping` returns `401`.
 
 ## Not Implemented Yet
 
 - escrow smart contracts
-- SIWE auth flow
 - link and deal business APIs
-- DB schema and repositories
 - reveal endpoint
 - disputes, funding flow, or paymaster business logic
-- production-ready Base Account connect UX
-- Base Account full connect flow and wallet connectors (planned for Sprint 1)
-- Builder Code runtime attribution via `dataSuffix`
+- product auth UI beyond backend smoke flow
+- runtime Builder Code attribution via `dataSuffix`

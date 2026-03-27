@@ -54,7 +54,7 @@ export async function getValidNonce(
   return data as AuthNonceRow | null;
 }
 
-export async function markUsed(id: string): Promise<AuthNonceRow> {
+export async function markUsed(id: string): Promise<AuthNonceRow | null> {
   const db = getServerDbClient();
   const { data, error } = await db
     .from("auth_nonces")
@@ -62,11 +62,11 @@ export async function markUsed(id: string): Promise<AuthNonceRow> {
     .eq("id", id)
     .is("used_at", null)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(`Failed to mark auth nonce as used: ${error.message}`);
   }
 
-  return data as AuthNonceRow;
+  return (data as AuthNonceRow | null) ?? null;
 }

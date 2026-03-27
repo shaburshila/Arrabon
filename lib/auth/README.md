@@ -1,7 +1,9 @@
-# Auth Skeleton
+# Auth Layer
 
-Sprint 0 keeps auth at the placeholder level only.
+Sprint 1 implements the backend auth layer for SIWE-backed private endpoints.
 
-- SIWE endpoints are frozen by `docs/auth-model.md`.
-- No session, nonce, or cookie implementation exists yet.
-- TODO(Sprint1): add SIWE nonce, verify, logout, and session helpers.
+- `POST /api/auth/siwe/nonce` issues short-lived single-use nonces.
+- `POST /api/auth/siwe/verify` verifies an EIP-4361 message and sets an `HttpOnly` session cookie.
+- `POST /api/auth/logout` revokes the current session and clears the cookie.
+- `GET /api/private/ping` is a technical protected smoke route.
+- Session tokens are hashed before DB storage and auth relies on the existing `users`, `auth_nonces`, and `sessions` tables.

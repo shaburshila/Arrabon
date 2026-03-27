@@ -48,7 +48,7 @@ export async function getSession(tokenHash: string): Promise<SessionRow | null> 
   return data as SessionRow | null;
 }
 
-export async function revokeSession(id: string): Promise<SessionRow> {
+export async function revokeSession(id: string): Promise<SessionRow | null> {
   const db = getServerDbClient();
   const { data, error } = await db
     .from("sessions")
@@ -56,11 +56,11 @@ export async function revokeSession(id: string): Promise<SessionRow> {
     .eq("id", id)
     .is("revoked_at", null)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(`Failed to revoke session: ${error.message}`);
   }
 
-  return data as SessionRow;
+  return (data as SessionRow | null) ?? null;
 }
