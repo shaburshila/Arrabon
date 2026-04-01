@@ -132,6 +132,8 @@ Funding = contract call через wagmi/viem + paymaster
 - grace_period
 - fee params snapshot
 
+Примечание: `fee_snapshot` намеренно исключён из ABI в текущей фазе. Для этого спринта `docs/decisions.md` имеет приоритет над данной секцией.
+
 Гарантии:
 
 - atomic execution
@@ -416,4 +418,3 @@ Backend обязан:
 А:
 
 👉 простой инструмент продажи одного консультационного слота через escrow.
-

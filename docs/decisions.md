@@ -32,6 +32,7 @@
 - Base Pay не используется как основной payment rail
 - Все timestamps хранятся в UTC
 - Identity invariant for `consultation_links`: `users.wallet` must match `consultation_links.expert_address` for the owning creator record
+- Approved Sprint 2 Phase 2 funding ABI excludes `fee_snapshot`; backend prepares no fee-provider input, and fee behavior is treated as autonomous contract logic for the current integration boundary
 
 ---
 

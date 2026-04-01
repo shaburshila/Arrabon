@@ -18,6 +18,20 @@ export class ConsultationLinksRepositoryError extends Error {
   }
 }
 
+const TERMINAL_LINK_STATUSES: ReadonlySet<ConsultationLinkRow["status"]> = new Set([
+  "Cancelled",
+  "Consumed",
+  "Expired",
+]);
+
+const ALLOWED_STATUS_TRANSITIONS: Readonly<Record<ConsultationLinkRow["status"], readonly ConsultationLinkRow["status"][]>> = {
+  Cancelled: [],
+  Consumed: [],
+  Draft: ["Cancelled", "Open"],
+  Expired: [],
+  Open: ["Cancelled", "Consumed", "Expired"],
+};
+
 export interface CreateConsultationLinkInput {
   creatorUserId: string;
   expertAddress: string;
@@ -86,6 +100,73 @@ export async function getById(id: string): Promise<ConsultationLinkRow | null> {
     throw new ConsultationLinksRepositoryError(
       `Failed to load consultation link: ${error.message}`,
       error.code,
+    );
+  }
+
+  return data;
+}
+
+export async function updateStatus(
+  id: string,
+  status: ConsultationLinkRow["status"],
+): Promise<ConsultationLinkRow> {
+  const db = getServerDbClient().schema("public");
+  const currentLink = await getById(id);
+
+  if (!currentLink) {
+    throw new ConsultationLinksRepositoryError(
+      `Consultation link not found: ${id}`,
+      "LINK_NOT_FOUND",
+    );
+  }
+
+  if (currentLink.status === status) {
+    return currentLink;
+  }
+
+  if (TERMINAL_LINK_STATUSES.has(currentLink.status)) {
+    throw new ConsultationLinksRepositoryError(
+      `Cannot transition consultation link from terminal status ${currentLink.status} to ${status}.`,
+      "INVALID_STATUS_TRANSITION",
+    );
+  }
+
+  const allowedNextStatuses = ALLOWED_STATUS_TRANSITIONS[currentLink.status];
+
+  if (!allowedNextStatuses.includes(status)) {
+    throw new ConsultationLinksRepositoryError(
+      `Invalid consultation link status transition: ${currentLink.status} -> ${status}.`,
+      "INVALID_STATUS_TRANSITION",
+    );
+  }
+
+  const { data, error } = await db
+    .from("consultation_links")
+    .update({ status })
+    .eq("id", id)
+    .eq("status", currentLink.status)
+    .select("*")
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      const refreshedLink = await getById(id);
+
+      if (refreshedLink?.status === status) {
+        return refreshedLink;
+      }
+    }
+
+    throw new ConsultationLinksRepositoryError(
+      `Failed to update consultation link status: ${error.message}`,
+      error.code,
+    );
+  }
+
+  if (!data) {
+    throw new ConsultationLinksRepositoryError(
+      `Failed to update consultation link status for ${id}.`,
+      "STATUS_UPDATE_FAILED",
     );
   }
 

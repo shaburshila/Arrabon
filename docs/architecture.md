@@ -138,7 +138,7 @@ processed_at             action
 | `createAndFundDeal` — atomic creation + funding | No split tx race conditions |
 | `markCompleted` with time gate | `scheduled_at + duration + grace` enforced in contract |
 | `autoRelease` — permissionless | Any caller, contract checks deadline; backend не обязателен |
-| Fee calculation + treasury transfer | On-chain at funding time, immutable snapshot |
+| Fee calculation + treasury transfer | On-chain at funding time, autonomous contract logic; backend does not prepare fee params in the current ABI |
 | Event log (Funded, Completed, Released, Refunded, Disputed) | Source of truth для indexer |
 
 ### Offchain (Backend + DB)

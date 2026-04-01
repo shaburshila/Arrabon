@@ -11,6 +11,7 @@
 - Chain is source of truth for deal state
 - Backend is source of truth for link metadata and encrypted `meeting_url`
 - Backend validates business rules but does not replace contract enforcement
+- Ограничение на funding endpoints в текущей фазе ослаблено: помимо замороженного funding flow через `createAndFundDeal`, backend API явно допускает `POST /api/links/:id/funding/prepare` как подготовительный endpoint без изменения самого onchain flow
 
 ---
 
@@ -176,6 +177,63 @@ Errors:
 - `403` not owner
 - `409` already funded / consumed
 
+### `POST /api/links/:id/funding/prepare`
+
+Requires SIWE session and returns structured `createAndFundDeal` call arguments for the authenticated buyer wallet.
+
+Request:
+
+```json
+{}
+```
+
+Response:
+
+```json
+{
+  "consultation_link_id": "link_123",
+  "link_hash": "0xlinkhash",
+  "buyer_address": "0xbuyer...",
+  "seller_address": "0xseller...",
+  "schedule": {
+    "scheduled_at": "2026-03-28T12:00:00Z",
+    "duration_minutes": 30,
+    "grace_period_minutes": 10
+  },
+  "contract_call": {
+    "chain_id": 8453,
+    "contract_address": "0xcontract...",
+    "function_name": "createAndFundDeal",
+    "args": {
+      "link_hash": "0xlinkhash",
+      "seller": "0xseller...",
+      "buyer": "0xbuyer...",
+      "price": "100000000",
+      "scheduled_at": "1774699200",
+      "duration_minutes": "30",
+      "grace_period_minutes": "10"
+    }
+  }
+}
+```
+
+Errors:
+
+- `400` invalid `:id` UUID
+- `401` no SIWE session
+- `403` buyer wallet matches seller wallet
+- `404` link not found
+- `409` deal already exists for this link
+- `410` link expired / cancelled / consumed
+- `500` contract config unavailable
+
+Notes:
+
+- Response contains structured args only; encoded calldata is not returned.
+- The prepare response is a snapshot. By tx submission time, offchain state may already have changed.
+- Source-of-truth boundary: funding must be unavailable once `now >= expires_at`.
+- Current implementation is temporarily inconsistent at the exact boundary: when `expires_at == now`, the service still treats the link as `Open` because expiry checks use strict `<` comparison.
+
 ---
 
 ## 5. Deal Private Endpoints
@@ -245,6 +303,5 @@ Errors:
 
 - менять endpoint names and ownership model;
 - раскрывать `meeting_url` до funding;
-- вводить дополнительные funding endpoints;
 - вводить Base Pay checkout endpoints;
 - добавлять multi-use link semantics в link API.
