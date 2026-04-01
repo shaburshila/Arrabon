@@ -3,13 +3,18 @@ import "server-only";
 import {
   createPublicClient,
   http,
+  type Block,
   type Log,
 } from "viem";
 
 import {
+  getConsultEscrowEventDefinitions,
   getConsultEscrowContractAddress,
-  getConsultEscrowEventAbi,
+  parseCompletedEventLog,
+  parseDisputedEventLog,
   parseFundedEventLog,
+  parseReleasedEventLog,
+  type NormalizedDealLifecycleEvent,
 } from "@/lib/base/consult-escrow";
 import { baseRuntimeConfig } from "@/lib/base/config";
 import {
@@ -33,6 +38,12 @@ export interface DealEventsWorkerRunSummary {
   skipped: number;
   toBlock: bigint;
 }
+
+type RawTaggedDealEventLog =
+  | { kind: "Completed"; log: Log }
+  | { kind: "Disputed"; log: Log }
+  | { kind: "Funded"; log: Log }
+  | { kind: "Released"; log: Log };
 
 function readPositiveBigIntEnv(
   name: "CHAIN_SYNC_CONFIRMATIONS" | "CHAIN_SYNC_MAX_RANGE" | "CHAIN_SYNC_START_BLOCK",
@@ -86,6 +97,8 @@ function getDealEventsClient() {
   });
 }
 
+const dealEventsClient = getDealEventsClient();
+
 function compareLogs(left: Log, right: Log): number {
   const leftBlock = left.blockNumber ?? BigInt(0);
   const rightBlock = right.blockNumber ?? BigInt(0);
@@ -121,15 +134,116 @@ function resolveRangeEnd(
 async function readConfirmedFundingLogs(input: {
   fromBlock: bigint;
   toBlock: bigint;
-}) {
-  const client = getDealEventsClient();
-
-  return client.getLogs({
+}): Promise<RawTaggedDealEventLog[]> {
+  const logs = await dealEventsClient.getLogs({
     address: getConsultEscrowContractAddress(),
-    event: getConsultEscrowEventAbi()[1],
+    event: getConsultEscrowEventDefinitions().funded,
     fromBlock: input.fromBlock,
     toBlock: input.toBlock,
   });
+
+  return logs.map((log) => ({
+    kind: "Funded",
+    log,
+  }));
+}
+
+async function readConfirmedCompletedLogs(input: {
+  fromBlock: bigint;
+  toBlock: bigint;
+}): Promise<RawTaggedDealEventLog[]> {
+  const logs = await dealEventsClient.getLogs({
+    address: getConsultEscrowContractAddress(),
+    event: getConsultEscrowEventDefinitions().completed,
+    fromBlock: input.fromBlock,
+    toBlock: input.toBlock,
+  });
+
+  return logs.map((log) => ({
+    kind: "Completed",
+    log,
+  }));
+}
+
+async function readConfirmedReleasedLogs(input: {
+  fromBlock: bigint;
+  toBlock: bigint;
+}): Promise<RawTaggedDealEventLog[]> {
+  const logs = await dealEventsClient.getLogs({
+    address: getConsultEscrowContractAddress(),
+    event: getConsultEscrowEventDefinitions().released,
+    fromBlock: input.fromBlock,
+    toBlock: input.toBlock,
+  });
+
+  return logs.map((log) => ({
+    kind: "Released",
+    log,
+  }));
+}
+
+async function readConfirmedDisputedLogs(input: {
+  fromBlock: bigint;
+  toBlock: bigint;
+}): Promise<RawTaggedDealEventLog[]> {
+  const logs = await dealEventsClient.getLogs({
+    address: getConsultEscrowContractAddress(),
+    event: getConsultEscrowEventDefinitions().disputed,
+    fromBlock: input.fromBlock,
+    toBlock: input.toBlock,
+  });
+
+  return logs.map((log) => ({
+    kind: "Disputed",
+    log,
+  }));
+}
+
+async function getBlockForLog(
+  log: Log,
+  blockCache: Map<string, Pick<Block, "timestamp">>,
+) {
+  const blockNumber = log.blockNumber;
+
+  if (blockNumber === null || blockNumber === undefined) {
+    throw new Error("Missing blockNumber for confirmed deal event log.");
+  }
+
+  const cacheKey = blockNumber.toString(10);
+  const cachedBlock = blockCache.get(cacheKey);
+
+  if (cachedBlock) {
+    return cachedBlock;
+  }
+
+  const block = await dealEventsClient.getBlock({ blockNumber });
+  const timestampOnlyBlock = { timestamp: block.timestamp };
+
+  blockCache.set(cacheKey, timestampOnlyBlock);
+
+  return timestampOnlyBlock;
+}
+
+async function normalizeDealEventLog(
+  rawEventLog: RawTaggedDealEventLog,
+  blockCache: Map<string, Pick<Block, "timestamp">>,
+): Promise<NormalizedDealLifecycleEvent> {
+  switch (rawEventLog.kind) {
+    case "Completed":
+      return parseCompletedEventLog(
+        rawEventLog.log,
+        await getBlockForLog(rawEventLog.log, blockCache),
+      );
+    case "Disputed":
+      return parseDisputedEventLog(rawEventLog.log);
+    case "Funded":
+      return parseFundedEventLog(rawEventLog.log);
+    case "Released":
+      return parseReleasedEventLog(
+        rawEventLog.log,
+        await getBlockForLog(rawEventLog.log, blockCache),
+      );
+  }
 }
 
 function summarizeProcessingResult(
@@ -151,8 +265,7 @@ function summarizeProcessingResult(
 
 export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary> {
   const config = getDealEventsWorkerConfig();
-  const client = getDealEventsClient();
-  const latestBlock = await client.getBlockNumber();
+  const latestBlock = await dealEventsClient.getBlockNumber();
   const confirmedHead = latestBlock - config.confirmations;
 
   if (confirmedHead < config.fromBlock) {
@@ -174,17 +287,38 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
   };
 
   let rangeStart = config.fromBlock;
+  const blockCache = new Map<string, Pick<Block, "timestamp">>();
 
   while (rangeStart <= confirmedHead) {
     const rangeEnd = resolveRangeEnd(rangeStart, confirmedHead, config.maxRange);
-    const rawLogs = await readConfirmedFundingLogs({
-      fromBlock: rangeStart,
-      toBlock: rangeEnd,
-    });
-    const sortedLogs = [...rawLogs].sort(compareLogs);
+    const [fundedLogs, completedLogs, releasedLogs, disputedLogs] = await Promise.all([
+      readConfirmedFundingLogs({
+        fromBlock: rangeStart,
+        toBlock: rangeEnd,
+      }),
+      readConfirmedCompletedLogs({
+        fromBlock: rangeStart,
+        toBlock: rangeEnd,
+      }),
+      readConfirmedReleasedLogs({
+        fromBlock: rangeStart,
+        toBlock: rangeEnd,
+      }),
+      readConfirmedDisputedLogs({
+        fromBlock: rangeStart,
+        toBlock: rangeEnd,
+      }),
+    ]);
+    const rawLogs: RawTaggedDealEventLog[] = [
+      ...fundedLogs,
+      ...completedLogs,
+      ...releasedLogs,
+      ...disputedLogs,
+    ];
+    const sortedLogs = [...rawLogs].sort((left, right) => compareLogs(left.log, right.log));
 
     for (const rawLog of sortedLogs) {
-      const normalizedEvent = parseFundedEventLog(rawLog);
+      const normalizedEvent = await normalizeDealEventLog(rawLog, blockCache);
       const result = await processConfirmedDealEvent(normalizedEvent);
 
       summarizeProcessingResult(result, summary);

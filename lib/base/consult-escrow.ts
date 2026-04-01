@@ -2,6 +2,7 @@ import {
   decodeEventLog,
   getAddress,
   parseUnits,
+  type Block,
   type Address,
   type Hex,
   type Log,
@@ -9,33 +10,97 @@ import {
 
 import { assertLinkHash } from "@/lib/crypto/link-hash";
 
+export const createAndFundDealFunctionAbi = {
+  type: "function",
+  name: "createAndFundDeal",
+  stateMutability: "nonpayable",
+  inputs: [
+    { name: "link_hash", type: "bytes32" },
+    { name: "seller", type: "address" },
+    { name: "buyer", type: "address" },
+    { name: "price", type: "uint256" },
+    { name: "scheduled_at", type: "uint256" },
+    { name: "duration_minutes", type: "uint256" },
+    { name: "grace_period_minutes", type: "uint256" },
+  ],
+  outputs: [],
+} as const;
+
+export const markCompletedFunctionAbi = {
+  type: "function",
+  name: "markCompleted",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "dealId", type: "uint256" }],
+  outputs: [],
+} as const;
+
+export const confirmReleaseFunctionAbi = {
+  type: "function",
+  name: "confirmRelease",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "dealId", type: "uint256" }],
+  outputs: [],
+} as const;
+
+export const openDisputeFunctionAbi = {
+  type: "function",
+  name: "openDispute",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "dealId", type: "uint256" }],
+  outputs: [],
+} as const;
+
+export const autoReleaseFunctionAbi = {
+  type: "function",
+  name: "autoRelease",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "dealId", type: "uint256" }],
+  outputs: [],
+} as const;
+
+export const dealFundedEventAbi = {
+  type: "event",
+  name: "DealFunded",
+  inputs: [
+    { indexed: true, name: "dealId", type: "uint256" },
+    { indexed: true, name: "link_hash", type: "bytes32" },
+    { indexed: false, name: "seller", type: "address" },
+    { indexed: false, name: "buyer", type: "address" },
+  ],
+  anonymous: false,
+} as const;
+
+export const completedEventAbi = {
+  type: "event",
+  name: "Completed",
+  inputs: [{ indexed: true, name: "dealId", type: "uint256" }],
+  anonymous: false,
+} as const;
+
+export const releasedEventAbi = {
+  type: "event",
+  name: "Released",
+  inputs: [{ indexed: true, name: "dealId", type: "uint256" }],
+  anonymous: false,
+} as const;
+
+export const disputedEventAbi = {
+  type: "event",
+  name: "Disputed",
+  inputs: [{ indexed: true, name: "dealId", type: "uint256" }],
+  anonymous: false,
+} as const;
+
 export const consultEscrowAbi = [
-  {
-    type: "function",
-    name: "createAndFundDeal",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "link_hash", type: "bytes32" },
-      { name: "seller", type: "address" },
-      { name: "buyer", type: "address" },
-      { name: "price", type: "uint256" },
-      { name: "scheduled_at", type: "uint256" },
-      { name: "duration_minutes", type: "uint256" },
-      { name: "grace_period_minutes", type: "uint256" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "event",
-    name: "DealFunded",
-    inputs: [
-      { indexed: true, name: "dealId", type: "uint256" },
-      { indexed: true, name: "link_hash", type: "bytes32" },
-      { indexed: false, name: "seller", type: "address" },
-      { indexed: false, name: "buyer", type: "address" },
-    ],
-    anonymous: false,
-  },
+  createAndFundDealFunctionAbi,
+  markCompletedFunctionAbi,
+  confirmReleaseFunctionAbi,
+  openDisputeFunctionAbi,
+  autoReleaseFunctionAbi,
+  dealFundedEventAbi,
+  completedEventAbi,
+  releasedEventAbi,
+  disputedEventAbi,
 ] as const;
 
 export interface CreateAndFundDealInput {
@@ -63,6 +128,15 @@ export interface PreparedCreateAndFundDealCall {
   };
 }
 
+export interface PreparedDealLifecycleCall {
+  chain_id: number;
+  contract_address: Address;
+  function_name: "autoRelease" | "confirmRelease" | "markCompleted" | "openDispute";
+  args: {
+    deal_id: string;
+  };
+}
+
 export interface NormalizedFundedEvent {
   blockNumber: bigint;
   buyerAddress: Address;
@@ -75,6 +149,41 @@ export interface NormalizedFundedEvent {
   sellerAddress: Address;
   txHash: Hex;
 }
+
+export interface NormalizedCompletedEvent {
+  blockNumber: bigint;
+  completedAt: Date;
+  contractAddress: Address;
+  eventType: "Completed";
+  logIndex: number;
+  onchainDealId: string;
+  txHash: Hex;
+}
+
+export interface NormalizedReleasedEvent {
+  blockNumber: bigint;
+  contractAddress: Address;
+  eventType: "Released";
+  logIndex: number;
+  onchainDealId: string;
+  releasedAt: Date;
+  txHash: Hex;
+}
+
+export interface NormalizedDisputedEvent {
+  blockNumber: bigint;
+  contractAddress: Address;
+  eventType: "Disputed";
+  logIndex: number;
+  onchainDealId: string;
+  txHash: Hex;
+}
+
+export type NormalizedDealLifecycleEvent =
+  | NormalizedCompletedEvent
+  | NormalizedDisputedEvent
+  | NormalizedFundedEvent
+  | NormalizedReleasedEvent;
 
 export class ConsultEscrowConfigError extends Error {
   constructor(message: string) {
@@ -145,13 +254,22 @@ export function getConsultEscrowEventAbi() {
   return consultEscrowAbi;
 }
 
+export function getConsultEscrowEventDefinitions() {
+  return {
+    completed: completedEventAbi,
+    disputed: disputedEventAbi,
+    funded: dealFundedEventAbi,
+    released: releasedEventAbi,
+  } as const;
+}
+
 export function parseFundedEventLog(
   log: Log,
 ): NormalizedFundedEvent {
   const decodedLog = decodeEventLog({
     abi: consultEscrowAbi,
     data: log.data,
-    eventName: "DealFunded",
+    eventName: dealFundedEventAbi.name,
     topics: log.topics,
   });
 
@@ -176,6 +294,116 @@ export function parseFundedEventLog(
     sellerAddress,
     txHash,
   };
+}
+
+function resolveEventTimestamp(block: Pick<Block, "timestamp">): Date {
+  return new Date(Number(block.timestamp) * 1000);
+}
+
+export function parseCompletedEventLog(
+  log: Log,
+  block: Pick<Block, "timestamp">,
+): NormalizedCompletedEvent {
+  const decodedLog = decodeEventLog({
+    abi: consultEscrowAbi,
+    data: log.data,
+    eventName: completedEventAbi.name,
+    topics: log.topics,
+  });
+  const txHash = assertLogField(log.transactionHash, "transactionHash");
+  const blockNumber = assertLogField(log.blockNumber, "blockNumber");
+  const logIndex = assertLogField(log.logIndex, "logIndex");
+
+  return {
+    blockNumber,
+    completedAt: resolveEventTimestamp(block),
+    contractAddress: getAddress(log.address),
+    eventType: "Completed",
+    logIndex,
+    onchainDealId: decodedLog.args.dealId.toString(10),
+    txHash,
+  };
+}
+
+export function parseReleasedEventLog(
+  log: Log,
+  block: Pick<Block, "timestamp">,
+): NormalizedReleasedEvent {
+  const decodedLog = decodeEventLog({
+    abi: consultEscrowAbi,
+    data: log.data,
+    eventName: releasedEventAbi.name,
+    topics: log.topics,
+  });
+  const txHash = assertLogField(log.transactionHash, "transactionHash");
+  const blockNumber = assertLogField(log.blockNumber, "blockNumber");
+  const logIndex = assertLogField(log.logIndex, "logIndex");
+
+  return {
+    blockNumber,
+    contractAddress: getAddress(log.address),
+    eventType: "Released",
+    logIndex,
+    onchainDealId: decodedLog.args.dealId.toString(10),
+    releasedAt: resolveEventTimestamp(block),
+    txHash,
+  };
+}
+
+export function parseDisputedEventLog(
+  log: Log,
+): NormalizedDisputedEvent {
+  const decodedLog = decodeEventLog({
+    abi: consultEscrowAbi,
+    data: log.data,
+    eventName: disputedEventAbi.name,
+    topics: log.topics,
+  });
+  const txHash = assertLogField(log.transactionHash, "transactionHash");
+  const blockNumber = assertLogField(log.blockNumber, "blockNumber");
+  const logIndex = assertLogField(log.logIndex, "logIndex");
+
+  return {
+    blockNumber,
+    contractAddress: getAddress(log.address),
+    eventType: "Disputed",
+    logIndex,
+    onchainDealId: decodedLog.args.dealId.toString(10),
+    txHash,
+  };
+}
+
+function prepareDealLifecycleCall(
+  functionName: PreparedDealLifecycleCall["function_name"],
+  onchainDealId: string,
+): PreparedDealLifecycleCall {
+  const contractAddress = getContractAddress();
+  const chainId = getChainId();
+
+  return {
+    chain_id: chainId,
+    contract_address: contractAddress,
+    function_name: functionName,
+    args: {
+      deal_id: onchainDealId,
+    },
+  };
+}
+
+export function prepareMarkCompletedCall(onchainDealId: string): PreparedDealLifecycleCall {
+  return prepareDealLifecycleCall("markCompleted", onchainDealId);
+}
+
+export function prepareConfirmReleaseCall(onchainDealId: string): PreparedDealLifecycleCall {
+  return prepareDealLifecycleCall("confirmRelease", onchainDealId);
+}
+
+export function prepareOpenDisputeCall(onchainDealId: string): PreparedDealLifecycleCall {
+  return prepareDealLifecycleCall("openDispute", onchainDealId);
+}
+
+export function prepareAutoReleaseCall(onchainDealId: string): PreparedDealLifecycleCall {
+  return prepareDealLifecycleCall("autoRelease", onchainDealId);
 }
 
 export function prepareCreateAndFundDealCall(

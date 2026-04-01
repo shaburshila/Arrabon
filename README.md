@@ -2,7 +2,15 @@
 
 Base Consult Link is a mobile-first web app for selling a single scheduled consultation slot with USDC escrow on Base.
 
-This repository now includes the Sprint 0 runnable skeleton plus Sprint 1 auth foundations: SIWE nonce issuance, backend signature verification, short-lived cookie sessions, logout, and a protected smoke route.
+Current backend status:
+
+- Sprint 0: runnable project skeleton
+- Sprint 1: SIWE auth and server-side sessions
+- Sprint 2 Phase 1: consultation link create/read
+- Sprint 2 Phase 2: funding prepare boundary
+- Sprint 2 Phase 3: deals read + meeting URL reveal
+- Sprint 2 Phase 4: confirmed funding event sync/indexer
+- Sprint 2 Phase 5: completion flow prepare endpoints plus confirmed lifecycle event sync for `Completed`, `Released`, `Disputed`
 
 ## Local Run
 
@@ -35,29 +43,58 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_TREASURY_WALLET=
 NEXT_PUBLIC_BASE_CHAIN_ID=
+NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS=
 NEXT_PUBLIC_BUILDER_CODE=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 AUTH_DOMAIN=
 ADMIN_WALLETS=
+MEETING_URL_ENCRYPTION_KEY=
+CHAIN_SYNC_START_BLOCK=
+CHAIN_SYNC_CONFIRMATIONS=
+CHAIN_SYNC_MAX_RANGE=
 ```
 
 `AUTH_DOMAIN` is the preferred host override for SIWE domain validation. If it is not set, auth falls back to the incoming request host.
 
 `ADMIN_WALLETS` is a comma-separated wallet allowlist used to compute `is_admin` server-side.
 
+`MEETING_URL_ENCRYPTION_KEY` must be exactly 64 hex characters and is used for server-side encryption/decryption of `meeting_url`.
+
+`NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS` points to the deployed escrow contract used by funding and post-funding lifecycle preparation.
+
+`CHAIN_SYNC_START_BLOCK`, `CHAIN_SYNC_CONFIRMATIONS`, and `CHAIN_SYNC_MAX_RANGE` configure the background event-sync worker. `CHAIN_SYNC_MAX_RANGE` must be greater than or equal to `1`.
+
 `NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but runtime attribution is still intentionally deferred.
 
-## Sprint 1 Auth Includes
+## Implemented API Surface
 
+- Auth
 - `POST /api/auth/siwe/nonce`
 - `POST /api/auth/siwe/verify`
 - `POST /api/auth/logout`
 - `GET /api/private/ping`
-- `HttpOnly` short-lived session cookie with `SameSite=Lax`
-- session token hashing before DB persistence
-- single-use nonce enforcement through the existing repository layer
-- internal auth guards for server-side user/session access
+- Links
+- `POST /api/links`
+- `GET /api/links/:id`
+- `POST /api/links/:id/funding/prepare`
+- Deals
+- `GET /api/deals/:id`
+- `GET /api/deals/:id/meeting-url`
+- `POST /api/deals/:id/complete`
+- `POST /api/deals/:id/release`
+- `POST /api/deals/:id/dispute`
+
+## Implemented Backend Capabilities
+
+- `HttpOnly` short-lived SIWE session cookie with `SameSite=Lax`
+- server-side nonce issuance, signature verification, logout, and auth guards
+- encrypted `meeting_url` storage with participant-only server-side reveal
+- consultation link creation and public read model
+- funding preparation for `createAndFundDeal`
+- deal read model with derived `release_deadline_at`
+- confirmed chain event sync for `Funded`, `Completed`, `Released`, and `Disputed`
+- completion flow prepare endpoints for seller/buyer lifecycle actions
 
 ## Auth Smoke Test
 
@@ -95,9 +132,9 @@ Without a valid cookie, `GET /api/private/ping` returns `401`.
 
 ## Not Implemented Yet
 
-- escrow smart contracts
-- link and deal business APIs
-- reveal endpoint
-- disputes, funding flow, or paymaster business logic
-- product auth UI beyond backend smoke flow
+- admin dispute resolution endpoints and workflows
+- confirmed sync handling for `Refunded`
+- backend-submitted auto-release helper worker
+- production scheduler/process management for workers
+- full frontend product UI
 - runtime Builder Code attribution via `dataSuffix`

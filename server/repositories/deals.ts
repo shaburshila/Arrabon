@@ -52,6 +52,20 @@ export interface DealRevealContextRow {
   meeting_url_encrypted: string;
 }
 
+export interface DealActionContextRow {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  duration_minutes: number;
+  grace_period_minutes: number;
+  id: string;
+  onchain_deal_id: string;
+  released_at: string | null;
+  scheduled_at: string;
+  seller_address: string;
+  status: DealRow["status"];
+}
+
 function toUtcIsoString(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -209,4 +223,165 @@ export async function getDealRevealContextById(
     seller_address: deal.seller_address,
     status: deal.status,
   };
+}
+
+export async function getDealActionContextById(
+  dealId: string,
+): Promise<DealActionContextRow | null> {
+  const db = getServerDbClient().schema("public");
+  const { data: deal, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("id", dealId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load deal action context: ${error.message}`,
+      error.code,
+    );
+  }
+
+  if (!deal) {
+    return null;
+  }
+
+  const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+
+  if (!linkedConsultationLink) {
+    throw new DealsRepositoryError(
+      `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+      "CONSULTATION_LINK_MISSING",
+    );
+  }
+
+  return {
+    buyer_address: deal.buyer_address,
+    completed_at: deal.completed_at,
+    consultation_link_id: deal.consultation_link_id,
+    duration_minutes: linkedConsultationLink.duration_minutes,
+    grace_period_minutes: linkedConsultationLink.grace_period_minutes,
+    id: deal.id,
+    onchain_deal_id: deal.onchain_deal_id,
+    released_at: deal.released_at,
+    scheduled_at: linkedConsultationLink.scheduled_at,
+    seller_address: deal.seller_address,
+    status: deal.status,
+  };
+}
+
+async function updateLifecycleStateByOnchainDealId(input: {
+  alreadyConvergedStatuses: DealRow["status"][];
+  onchainDealId: string;
+  patch: Partial<Pick<DealRow, "completed_at" | "released_at" | "status">>;
+  requiredTimestampField?: "completed_at" | "released_at";
+  targetStatus: DealRow["status"];
+  validFromStatuses: DealRow["status"][];
+}): Promise<DealRow> {
+  const db = getServerDbClient().schema("public");
+  const currentDeal = await getByOnchainDealId(input.onchainDealId);
+
+  if (!currentDeal) {
+    throw new DealsRepositoryError(
+      `Deal not found for onchain deal id: ${input.onchainDealId}`,
+      "DEAL_NOT_FOUND",
+    );
+  }
+
+  if (currentDeal.status === input.targetStatus) {
+    if (!input.requiredTimestampField || currentDeal[input.requiredTimestampField]) {
+      return currentDeal;
+    }
+  }
+
+  if (input.alreadyConvergedStatuses.includes(currentDeal.status)) {
+    if (!input.requiredTimestampField || currentDeal[input.requiredTimestampField]) {
+      return currentDeal;
+    }
+  }
+
+  if (!input.validFromStatuses.includes(currentDeal.status)) {
+    throw new DealsRepositoryError(
+      `Invalid deal status transition for ${input.onchainDealId}: ${currentDeal.status} -> ${input.targetStatus}.`,
+      "INVALID_DEAL_STATUS_TRANSITION",
+    );
+  }
+
+  const { data, error } = await db
+    .from("deals")
+    .update(input.patch)
+    .eq("id", currentDeal.id)
+    .eq("status", currentDeal.status)
+    .select("*")
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      const refreshedDeal = await getByOnchainDealId(input.onchainDealId);
+
+      if (
+        refreshedDeal &&
+        (refreshedDeal.status === input.targetStatus ||
+          input.alreadyConvergedStatuses.includes(refreshedDeal.status)) &&
+        (!input.requiredTimestampField || refreshedDeal[input.requiredTimestampField])
+      ) {
+        return refreshedDeal;
+      }
+    }
+
+    throw new DealsRepositoryError(
+      `Failed to update deal lifecycle state: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
+}
+
+export async function setConfirmPendingByOnchainDealId(
+  onchainDealId: string,
+  completedAt: Date,
+): Promise<DealRow> {
+  return updateLifecycleStateByOnchainDealId({
+    alreadyConvergedStatuses: ["ConfirmPending", "Released", "Disputed"],
+    onchainDealId,
+    patch: {
+      completed_at: toUtcIsoString(completedAt),
+      status: "ConfirmPending",
+    },
+    requiredTimestampField: "completed_at",
+    targetStatus: "ConfirmPending",
+    validFromStatuses: ["Funded"],
+  });
+}
+
+export async function setReleasedByOnchainDealId(
+  onchainDealId: string,
+  releasedAt: Date,
+): Promise<DealRow> {
+  return updateLifecycleStateByOnchainDealId({
+    alreadyConvergedStatuses: ["Released"],
+    onchainDealId,
+    patch: {
+      released_at: toUtcIsoString(releasedAt),
+      status: "Released",
+    },
+    requiredTimestampField: "released_at",
+    targetStatus: "Released",
+    validFromStatuses: ["ConfirmPending"],
+  });
+}
+
+export async function setDisputedByOnchainDealId(
+  onchainDealId: string,
+): Promise<DealRow> {
+  return updateLifecycleStateByOnchainDealId({
+    alreadyConvergedStatuses: ["Disputed"],
+    onchainDealId,
+    patch: {
+      status: "Disputed",
+    },
+    targetStatus: "Disputed",
+    validFromStatuses: ["ConfirmPending", "Funded"],
+  });
 }

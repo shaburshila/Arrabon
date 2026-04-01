@@ -1,8 +1,19 @@
 import "server-only";
 
-import type { NormalizedFundedEvent } from "@/lib/base/consult-escrow";
+import type {
+  NormalizedCompletedEvent,
+  NormalizedDealLifecycleEvent,
+  NormalizedDisputedEvent,
+  NormalizedFundedEvent,
+  NormalizedReleasedEvent,
+} from "@/lib/base/consult-escrow";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
 import { getByLinkHash } from "@/server/repositories/consultation-links";
+import {
+  setConfirmPendingByOnchainDealId,
+  setDisputedByOnchainDealId,
+  setReleasedByOnchainDealId,
+} from "@/server/repositories/deals";
 import {
   getByTxHash,
   insertProcessedTransaction,
@@ -61,6 +72,35 @@ async function appendFundingSyncAuditLog(input: {
   } catch (error) {
     console.error("Failed to append funding sync audit log.", {
       consultationLinkId: input.consultationLinkId,
+      dealId: input.dealId,
+      error,
+      txHash: input.event.txHash,
+    });
+  }
+}
+
+async function appendLifecycleSyncAuditLog(input: {
+  action: "deal_event_completed_synced" | "deal_event_disputed_synced" | "deal_event_released_synced";
+  dealId: string;
+  event: NormalizedCompletedEvent | NormalizedDisputedEvent | NormalizedReleasedEvent;
+}) {
+  try {
+    await createAuditLogEntry({
+      action: input.action,
+      actorAddress: null,
+      entityId: input.dealId,
+      entityType: "deal",
+      metadata: {
+        block_number: input.event.blockNumber.toString(10),
+        event_type: input.event.eventType,
+        log_index: input.event.logIndex,
+        onchain_deal_id: input.event.onchainDealId,
+        tx_hash: input.event.txHash,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to append lifecycle sync audit log.", {
+      action: input.action,
       dealId: input.dealId,
       error,
       txHash: input.event.txHash,
@@ -141,13 +181,124 @@ export async function processConfirmedFundedEvent(
   };
 }
 
+export async function processConfirmedCompletedEvent(
+  event: NormalizedCompletedEvent,
+): Promise<DealEventProcessingResult> {
+  const existingMarker = await getByTxHash(event.txHash);
+
+  if (existingMarker) {
+    return {
+      result: "already_processed",
+      txHash: event.txHash,
+    };
+  }
+
+  const deal = await setConfirmPendingByOnchainDealId(
+    event.onchainDealId,
+    event.completedAt,
+  );
+
+  await appendLifecycleSyncAuditLog({
+    action: "deal_event_completed_synced",
+    dealId: deal.id,
+    event,
+  });
+
+  await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  return {
+    dealId: deal.id,
+    result: "processed",
+    txHash: event.txHash,
+  };
+}
+
+export async function processConfirmedReleasedEvent(
+  event: NormalizedReleasedEvent,
+): Promise<DealEventProcessingResult> {
+  const existingMarker = await getByTxHash(event.txHash);
+
+  if (existingMarker) {
+    return {
+      result: "already_processed",
+      txHash: event.txHash,
+    };
+  }
+
+  const deal = await setReleasedByOnchainDealId(
+    event.onchainDealId,
+    event.releasedAt,
+  );
+
+  await appendLifecycleSyncAuditLog({
+    action: "deal_event_released_synced",
+    dealId: deal.id,
+    event,
+  });
+
+  await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  return {
+    dealId: deal.id,
+    result: "processed",
+    txHash: event.txHash,
+  };
+}
+
+export async function processConfirmedDisputedEvent(
+  event: NormalizedDisputedEvent,
+): Promise<DealEventProcessingResult> {
+  const existingMarker = await getByTxHash(event.txHash);
+
+  if (existingMarker) {
+    return {
+      result: "already_processed",
+      txHash: event.txHash,
+    };
+  }
+
+  const deal = await setDisputedByOnchainDealId(event.onchainDealId);
+
+  await appendLifecycleSyncAuditLog({
+    action: "deal_event_disputed_synced",
+    dealId: deal.id,
+    event,
+  });
+
+  await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  return {
+    dealId: deal.id,
+    result: "processed",
+    txHash: event.txHash,
+  };
+}
+
 export async function processConfirmedDealEvent(
-  event: NormalizedFundedEvent,
+  event: NormalizedDealLifecycleEvent,
 ): Promise<DealEventProcessingResult> {
   try {
     switch (event.eventType) {
+      case "Completed":
+        return await processConfirmedCompletedEvent(event);
+      case "Disputed":
+        return await processConfirmedDisputedEvent(event);
       case "Funded":
         return await processConfirmedFundedEvent(event);
+      case "Released":
+        return await processConfirmedReleasedEvent(event);
     }
   } catch (error) {
     if (error instanceof ProcessedTransactionsRepositoryError) {
