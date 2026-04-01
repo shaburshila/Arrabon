@@ -1,8 +1,15 @@
-import { getAddress, parseUnits, type Address, type Hex } from "viem";
+import {
+  decodeEventLog,
+  getAddress,
+  parseUnits,
+  type Address,
+  type Hex,
+  type Log,
+} from "viem";
 
 import { assertLinkHash } from "@/lib/crypto/link-hash";
 
-const consultEscrowAbi = [
+export const consultEscrowAbi = [
   {
     type: "function",
     name: "createAndFundDeal",
@@ -17,6 +24,17 @@ const consultEscrowAbi = [
       { name: "grace_period_minutes", type: "uint256" },
     ],
     outputs: [],
+  },
+  {
+    type: "event",
+    name: "DealFunded",
+    inputs: [
+      { indexed: true, name: "dealId", type: "uint256" },
+      { indexed: true, name: "link_hash", type: "bytes32" },
+      { indexed: false, name: "seller", type: "address" },
+      { indexed: false, name: "buyer", type: "address" },
+    ],
+    anonymous: false,
   },
 ] as const;
 
@@ -43,6 +61,19 @@ export interface PreparedCreateAndFundDealCall {
     scheduled_at: string;
     seller: Address;
   };
+}
+
+export interface NormalizedFundedEvent {
+  blockNumber: bigint;
+  buyerAddress: Address;
+  contractAddress: Address;
+  eventType: "Funded";
+  fundedAt: null;
+  linkHash: string;
+  logIndex: number;
+  onchainDealId: string;
+  sellerAddress: Address;
+  txHash: Hex;
 }
 
 export class ConsultEscrowConfigError extends Error {
@@ -83,6 +114,10 @@ function getContractAddress(): Address {
   }
 }
 
+export function getConsultEscrowContractAddress(): Address {
+  return getContractAddress();
+}
+
 function toUnixSeconds(date: Date): bigint {
   return BigInt(Math.floor(date.getTime() / 1000));
 }
@@ -93,6 +128,54 @@ function toUint256String(value: bigint): string {
 
 function toHexString(value: string): Hex {
   return value as Hex;
+}
+
+function assertLogField<T>(
+  value: T | null | undefined,
+  field: string,
+): T {
+  if (value === null || value === undefined) {
+    throw new Error(`Missing required event log field: ${field}`);
+  }
+
+  return value;
+}
+
+export function getConsultEscrowEventAbi() {
+  return consultEscrowAbi;
+}
+
+export function parseFundedEventLog(
+  log: Log,
+): NormalizedFundedEvent {
+  const decodedLog = decodeEventLog({
+    abi: consultEscrowAbi,
+    data: log.data,
+    eventName: "DealFunded",
+    topics: log.topics,
+  });
+
+  const dealId = decodedLog.args.dealId;
+  const linkHash = assertLinkHash(decodedLog.args.link_hash);
+  const sellerAddress = getAddress(decodedLog.args.seller);
+  const buyerAddress = getAddress(decodedLog.args.buyer);
+  const txHash = assertLogField(log.transactionHash, "transactionHash");
+  const blockNumber = assertLogField(log.blockNumber, "blockNumber");
+  const logIndex = assertLogField(log.logIndex, "logIndex");
+  const contractAddress = getAddress(log.address);
+
+  return {
+    blockNumber,
+    buyerAddress,
+    contractAddress,
+    eventType: "Funded",
+    fundedAt: null,
+    linkHash,
+    logIndex,
+    onchainDealId: dealId.toString(10),
+    sellerAddress,
+    txHash,
+  };
 }
 
 export function prepareCreateAndFundDealCall(

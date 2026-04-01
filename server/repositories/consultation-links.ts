@@ -106,6 +106,26 @@ export async function getById(id: string): Promise<ConsultationLinkRow | null> {
   return data;
 }
 
+export async function getByLinkHash(
+  linkHash: string,
+): Promise<ConsultationLinkRow | null> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("consultation_links")
+    .select("*")
+    .eq("link_hash", linkHash)
+    .maybeSingle();
+
+  if (error) {
+    throw new ConsultationLinksRepositoryError(
+      `Failed to load consultation link by link hash: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
+}
+
 export async function updateStatus(
   id: string,
   status: ConsultationLinkRow["status"],
