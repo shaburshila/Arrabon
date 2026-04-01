@@ -33,6 +33,7 @@
 - Все timestamps хранятся в UTC
 - Identity invariant for `consultation_links`: `users.wallet` must match `consultation_links.expert_address` for the owning creator record
 - Approved Sprint 2 Phase 2 funding ABI excludes `fee_snapshot`; backend prepares no fee-provider input, and fee behavior is treated as autonomous contract logic for the current integration boundary
+- Meeting URL reveal uses fail-closed audit logging. If audit-log write fails, the reveal endpoint must not return `meeting_url`. This intentionally couples reveal availability to audit-log availability and is accepted as an MVP operational trade-off.
 
 ---
 
