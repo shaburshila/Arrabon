@@ -13,6 +13,7 @@ import {
   parseCompletedEventLog,
   parseDisputedEventLog,
   parseFundedEventLog,
+  parseRefundedEventLog,
   parseReleasedEventLog,
   type NormalizedDealLifecycleEvent,
 } from "@/lib/base/consult-escrow";
@@ -43,6 +44,7 @@ type RawTaggedDealEventLog =
   | { kind: "Completed"; log: Log }
   | { kind: "Disputed"; log: Log }
   | { kind: "Funded"; log: Log }
+  | { kind: "Refunded"; log: Log }
   | { kind: "Released"; log: Log };
 
 function readPositiveBigIntEnv(
@@ -199,6 +201,23 @@ async function readConfirmedDisputedLogs(input: {
   }));
 }
 
+async function readConfirmedRefundedLogs(input: {
+  fromBlock: bigint;
+  toBlock: bigint;
+}): Promise<RawTaggedDealEventLog[]> {
+  const logs = await dealEventsClient.getLogs({
+    address: getConsultEscrowContractAddress(),
+    event: getConsultEscrowEventDefinitions().refunded,
+    fromBlock: input.fromBlock,
+    toBlock: input.toBlock,
+  });
+
+  return logs.map((log) => ({
+    kind: "Refunded",
+    log,
+  }));
+}
+
 async function getBlockForLog(
   log: Log,
   blockCache: Map<string, Pick<Block, "timestamp">>,
@@ -239,6 +258,8 @@ async function normalizeDealEventLog(
       return parseDisputedEventLog(rawEventLog.log);
     case "Funded":
       return parseFundedEventLog(rawEventLog.log);
+    case "Refunded":
+      return parseRefundedEventLog(rawEventLog.log);
     case "Released":
       return parseReleasedEventLog(
         rawEventLog.log,
@@ -292,7 +313,7 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
 
   while (rangeStart <= confirmedHead) {
     const rangeEnd = resolveRangeEnd(rangeStart, confirmedHead, config.maxRange);
-    const [fundedLogs, completedLogs, releasedLogs, disputedLogs] = await Promise.all([
+    const [fundedLogs, completedLogs, releasedLogs, disputedLogs, refundedLogs] = await Promise.all([
       readConfirmedFundingLogs({
         fromBlock: rangeStart,
         toBlock: rangeEnd,
@@ -309,12 +330,17 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
         fromBlock: rangeStart,
         toBlock: rangeEnd,
       }),
+      readConfirmedRefundedLogs({
+        fromBlock: rangeStart,
+        toBlock: rangeEnd,
+      }),
     ]);
     const rawLogs: RawTaggedDealEventLog[] = [
       ...fundedLogs,
       ...completedLogs,
       ...releasedLogs,
       ...disputedLogs,
+      ...refundedLogs,
     ];
     // Preserve onchain ordering inside each batch before handing events to the sync service.
     const sortedLogs = [...rawLogs].sort((left, right) => compareLogs(left.log, right.log));

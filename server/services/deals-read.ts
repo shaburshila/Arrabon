@@ -3,6 +3,7 @@ import "server-only";
 import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
+import { DISPUTE_WINDOW_MS } from "@/lib/constants/deals";
 import type { DealStatus } from "@/lib/db/types";
 import type { DealRouteParams } from "@/lib/validators/deals";
 import { decryptMeetingUrl } from "@/lib/crypto/meeting-url";
@@ -13,7 +14,6 @@ import {
   getDealRevealContextById,
 } from "@/server/repositories/deals";
 
-const DISPUTE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const REVEAL_ALLOWED_STATUSES: ReadonlySet<DealStatus> = new Set([
   "Funded",
   "ConfirmPending",

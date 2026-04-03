@@ -11,12 +11,11 @@ import {
   prepareOpenDisputeCall,
   type PreparedDealLifecycleCall,
 } from "@/lib/base/consult-escrow";
+import { DISPUTE_WINDOW_MS } from "@/lib/constants/deals";
 import {
   DealsRepositoryError,
   getDealActionContextById,
 } from "@/server/repositories/deals";
-
-const DISPUTE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 export interface PreparedDealLifecycleResult {
   contract_call: PreparedDealLifecycleCall;

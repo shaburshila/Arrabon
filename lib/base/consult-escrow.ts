@@ -91,6 +91,13 @@ export const disputedEventAbi = {
   anonymous: false,
 } as const;
 
+export const refundedEventAbi = {
+  type: "event",
+  name: "Refunded",
+  inputs: [{ indexed: true, name: "dealId", type: "uint256" }],
+  anonymous: false,
+} as const;
+
 export const consultEscrowAbi = [
   createAndFundDealFunctionAbi,
   markCompletedFunctionAbi,
@@ -101,6 +108,7 @@ export const consultEscrowAbi = [
   completedEventAbi,
   releasedEventAbi,
   disputedEventAbi,
+  refundedEventAbi,
 ] as const;
 
 export interface CreateAndFundDealInput {
@@ -181,10 +189,20 @@ export interface NormalizedDisputedEvent {
   txHash: Hex;
 }
 
+export interface NormalizedRefundedEvent {
+  blockNumber: bigint;
+  contractAddress: Address;
+  eventType: "Refunded";
+  logIndex: number;
+  onchainDealId: string;
+  txHash: Hex;
+}
+
 export type NormalizedDealLifecycleEvent =
   | NormalizedCompletedEvent
   | NormalizedDisputedEvent
   | NormalizedFundedEvent
+  | NormalizedRefundedEvent
   | NormalizedReleasedEvent;
 
 export class ConsultEscrowConfigError extends Error {
@@ -261,6 +279,7 @@ export function getConsultEscrowEventDefinitions() {
     completed: completedEventAbi,
     disputed: disputedEventAbi,
     funded: dealFundedEventAbi,
+    refunded: refundedEventAbi,
     released: releasedEventAbi,
   } as const;
 }
@@ -369,6 +388,29 @@ export function parseDisputedEventLog(
     blockNumber,
     contractAddress: getAddress(log.address),
     eventType: "Disputed",
+    logIndex,
+    onchainDealId: decodedLog.args.dealId.toString(10),
+    txHash,
+  };
+}
+
+export function parseRefundedEventLog(
+  log: Log,
+): NormalizedRefundedEvent {
+  const decodedLog = decodeEventLog({
+    abi: consultEscrowAbi,
+    data: log.data,
+    eventName: refundedEventAbi.name,
+    topics: log.topics,
+  });
+  const txHash = assertLogField(log.transactionHash, "transactionHash");
+  const blockNumber = assertLogField(log.blockNumber, "blockNumber");
+  const logIndex = assertLogField(log.logIndex, "logIndex");
+
+  return {
+    blockNumber,
+    contractAddress: getAddress(log.address),
+    eventType: "Refunded",
     logIndex,
     onchainDealId: decodedLog.args.dealId.toString(10),
     txHash,

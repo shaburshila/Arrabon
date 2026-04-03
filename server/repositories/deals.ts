@@ -388,3 +388,17 @@ export async function setDisputedByOnchainDealId(
     validFromStatuses: ["ConfirmPending", "Funded"],
   });
 }
+
+export async function setRefundedByOnchainDealId(
+  onchainDealId: string,
+): Promise<DealRow> {
+  return updateLifecycleStateByOnchainDealId({
+    alreadyConvergedStatuses: ["Refunded"],
+    onchainDealId,
+    patch: {
+      status: "Refunded",
+    },
+    targetStatus: "Refunded",
+    validFromStatuses: ["Disputed"],
+  });
+}

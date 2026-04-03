@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getAddress } from "viem";
+
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import type { ConsultationLinkRow, ConsultationLinkStatus } from "@/lib/db/types";
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
@@ -9,6 +11,7 @@ import {
   ConsultationLinksRepositoryError,
   createLink,
   getById,
+  updateStatus,
 } from "@/server/repositories/consultation-links";
 
 const LINK_HASH_INSERT_RETRY_COUNT = 3;
@@ -37,6 +40,11 @@ export interface PublicConsultationLinkResult {
   title: string;
 }
 
+export interface CancelConsultationLinkResult {
+  ok: true;
+  status: "Cancelled";
+}
+
 export class ConsultationLinkServiceError extends Error {
   code: string;
   status: number;
@@ -60,6 +68,10 @@ function resolvePublicStatus(
   }
 
   return row.status;
+}
+
+function isSameWallet(left: string, right: string): boolean {
+  return getAddress(left) === getAddress(right);
 }
 
 function mapPublicLink(row: ConsultationLinkRow): PublicConsultationLinkResult {
@@ -173,4 +185,82 @@ export async function getPublicConsultationLinkById(
   }
 
   return mapPublicLink(link);
+}
+
+export async function cancelConsultationLink(
+  currentUser: CurrentUserContext,
+  id: string,
+): Promise<CancelConsultationLinkResult> {
+  let link;
+
+  try {
+    link = await getById(id);
+  } catch (error) {
+    if (error instanceof ConsultationLinksRepositoryError) {
+      throw new ConsultationLinkServiceError(
+        "Failed to load consultation link.",
+        500,
+        error.code ?? "LINK_LOAD_FAILED",
+      );
+    }
+
+    throw error;
+  }
+
+  if (!link) {
+    throw new ConsultationLinkServiceError(
+      "Link not found.",
+      404,
+      "LINK_NOT_FOUND",
+    );
+  }
+
+  if (!isSameWallet(currentUser.wallet_address, link.expert_address)) {
+    throw new ConsultationLinkServiceError(
+      "Access denied.",
+      403,
+      "NOT_LINK_OWNER",
+    );
+  }
+
+  try {
+    await updateStatus(link.id, "Cancelled");
+  } catch (error) {
+    if (
+      error instanceof ConsultationLinksRepositoryError &&
+      error.code === "INVALID_STATUS_TRANSITION"
+    ) {
+      throw new ConsultationLinkServiceError(
+        "Link cannot be cancelled in its current state.",
+        409,
+        "LINK_NOT_CANCELLABLE",
+      );
+    }
+
+    if (
+      error instanceof ConsultationLinksRepositoryError &&
+      error.code === "LINK_NOT_FOUND"
+    ) {
+      throw new ConsultationLinkServiceError(
+        "Link not found.",
+        404,
+        "LINK_NOT_FOUND",
+      );
+    }
+
+    if (error instanceof ConsultationLinksRepositoryError) {
+      throw new ConsultationLinkServiceError(
+        "Failed to cancel consultation link.",
+        500,
+        error.code ?? "LINK_CANCEL_FAILED",
+      );
+    }
+
+    throw error;
+  }
+
+  return {
+    ok: true,
+    status: "Cancelled",
+  };
 }

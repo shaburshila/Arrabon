@@ -158,10 +158,10 @@ function validateMeetingUrl(
     return null;
   }
 
-  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+  if (parsedUrl.protocol !== "https:") {
     issues.push({
       field: "meeting_url",
-      message: "Expected an http or https URL.",
+      message: "Expected an https URL.",
     });
     return null;
   }

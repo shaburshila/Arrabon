@@ -5,6 +5,7 @@ import type {
   NormalizedDealLifecycleEvent,
   NormalizedDisputedEvent,
   NormalizedFundedEvent,
+  NormalizedRefundedEvent,
   NormalizedReleasedEvent,
 } from "@/lib/base/consult-escrow";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
@@ -12,6 +13,7 @@ import { getByLinkHash } from "@/server/repositories/consultation-links";
 import {
   setConfirmPendingByOnchainDealId,
   setDisputedByOnchainDealId,
+  setRefundedByOnchainDealId,
   setReleasedByOnchainDealId,
 } from "@/server/repositories/deals";
 import {
@@ -81,9 +83,9 @@ async function appendFundingSyncAuditLog(input: {
 }
 
 async function appendLifecycleSyncAuditLog(input: {
-  action: "deal_event_completed_synced" | "deal_event_disputed_synced" | "deal_event_released_synced";
+  action: "deal_event_completed_synced" | "deal_event_disputed_synced" | "deal_event_refunded_synced" | "deal_event_released_synced";
   dealId: string;
-  event: NormalizedCompletedEvent | NormalizedDisputedEvent | NormalizedReleasedEvent;
+  event: NormalizedCompletedEvent | NormalizedDisputedEvent | NormalizedRefundedEvent | NormalizedReleasedEvent;
 }) {
   try {
     await createAuditLogEntry({
@@ -281,6 +283,39 @@ export async function processConfirmedDisputedEvent(
   };
 }
 
+export async function processConfirmedRefundedEvent(
+  event: NormalizedRefundedEvent,
+): Promise<DealEventProcessingResult> {
+  const existingMarker = await getByTxHash(event.txHash);
+
+  if (existingMarker) {
+    return {
+      result: "already_processed",
+      txHash: event.txHash,
+    };
+  }
+
+  const deal = await setRefundedByOnchainDealId(event.onchainDealId);
+
+  await appendLifecycleSyncAuditLog({
+    action: "deal_event_refunded_synced",
+    dealId: deal.id,
+    event,
+  });
+
+  await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  return {
+    dealId: deal.id,
+    result: "processed",
+    txHash: event.txHash,
+  };
+}
+
 export async function processConfirmedDealEvent(
   event: NormalizedDealLifecycleEvent,
 ): Promise<DealEventProcessingResult> {
@@ -292,6 +327,8 @@ export async function processConfirmedDealEvent(
         return await processConfirmedDisputedEvent(event);
       case "Funded":
         return await processConfirmedFundedEvent(event);
+      case "Refunded":
+        return await processConfirmedRefundedEvent(event);
       case "Released":
         return await processConfirmedReleasedEvent(event);
     }
