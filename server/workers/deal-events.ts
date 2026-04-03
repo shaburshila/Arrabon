@@ -216,6 +216,7 @@ async function getBlockForLog(
     return cachedBlock;
   }
 
+  // Completed and Released logs in the same block share one timestamp, so cache by block number.
   const block = await dealEventsClient.getBlock({ blockNumber });
   const timestampOnlyBlock = { timestamp: block.timestamp };
 
@@ -315,6 +316,7 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
       ...releasedLogs,
       ...disputedLogs,
     ];
+    // Preserve onchain ordering inside each batch before handing events to the sync service.
     const sortedLogs = [...rawLogs].sort((left, right) => compareLogs(left.log, right.log));
 
     for (const rawLog of sortedLogs) {

@@ -160,6 +160,7 @@ export async function prepareMarkCompletedForDeal(
   }
 
   try {
+    // Prepare endpoints only authorize the contract call; confirmed event sync still owns final state.
     return buildPreparedResult(
       context.id,
       prepareMarkCompletedCall(context.onchain_deal_id),
@@ -200,6 +201,7 @@ export async function prepareConfirmReleaseForDeal(
 
   const releaseDeadline = computeReleaseDeadline(context.completed_at);
 
+  // The buyer window is inclusive at the exact deadline; auto-release becomes valid only after it passes.
   if (now.getTime() > releaseDeadline.getTime()) {
     throw new DealCompletionServiceError(
       "Release deadline has passed.",

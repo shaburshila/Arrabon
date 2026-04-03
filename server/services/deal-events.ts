@@ -54,6 +54,7 @@ async function appendFundingSyncAuditLog(input: {
   event: NormalizedFundedEvent;
 }) {
   try {
+    // Sync-path audit is intentionally fail-open so confirmed chain state can still converge.
     await createAuditLogEntry({
       action: "deal_event_funded_synced",
       actorAddress: null,
@@ -134,6 +135,7 @@ export async function processConfirmedFundedEvent(
   const consultationLink = await getByLinkHash(event.linkHash);
 
   if (!consultationLink) {
+    // Unknown link hashes are skipped without a marker so future replays do not treat them as converged.
     logUnknownLinkHash(event);
 
     return {
@@ -160,19 +162,12 @@ export async function processConfirmedFundedEvent(
     event,
   });
 
-  const markerInsertResult = await insertProcessedTransaction({
+  // The processed marker is written last so retries can safely replay partial convergence.
+  await insertProcessedTransaction({
     dealId: deal.id,
     eventType: event.eventType,
     txHash: event.txHash,
   });
-
-  if (markerInsertResult.duplicate) {
-    return {
-      dealId: deal.id,
-      result: "processed",
-      txHash: event.txHash,
-    };
-  }
 
   return {
     dealId: deal.id,

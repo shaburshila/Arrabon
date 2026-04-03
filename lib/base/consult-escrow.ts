@@ -142,6 +142,7 @@ export interface NormalizedFundedEvent {
   buyerAddress: Address;
   contractAddress: Address;
   eventType: "Funded";
+  // Funding sync does not depend on this timestamp yet, so Phase 4 intentionally leaves it nullable.
   fundedAt: null;
   linkHash: string;
   logIndex: number;
@@ -152,6 +153,7 @@ export interface NormalizedFundedEvent {
 
 export interface NormalizedCompletedEvent {
   blockNumber: bigint;
+  // Completion time must always be materialized because release/dispute windows derive from it.
   completedAt: Date;
   contractAddress: Address;
   eventType: "Completed";

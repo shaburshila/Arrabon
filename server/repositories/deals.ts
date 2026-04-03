@@ -319,6 +319,7 @@ async function updateLifecycleStateByOnchainDealId(input: {
     if (error.code === "PGRST116") {
       const refreshedDeal = await getByOnchainDealId(input.onchainDealId);
 
+      // Another retry or worker may have already applied the same confirmed event between read and update.
       if (
         refreshedDeal &&
         (refreshedDeal.status === input.targetStatus ||
@@ -359,6 +360,8 @@ export async function setReleasedByOnchainDealId(
   onchainDealId: string,
   releasedAt: Date,
 ): Promise<DealRow> {
+  // "Disputed" is included so the indexer can converge admin-resolved disputes
+  // (adminResolveRelease emits a Released event from the Disputed state).
   return updateLifecycleStateByOnchainDealId({
     alreadyConvergedStatuses: ["Released"],
     onchainDealId,
@@ -368,7 +371,7 @@ export async function setReleasedByOnchainDealId(
     },
     requiredTimestampField: "released_at",
     targetStatus: "Released",
-    validFromStatuses: ["ConfirmPending"],
+    validFromStatuses: ["ConfirmPending", "Disputed"],
   });
 }
 

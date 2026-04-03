@@ -259,7 +259,83 @@ Errors:
 
 ---
 
-## 6. Admin Endpoints
+## 6. Deal Completion Endpoints
+
+All three endpoints are **prepare-only**: they return structured contract call arguments for the caller's wallet to sign and submit. No deal state is written by the backend. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
+
+Request body: empty `{}` or omitted for all three endpoints.
+
+Response shape for all three (on success):
+
+```json
+{
+  "deal_id": "deal_123",
+  "contract_call": {
+    "chain_id": 8453,
+    "contract_address": "0xcontract...",
+    "function_name": "<markCompleted|confirmRelease|openDispute>",
+    "args": {
+      "deal_id": "17"
+    }
+  }
+}
+```
+
+### `POST /api/deals/:id/complete`
+
+Prepares a `markCompleted` call. Callable only by the seller after the consultation window has elapsed.
+
+Time condition (backend pre-check): `now >= scheduled_at + duration_minutes + grace_period_minutes`
+
+The backend check is advisory. The contract enforces the same gate and will revert if the condition is not met at tx execution time.
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` session wallet is not the deal seller
+- `409` deal not in `Funded` state
+- `409` completion time not yet reached
+- `500` deal timing data invalid (integrity error)
+- `500` contract config unavailable
+
+### `POST /api/deals/:id/release`
+
+Prepares a `confirmRelease` call. Callable only by the buyer while the deal is in `ConfirmPending` and the 48-hour dispute window has not yet passed.
+
+The buyer window is inclusive at the exact deadline (`now == deadline` is allowed). Auto-release becomes valid only strictly after the deadline passes.
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` session wallet is not the deal buyer
+- `409` deal not in `ConfirmPending` state
+- `409` release deadline has passed
+- `500` `completed_at` is missing (integrity error — indexer has not yet converged or data is corrupt)
+- `500` contract config unavailable
+
+### `POST /api/deals/:id/dispute`
+
+Prepares an `openDispute` call. Callable only by the buyer.
+
+Allowed from two states:
+
+- `Funded` — no-show or pre-completion dispute; no time gate.
+- `ConfirmPending` — post-completion dispute; allowed only while `now <= completed_at + 48h`.
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` session wallet is not the deal buyer
+- `409` deal is in a non-disputable state (`Released`, `Refunded`, `Disputed`)
+- `409` dispute window has closed (only applicable from `ConfirmPending`)
+- `500` contract config unavailable
+
+---
+
+## 7. Admin Endpoints
 
 ### `GET /api/admin/deals/:id`
 
