@@ -259,6 +259,7 @@ Anyone вызывает autoRelease:
 | Нет SIWE сессии | 401 | Unauthorized |
 | Сессия есть, но не участник | 403 | Forbidden |
 | Сессия есть, участник, но deal не Funded | 409 | Conflict — deal not funded |
+| Сессия есть, участник, deal.status == Refunded | 409 | Intentional — deal was refunded; meeting URL is no longer accessible |
 
 Все попытки логируются на backend.
 

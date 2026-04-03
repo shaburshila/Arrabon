@@ -114,7 +114,7 @@ Client wallet                Frontend                  Backend
 |---|---|---|
 | Create link | Expert wallet with valid SIWE session | Backend session |
 | Cancel link before funding | Creator of link with valid SIWE session | Backend session + DB owner check |
-| Reveal meeting URL | `buyer_address` or `seller_address` of funded deal | Backend session + DB deal binding |
+| Reveal meeting URL | `buyer_address` or `seller_address`; deal.status ∈ {Funded, ConfirmPending, Released, Disputed}; Refunded intentionally excluded | Backend session + DB deal binding |
 | Admin endpoints | Wallet from admin allowlist | Backend allowlist in env/DB |
 | `confirmRelease`, `openDispute`, `markCompleted` | Not authorized by backend | Smart contract only |
 

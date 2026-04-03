@@ -237,13 +237,13 @@
 
 ### QA-035 Доступ buyer после funding — 200
 **[API]**
-- Given: deal.status ∈ {Funded, ConfirmPending, Released, Disputed}; SIWE сессия buyer
+- Given: deal.status ∈ {Funded, ConfirmPending, Released, Disputed} (Refunded intentionally excluded — see I-13); SIWE сессия buyer
 - When: GET /api/deals/{id}/meeting-url
 - Then: HTTP 200; meeting_url расшифровывается и возвращается
 
 ### QA-036 Доступ seller после funding — 200
 **[API]**
-- Given: deal.status ∈ {Funded, ConfirmPending, Released, Disputed}; SIWE сессия seller
+- Given: deal.status ∈ {Funded, ConfirmPending, Released, Disputed} (Refunded intentionally excluded — see I-13); SIWE сессия seller
 - When: GET /api/deals/{id}/meeting-url
 - Then: HTTP 200; meeting_url расшифровывается и возвращается
 
@@ -413,3 +413,4 @@
 | I-10 | offchain state == onchain state | API |
 | I-11 | fee snapshot фиксируется при funding | CONTRACT |
 | I-12 | admin actions не спонсируются | CONTRACT |
+| I-13 | meeting_url при deal.status == Refunded → 409; intentional product + security decision | API |
