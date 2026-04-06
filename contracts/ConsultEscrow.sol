@@ -1,0 +1,263 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+contract ConsultEscrow is ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
+    uint256 public constant FEE_BPS = 200;
+    uint256 public constant FEE_DENOMINATOR = 10_000;
+    uint256 public constant MIN_PRICE = 10_000_000;
+    uint256 public constant MAX_PRICE = 1_000_000_000;
+    uint256 public constant DISPUTE_WINDOW = 48 hours;
+
+    enum Status {
+        None,
+        Funded,
+        ConfirmPending,
+        Released,
+        Refunded,
+        Disputed
+    }
+
+    struct Deal {
+        bytes32 linkHash;
+        address seller;
+        address buyer;
+        uint256 price;
+        uint256 feeAmount;
+        uint256 scheduledAt;
+        uint256 durationMinutes;
+        uint256 gracePeriodMinutes;
+        uint256 completedAt;
+        Status status;
+    }
+
+    error DealNotFound();
+    error UnauthorizedCaller();
+    error LinkHashAlreadyUsed();
+    error InvalidPrice();
+    error InvalidSchedule();
+    error InvalidDuration();
+    error InvalidStateTransition();
+    error CompletionTooEarly();
+    error ConfirmDisputeWindowExpired();
+    error AutoReleaseTooEarly();
+    error CallerNotAdmin();
+    error InvalidAddress();
+
+    event DealFunded(uint256 indexed dealId, bytes32 indexed link_hash, address seller, address buyer);
+    event Completed(uint256 indexed dealId, uint256 completedAt);
+    event Released(uint256 indexed dealId, uint256 releasedAt);
+    event Disputed(uint256 indexed dealId);
+    event Refunded(uint256 indexed dealId);
+
+    IERC20 public immutable usdc;
+    address public immutable treasury;
+
+    mapping(uint256 => Deal) public deals;
+    mapping(bytes32 => bool) public usedLinkHashes;
+    mapping(address => bool) public admins;
+    uint256 public nextDealId;
+
+    constructor(address usdcAddress, address treasuryAddress, address[] memory initialAdmins) {
+        if (usdcAddress == address(0) || treasuryAddress == address(0)) {
+            revert InvalidAddress();
+        }
+
+        usdc = IERC20(usdcAddress);
+        treasury = treasuryAddress;
+        nextDealId = 1;
+
+        uint256 adminsLength = initialAdmins.length;
+        for (uint256 i = 0; i < adminsLength; ++i) {
+            address admin = initialAdmins[i];
+            if (admin == address(0)) {
+                revert InvalidAddress();
+            }
+            admins[admin] = true;
+        }
+    }
+
+    function createAndFundDeal(
+        bytes32 link_hash,
+        address seller,
+        address buyer,
+        uint256 price,
+        uint256 scheduled_at,
+        uint256 duration_minutes,
+        uint256 grace_period_minutes
+    ) external {
+        if (msg.sender != buyer) {
+            revert UnauthorizedCaller();
+        }
+        if (seller == address(0) || buyer == address(0)) {
+            revert InvalidAddress();
+        }
+        if (seller == buyer) {
+            revert UnauthorizedCaller();
+        }
+        if (usedLinkHashes[link_hash]) {
+            revert LinkHashAlreadyUsed();
+        }
+        if (price < MIN_PRICE || price > MAX_PRICE) {
+            revert InvalidPrice();
+        }
+        if (scheduled_at <= block.timestamp) {
+            revert InvalidSchedule();
+        }
+        if (duration_minutes == 0) {
+            revert InvalidDuration();
+        }
+
+        uint256 feeAmount = (price * FEE_BPS) / FEE_DENOMINATOR;
+        uint256 dealId = nextDealId;
+        nextDealId = dealId + 1;
+
+        usedLinkHashes[link_hash] = true;
+        deals[dealId] = Deal({
+            linkHash: link_hash,
+            seller: seller,
+            buyer: buyer,
+            price: price,
+            feeAmount: feeAmount,
+            scheduledAt: scheduled_at,
+            durationMinutes: duration_minutes,
+            gracePeriodMinutes: grace_period_minutes,
+            completedAt: 0,
+            status: Status.Funded
+        });
+
+        usdc.safeTransferFrom(buyer, address(this), price);
+
+        emit DealFunded(dealId, link_hash, seller, buyer);
+    }
+
+    function markCompleted(uint256 dealId) external {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (msg.sender != deal.seller) {
+            revert UnauthorizedCaller();
+        }
+        if (deal.status != Status.Funded) {
+            revert InvalidStateTransition();
+        }
+
+        uint256 completionThreshold = deal.scheduledAt + (deal.durationMinutes * 60) + (deal.gracePeriodMinutes * 60);
+        if (block.timestamp < completionThreshold) {
+            revert CompletionTooEarly();
+        }
+
+        deal.completedAt = block.timestamp;
+        deal.status = Status.ConfirmPending;
+
+        emit Completed(dealId, deal.completedAt);
+    }
+
+    function confirmRelease(uint256 dealId) external nonReentrant {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (msg.sender != deal.buyer) {
+            revert UnauthorizedCaller();
+        }
+        if (deal.status != Status.ConfirmPending) {
+            revert InvalidStateTransition();
+        }
+        if (block.timestamp > _deadline(deal)) {
+            revert ConfirmDisputeWindowExpired();
+        }
+
+        _release(dealId, deal);
+    }
+
+    function openDispute(uint256 dealId) external {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (msg.sender != deal.buyer) {
+            revert UnauthorizedCaller();
+        }
+
+        if (deal.status == Status.Funded) {
+            deal.status = Status.Disputed;
+            emit Disputed(dealId);
+            return;
+        }
+
+        if (deal.status != Status.ConfirmPending) {
+            revert InvalidStateTransition();
+        }
+        if (block.timestamp > _deadline(deal)) {
+            revert ConfirmDisputeWindowExpired();
+        }
+
+        deal.status = Status.Disputed;
+        emit Disputed(dealId);
+    }
+
+    function autoRelease(uint256 dealId) external nonReentrant {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (deal.status != Status.ConfirmPending) {
+            revert InvalidStateTransition();
+        }
+        if (block.timestamp <= _deadline(deal)) {
+            revert AutoReleaseTooEarly();
+        }
+
+        _release(dealId, deal);
+    }
+
+    function adminResolveRelease(uint256 dealId) external nonReentrant {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (!admins[msg.sender]) {
+            revert CallerNotAdmin();
+        }
+        if (deal.status != Status.Disputed) {
+            revert InvalidStateTransition();
+        }
+
+        _release(dealId, deal);
+    }
+
+    function adminResolveRefund(uint256 dealId) external nonReentrant {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (!admins[msg.sender]) {
+            revert CallerNotAdmin();
+        }
+        if (deal.status != Status.Disputed) {
+            revert InvalidStateTransition();
+        }
+
+        deal.status = Status.Refunded;
+        usdc.safeTransfer(deal.buyer, deal.price);
+
+        emit Refunded(dealId);
+    }
+
+    function _getDealOrRevert(uint256 dealId) internal view returns (Deal storage deal) {
+        deal = deals[dealId];
+        if (deal.seller == address(0)) {
+            revert DealNotFound();
+        }
+    }
+
+    function _deadline(Deal storage deal) internal view returns (uint256) {
+        return deal.completedAt + DISPUTE_WINDOW;
+    }
+
+    function _release(uint256 dealId, Deal storage deal) internal {
+        uint256 sellerAmount = deal.price - deal.feeAmount;
+
+        deal.status = Status.Released;
+
+        usdc.safeTransfer(deal.seller, sellerAmount);
+        usdc.safeTransfer(treasury, deal.feeAmount);
+
+        emit Released(dealId, block.timestamp);
+    }
+}
