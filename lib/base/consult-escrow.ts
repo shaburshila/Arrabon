@@ -2,7 +2,6 @@ import {
   decodeEventLog,
   getAddress,
   parseUnits,
-  type Block,
   type Address,
   type Hex,
   type Log,
@@ -73,14 +72,20 @@ export const dealFundedEventAbi = {
 export const completedEventAbi = {
   type: "event",
   name: "Completed",
-  inputs: [{ indexed: true, name: "dealId", type: "uint256" }],
+  inputs: [
+    { indexed: true, name: "dealId", type: "uint256" },
+    { indexed: false, name: "completedAt", type: "uint256" },
+  ],
   anonymous: false,
 } as const;
 
 export const releasedEventAbi = {
   type: "event",
   name: "Released",
-  inputs: [{ indexed: true, name: "dealId", type: "uint256" }],
+  inputs: [
+    { indexed: true, name: "dealId", type: "uint256" },
+    { indexed: false, name: "releasedAt", type: "uint256" },
+  ],
   anonymous: false,
 } as const;
 
@@ -317,13 +322,12 @@ export function parseFundedEventLog(
   };
 }
 
-function resolveEventTimestamp(block: Pick<Block, "timestamp">): Date {
-  return new Date(Number(block.timestamp) * 1000);
+function resolveEventTimestamp(timestamp: bigint): Date {
+  return new Date(Number(timestamp) * 1000);
 }
 
 export function parseCompletedEventLog(
   log: Log,
-  block: Pick<Block, "timestamp">,
 ): NormalizedCompletedEvent {
   const decodedLog = decodeEventLog({
     abi: consultEscrowAbi,
@@ -337,7 +341,7 @@ export function parseCompletedEventLog(
 
   return {
     blockNumber,
-    completedAt: resolveEventTimestamp(block),
+    completedAt: resolveEventTimestamp(decodedLog.args.completedAt),
     contractAddress: getAddress(log.address),
     eventType: "Completed",
     logIndex,
@@ -348,7 +352,6 @@ export function parseCompletedEventLog(
 
 export function parseReleasedEventLog(
   log: Log,
-  block: Pick<Block, "timestamp">,
 ): NormalizedReleasedEvent {
   const decodedLog = decodeEventLog({
     abi: consultEscrowAbi,
@@ -366,7 +369,7 @@ export function parseReleasedEventLog(
     eventType: "Released",
     logIndex,
     onchainDealId: decodedLog.args.dealId.toString(10),
-    releasedAt: resolveEventTimestamp(block),
+    releasedAt: resolveEventTimestamp(decodedLog.args.releasedAt),
     txHash,
   };
 }

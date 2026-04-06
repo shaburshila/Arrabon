@@ -3,7 +3,6 @@ import "server-only";
 import {
   createPublicClient,
   http,
-  type Block,
   type Log,
 } from "viem";
 
@@ -218,42 +217,12 @@ async function readConfirmedRefundedLogs(input: {
   }));
 }
 
-async function getBlockForLog(
-  log: Log,
-  blockCache: Map<string, Pick<Block, "timestamp">>,
-) {
-  const blockNumber = log.blockNumber;
-
-  if (blockNumber === null || blockNumber === undefined) {
-    throw new Error("Missing blockNumber for confirmed deal event log.");
-  }
-
-  const cacheKey = blockNumber.toString(10);
-  const cachedBlock = blockCache.get(cacheKey);
-
-  if (cachedBlock) {
-    return cachedBlock;
-  }
-
-  // Completed and Released logs in the same block share one timestamp, so cache by block number.
-  const block = await dealEventsClient.getBlock({ blockNumber });
-  const timestampOnlyBlock = { timestamp: block.timestamp };
-
-  blockCache.set(cacheKey, timestampOnlyBlock);
-
-  return timestampOnlyBlock;
-}
-
 async function normalizeDealEventLog(
   rawEventLog: RawTaggedDealEventLog,
-  blockCache: Map<string, Pick<Block, "timestamp">>,
 ): Promise<NormalizedDealLifecycleEvent> {
   switch (rawEventLog.kind) {
     case "Completed":
-      return parseCompletedEventLog(
-        rawEventLog.log,
-        await getBlockForLog(rawEventLog.log, blockCache),
-      );
+      return parseCompletedEventLog(rawEventLog.log);
     case "Disputed":
       return parseDisputedEventLog(rawEventLog.log);
     case "Funded":
@@ -261,10 +230,7 @@ async function normalizeDealEventLog(
     case "Refunded":
       return parseRefundedEventLog(rawEventLog.log);
     case "Released":
-      return parseReleasedEventLog(
-        rawEventLog.log,
-        await getBlockForLog(rawEventLog.log, blockCache),
-      );
+      return parseReleasedEventLog(rawEventLog.log);
   }
 }
 
@@ -309,8 +275,6 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
   };
 
   let rangeStart = config.fromBlock;
-  const blockCache = new Map<string, Pick<Block, "timestamp">>();
-
   while (rangeStart <= confirmedHead) {
     const rangeEnd = resolveRangeEnd(rangeStart, confirmedHead, config.maxRange);
     const [fundedLogs, completedLogs, releasedLogs, disputedLogs, refundedLogs] = await Promise.all([
@@ -346,7 +310,7 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
     const sortedLogs = [...rawLogs].sort((left, right) => compareLogs(left.log, right.log));
 
     for (const rawLog of sortedLogs) {
-      const normalizedEvent = await normalizeDealEventLog(rawLog, blockCache);
+      const normalizedEvent = await normalizeDealEventLog(rawLog);
       const result = await processConfirmedDealEvent(normalizedEvent);
 
       summarizeProcessingResult(result, summary);

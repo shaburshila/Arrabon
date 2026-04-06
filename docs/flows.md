@@ -140,7 +140,7 @@ Expert                     Client                   Contract / Backend
 
 **Fee логика:**
 - fee_amount = floor(amount × 0.02)
-- Если expert зарегистрировался ≤14 дней назад → fee = 0
+- Fee waiver в v1 отсутствует → fee всегда 2%
 - fee snapshot фиксируется в момент `createAndFundDeal`
 - treasury получает fee в момент `confirmRelease` / `autoRelease` / `adminResolveRelease`
 
@@ -374,7 +374,7 @@ Admin рассматривает спор.
   Admin → adminResolveRefund(dealId)
   → deal → Refunded
   → funds → buyer (полная сумма)
-  → fee → treasury (или 0, зависит от реализации)
+  → fee → treasury = 0
 ```
 
 ---
@@ -430,11 +430,11 @@ expires_at = scheduled_at - 15 мин → валидно.
 expires_at = scheduled_at - 14 мин → невалидно, форма/backend rejects.
 ```
 
-### 7.3 Expert в fee waiver периоде (≤14 дней с регистрации)
+### 7.3 Fee waiver в v1 отсутствует
 
 ```
-fee_amount = 0 (снапшот в момент funding).
-Через 15 дней expert создаёт новую ссылку → fee_amount = floor(amount × 0.02).
+fee_amount = floor(amount × 0.02) (снапшот в момент funding).
+Даже для новых experts скидочного периода нет.
 Уже funded сделки: fee зафиксирован на момент funding, не меняется.
 ```
 

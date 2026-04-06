@@ -93,7 +93,7 @@ CHAIN_SYNC_MAX_RANGE=
 - consultation link creation and public read model
 - funding preparation for `createAndFundDeal`
 - deal read model with derived `release_deadline_at`
-- confirmed chain event sync for `Funded`, `Completed`, `Released`, and `Disputed`
+- confirmed chain event sync for `DealFunded`, `Completed`, `Released`, `Disputed`, and `Refunded`
 - completion flow prepare endpoints for seller/buyer lifecycle actions
 
 ## Auth Smoke Test
@@ -133,7 +133,6 @@ Without a valid cookie, `GET /api/private/ping` returns `401`.
 ## Not Implemented Yet
 
 - admin dispute resolution endpoints and workflows
-- confirmed sync handling for `Refunded`
 - backend-submitted auto-release helper worker
 - production scheduler/process management for workers
 - full frontend product UI

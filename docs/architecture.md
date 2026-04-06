@@ -234,8 +234,8 @@ Backend is source of truth for link metadata and meeting_url.
 | F-04 | **`link_hash` uniqueness enforced onchain** через `usedLinkHashes` mapping | Backend не может быть обойдён; single-use — контрактная гарантия |
 | F-05 | **SIWE** как единственный auth механизм для приватных операций | Нет email/OAuth; wallet-native auth |
 | F-06 | **`meeting_url` хранится encrypted на backend**, не onchain | Privacy; reveal только через SIWE-аутентифицированный endpoint |
-| F-07 | **Fee = 2%, фиксируется при funding**, отправляется сразу на treasury | Нет post-hoc fee; snapshot в момент создания сделки |
-| F-08 | **Fee waiver = 14 дней** — логика в контракте | Onchain, не конфигурируется через backend |
+| F-07 | **Fee = 2%, фиксируется при funding**, выплачивается treasury только на release paths | Нет post-hoc fee; snapshot в момент создания сделки |
+| F-08 | **Fee waiver отсутствует в v1** | Fee всегда рассчитывается как фиксированные 2%; backend не передаёт fee-параметры |
 | F-09 | **`autoRelease` permissionless** — любой может вызвать | Decentralized UX fallback; backend вызывает как helper, не owner |
 | F-10 | **Dispute window = 48 часов** | Фиксировано в ТЗ; не конфигурируется per-deal в MVP |
 | F-11 | **Paymaster через backend proxy** с allowlist методов | Безопасность: нельзя спонсировать произвольные вызовы |
