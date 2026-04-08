@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 function jsonError(
   message: string,
   status: number,
-  statusValue?: "Cancelled" | "Consumed" | "Expired" | "unavailable",
+  statusValue?: "Cancelled" | "Expired" | "unavailable",
 ) {
   return NextResponse.json(
     {

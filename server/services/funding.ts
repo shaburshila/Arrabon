@@ -11,9 +11,13 @@ import {
   type PreparedCreateAndFundDealCall,
 } from "@/lib/base/consult-escrow";
 import {
+  DealsRepositoryError,
   getByConsultationLinkId,
 } from "@/server/repositories/deals";
-import { getById } from "@/server/repositories/consultation-links";
+import {
+  ConsultationLinksRepositoryError,
+  getById,
+} from "@/server/repositories/consultation-links";
 
 type FundingUnavailableStatus = "Cancelled" | "Consumed" | "Expired";
 
@@ -70,12 +74,42 @@ function isSameWallet(left: string, right: string): boolean {
   return getAddress(left) === getAddress(right);
 }
 
+function isEconnresetLike(error: unknown): error is Error & { code?: string } {
+  const maybeError = error as (Error & { code?: string }) | null;
+
+  return (
+    error instanceof Error &&
+    (error.message.includes("ECONNRESET") || maybeError?.code === "ECONNRESET")
+  );
+}
+
 export async function prepareFundingForLink(
   currentUser: CurrentUserContext,
   input: PrepareFundingParams,
   now: Date = new Date(),
 ): Promise<PrepareFundingResult> {
-  const link = await getById(input.linkId);
+  let link;
+
+  try {
+    link = await getById(input.linkId);
+  } catch (error) {
+    if (error instanceof ConsultationLinksRepositoryError) {
+      throw new FundingServiceError(
+        "Failed to load consultation link.",
+        500,
+        error.code ?? "LINK_LOAD_FAILED",
+      );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "prepareFundingForLink.getById",
+      });
+    }
+
+    throw error;
+  }
 
   if (!link) {
     throw new FundingServiceError("Link not found.", 404, "LINK_NOT_FOUND");
@@ -99,7 +133,28 @@ export async function prepareFundingForLink(
     );
   }
 
-  const existingDeal = await getByConsultationLinkId(link.id);
+  let existingDeal;
+
+  try {
+    existingDeal = await getByConsultationLinkId(link.id);
+  } catch (error) {
+    if (error instanceof DealsRepositoryError) {
+      throw new FundingServiceError(
+        "Failed to load deal.",
+        500,
+        error.code ?? "DEAL_LOAD_FAILED",
+      );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "prepareFundingForLink.getByConsultationLinkId",
+      });
+    }
+
+    throw error;
+  }
 
   if (existingDeal) {
     throw new FundingServiceError(

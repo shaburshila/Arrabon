@@ -13,10 +13,14 @@ import {
   getById,
   updateStatus,
 } from "@/server/repositories/consultation-links";
+import {
+  DealsRepositoryError,
+  getByConsultationLinkId,
+} from "@/server/repositories/deals";
 
 const LINK_HASH_INSERT_RETRY_COUNT = 3;
 
-type PublicUnavailableStatus = "Cancelled" | "Consumed" | "Expired";
+type PublicUnavailableStatus = "Cancelled" | "Expired";
 
 export interface CreateConsultationLinkResult {
   id: string;
@@ -26,6 +30,7 @@ export interface CreateConsultationLinkResult {
 }
 
 export interface PublicConsultationLinkResult {
+  deal_id: string | null;
   description: string;
   duration_minutes: number;
   expires_at: string;
@@ -35,7 +40,7 @@ export interface PublicConsultationLinkResult {
   price_usdc: string;
   scheduled_at: string;
   seller_address: string;
-  status: "Open";
+  status: "Consumed" | "Open";
   timezone: string;
   title: string;
 }
@@ -74,8 +79,22 @@ function isSameWallet(left: string, right: string): boolean {
   return getAddress(left) === getAddress(right);
 }
 
-function mapPublicLink(row: ConsultationLinkRow): PublicConsultationLinkResult {
+function isEconnresetLike(error: unknown): error is Error & { code?: string } {
+  const maybeError = error as (Error & { code?: string }) | null;
+
+  return (
+    error instanceof Error &&
+    (error.message.includes("ECONNRESET") || maybeError?.code === "ECONNRESET")
+  );
+}
+
+function mapPublicLink(
+  row: ConsultationLinkRow,
+  publicStatus: "Consumed" | "Open",
+  dealId: string | null,
+): PublicConsultationLinkResult {
   return {
+    deal_id: dealId,
     description: row.description,
     duration_minutes: row.duration_minutes,
     expires_at: row.expires_at,
@@ -85,7 +104,7 @@ function mapPublicLink(row: ConsultationLinkRow): PublicConsultationLinkResult {
     price_usdc: String(row.price_usdc),
     scheduled_at: row.scheduled_at,
     seller_address: row.expert_address,
-    status: "Open",
+    status: publicStatus,
     timezone: row.timezone,
     title: row.title,
   };
@@ -97,8 +116,6 @@ function createUnavailableLinkError(statusValue: PublicUnavailableStatus): Consu
       return new ConsultationLinkServiceError("Link has expired.", 410, "LINK_EXPIRED", statusValue);
     case "Cancelled":
       return new ConsultationLinkServiceError("Link has been cancelled.", 410, "LINK_CANCELLED", statusValue);
-    case "Consumed":
-      return new ConsultationLinkServiceError("Link has already been consumed.", 410, "LINK_CONSUMED", statusValue);
   }
 }
 
@@ -158,7 +175,28 @@ export async function getPublicConsultationLinkById(
   id: string,
   now: Date = new Date(),
 ): Promise<PublicConsultationLinkResult> {
-  const link = await getById(id);
+  let link: ConsultationLinkRow | null;
+
+  try {
+    link = await getById(id);
+  } catch (error) {
+    if (error instanceof ConsultationLinksRepositoryError) {
+      throw new ConsultationLinkServiceError(
+        "Failed to load consultation link.",
+        500,
+        error.code ?? "LINK_LOAD_FAILED",
+      );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "getPublicConsultationLinkById.getById",
+      });
+    }
+
+    throw error;
+  }
 
   if (!link) {
     throw new ConsultationLinkServiceError(
@@ -180,11 +218,38 @@ export async function getPublicConsultationLinkById(
     );
   }
 
-  if (publicStatus !== "Open") {
+  if (publicStatus === "Expired" || publicStatus === "Cancelled") {
     throw createUnavailableLinkError(publicStatus);
   }
 
-  return mapPublicLink(link);
+  let existingDeal = null;
+
+  try {
+    existingDeal = await getByConsultationLinkId(link.id);
+  } catch (error) {
+    if (error instanceof DealsRepositoryError) {
+      throw new ConsultationLinkServiceError(
+        "Failed to load consultation link.",
+        500,
+        error.code ?? "DEAL_LOAD_FAILED",
+      );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "getPublicConsultationLinkById.getByConsultationLinkId",
+      });
+    }
+
+    throw error;
+  }
+
+  return mapPublicLink(
+    link,
+    publicStatus,
+    existingDeal?.id ?? null,
+  );
 }
 
 export async function cancelConsultationLink(
@@ -202,6 +267,13 @@ export async function cancelConsultationLink(
         500,
         error.code ?? "LINK_LOAD_FAILED",
       );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "cancelConsultationLink.getById",
+      });
     }
 
     throw error;
@@ -254,6 +326,13 @@ export async function cancelConsultationLink(
         500,
         error.code ?? "LINK_CANCEL_FAILED",
       );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "cancelConsultationLink.updateStatus",
+      });
     }
 
     throw error;

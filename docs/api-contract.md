@@ -26,6 +26,7 @@ Response:
 ```json
 {
   "id": "link_123",
+  "deal_id": null,
   "title": "Consultation",
   "description": "30-minute consult",
   "price_usdc": "100.00",
@@ -40,10 +41,18 @@ Response:
 }
 ```
 
+Notes:
+
+- `deal_id` is navigation support only.
+- `deal_id = null` before the linked deal exists or before indexing has materialized it.
+- `deal_id` becomes the backend deal UUID once the linked deal exists.
+- This endpoint may return `status: "Consumed"` as a successful `200` response so the client can discover `deal_id` after funding/indexing.
+- `meeting_url_revealed` remains `false` for this endpoint and should not be interpreted as a funding-state signal.
+
 Errors:
 
 - `404` link not found
-- `410` link expired/cancelled/consumed
+- `410` link expired/cancelled
 
 ### `GET /api/deals/:id`
 

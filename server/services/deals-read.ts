@@ -96,6 +96,15 @@ function validateDecryptedMeetingUrl(meetingUrl: string): string {
   return meetingUrl;
 }
 
+function isEconnresetLike(error: unknown): error is Error & { code?: string } {
+  const maybeError = error as (Error & { code?: string }) | null;
+
+  return (
+    error instanceof Error &&
+    (error.message.includes("ECONNRESET") || maybeError?.code === "ECONNRESET")
+  );
+}
+
 async function logRevealAttempt(
   input: {
     actorAddress: string | null;
@@ -153,6 +162,13 @@ export async function getDealReadModel(
       );
     }
 
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "getDealReadModel.getDealReadViewById",
+      });
+    }
+
     throw error;
   }
 
@@ -197,6 +213,13 @@ export async function revealMeetingUrlForDeal(
         500,
         "DEAL_REVEAL_LOAD_FAILED",
       );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "revealMeetingUrlForDeal.getDealRevealContextById",
+      });
     }
 
     throw error;

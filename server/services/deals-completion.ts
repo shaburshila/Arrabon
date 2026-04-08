@@ -80,6 +80,15 @@ function computeReleaseDeadline(completedAt: string | null): Date {
   return new Date(completedAtMs + DISPUTE_WINDOW_MS);
 }
 
+function isEconnresetLike(error: unknown): error is Error & { code?: string } {
+  const maybeError = error as (Error & { code?: string }) | null;
+
+  return (
+    error instanceof Error &&
+    (error.message.includes("ECONNRESET") || maybeError?.code === "ECONNRESET")
+  );
+}
+
 async function getActionContext(input: DealCompletionRouteParams) {
   try {
     return await getDealActionContextById(input.dealId);
@@ -90,6 +99,13 @@ async function getActionContext(input: DealCompletionRouteParams) {
         500,
         error.code ?? "DEAL_LOAD_FAILED",
       );
+    }
+
+    if (isEconnresetLike(error)) {
+      console.warn("Supabase cold start detected (ECONNRESET)", {
+        code: error.code ?? "ECONNRESET",
+        operation: "getActionContext.getDealActionContextById",
+      });
     }
 
     throw error;

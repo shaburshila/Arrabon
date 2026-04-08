@@ -4,10 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:contract": "hardhat test"
+    "test:unit": "TS_NODE_PROJECT=tsconfig.test.json node --require ./tests/unit/setup.cjs --require tsconfig-paths/register --require ts-node/register --test --test-reporter spec ./tests/unit/consult-escrow-parsers.test.ts",
+    "test:unit:services": "TS_NODE_PROJECT=tsconfig.test.json node --require ./tests/unit/setup-services.cjs --require tsconfig-paths/register --require ts-node/register --test --test-reporter spec ./tests/unit/consultation-link-service.test.ts",
+    "test:smoke": "TS_NODE_PROJECT=tsconfig.test.json node --require tsconfig-paths/register --require ts-node/register --test --test-reporter spec ./tests/api/smoke.test.ts",
+    "test:contract": "hardhat test",
+    "deploy:mock-usdc:base-sepolia": "hardhat run scripts/deploy-mock-usdc.js --network baseSepolia",
+    "deploy:escrow:base-sepolia": "hardhat run scripts/deploy-consult-escrow.js --network baseSepolia"
   },
   "dependencies": {
     "@base-org/account": "^2.2.0",
@@ -26,6 +32,9 @@
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
-    "hardhat": "^2.26.3"
+    "dotenv": "^17.4.1",
+    "hardhat": "^2.26.3",
+    "server-only": "^0.0.1",
+    "tsconfig-paths": "^4.2.0"
   }
 }

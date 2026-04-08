@@ -67,6 +67,47 @@ CHAIN_SYNC_MAX_RANGE=
 
 `NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but runtime attribution is still intentionally deferred.
 
+## Contract Deployment
+
+Base Sepolia deployment is wired through Hardhat.
+
+Required deploy-only env vars:
+
+```env
+BASE_SEPOLIA_RPC_URL=
+DEPLOYER_PRIVATE_KEY=
+USDC_ADDRESS=
+TREASURY_ADDRESS=
+ADMIN_WALLETS=
+```
+
+Recommended testnet app/runtime env after deployment:
+
+```env
+NEXT_PUBLIC_BASE_CHAIN_ID=84532
+NEXT_PUBLIC_RPC_URL=
+NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS=
+NEXT_PUBLIC_TREASURY_WALLET=
+CHAIN_SYNC_START_BLOCK=
+CHAIN_SYNC_CONFIRMATIONS=1
+CHAIN_SYNC_MAX_RANGE=500
+```
+
+If you do not have a test USDC address on Base Sepolia yet, deploy the mock token first:
+
+```bash
+npm run deploy:mock-usdc:base-sepolia
+```
+
+Then deploy the escrow contract:
+
+```bash
+npm run deploy:escrow:base-sepolia
+```
+
+The deploy script prints the contract address and deployment block. Use those values for
+`NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS` and `CHAIN_SYNC_START_BLOCK`.
+
 ## Implemented API Surface
 
 - Auth
