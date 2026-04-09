@@ -35,7 +35,7 @@ export function MeetingUrlCard({
   const [meetingUrl, setMeetingUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { isConnected, isCorrectChain, siweStatus, signIn, isSigningIn } = session;
+  const { isConnected, isCorrectChain, siweStatus, signIn, isSigningIn, signInError } = session;
 
   // Refunded: explicitly unavailable per architecture rule
   if (dealStatus === "Refunded") {
@@ -98,6 +98,21 @@ export function MeetingUrlCard({
         >
           Sign in with Ethereum
         </Btn>
+        {signInError && (
+          <div
+            style={{
+              background: "var(--danger-muted)",
+              border: "1px solid var(--danger)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--danger)",
+              fontSize: 13,
+              marginTop: 10,
+              padding: "10px 14px",
+            }}
+          >
+            {signInError}
+          </div>
+        )}
       </div>
     );
   }

@@ -17,7 +17,7 @@ interface LinkActionCardProps {
 }
 
 export function LinkActionCard({ funding, link, role, session }: LinkActionCardProps) {
-  const { address, isConnected, isCorrectChain, siweStatus, connect, signIn } = session;
+  const { address, isConnected, isCorrectChain, siweStatus, connect, signIn, signInError } = session;
   const { execute, reset, state: fundingState } = funding;
 
   const isFunding =
@@ -82,6 +82,11 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
           >
             Sign in with Ethereum
           </Btn>
+          {signInError && (
+            <div style={errorStyle}>
+              {signInError}
+            </div>
+          )}
         </div>
       )}
 
@@ -167,4 +172,13 @@ const hintStyle = {
   color: "var(--muted)",
   fontSize: 14,
   margin: 0,
+} as const;
+
+const errorStyle = {
+  background: "var(--danger-muted)",
+  border: "1px solid var(--danger)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--danger)",
+  fontSize: 13,
+  padding: "10px 14px",
 } as const;

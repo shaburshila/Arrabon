@@ -21,6 +21,7 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
     isConnected,
     isCorrectChain,
     isSigningIn,
+    signInError,
     siweStatus,
     connect,
     disconnect,
@@ -67,14 +68,21 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
 
           {/* SIWE session */}
           {isCorrectChain && siweStatus === "unauthenticated" && (
-            <Btn
-              fullWidth
-              loading={isSigningIn}
-              onClick={signIn}
-              variant="secondary"
-            >
-              Sign in with Ethereum
-            </Btn>
+            <>
+              <Btn
+                fullWidth
+                loading={isSigningIn}
+                onClick={signIn}
+                variant="secondary"
+              >
+                Sign in with Ethereum
+              </Btn>
+              {signInError && (
+                <div style={errorStyle}>
+                  {signInError}
+                </div>
+              )}
+            </>
           )}
 
           {siweStatus === "authenticated" && (
@@ -157,3 +165,12 @@ function dotStyle(color: string) {
     width: 8,
   } as const;
 }
+
+const errorStyle = {
+  background: "var(--danger-muted)",
+  border: "1px solid var(--danger)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--danger)",
+  fontSize: 13,
+  padding: "10px 14px",
+} as const;

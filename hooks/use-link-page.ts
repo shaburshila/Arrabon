@@ -19,6 +19,7 @@ export type LinkPageStatus =
 export type UnavailableReason = "Cancelled" | "Expired" | null;
 
 export interface LinkPageState {
+  dealIdPollingTimedOut: boolean;
   link: PublicLink | null;
   role: "seller" | "viewer";
   status: LinkPageStatus;
@@ -26,7 +27,10 @@ export interface LinkPageState {
   error: string | null;
   refetch: () => Promise<void>;
   // Polling: call this after funding tx confirmed to start polling for deal_id
-  startDealIdPolling: (onDealId: (dealId: string) => void) => void;
+  startDealIdPolling: (
+    onDealId: (dealId: string) => void,
+    onTimeout?: () => void,
+  ) => void;
   stopPolling: () => void;
 }
 
@@ -35,6 +39,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
   const [status, setStatus] = useState<LinkPageStatus>("loading");
   const [unavailableReason, setUnavailableReason] = useState<UnavailableReason>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dealIdPollingTimedOut, setDealIdPollingTimedOut] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -43,6 +48,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
     try {
       const data = await fetchLink(linkId);
       setLink(data);
+      setDealIdPollingTimedOut(false);
       setStatus("ready");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -81,8 +87,9 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
   // Poll every 2s until deal_id is non-null, then call onDealId and stop.
   // Max 40 polls (~80s) to avoid infinite loop.
   const startDealIdPolling = useCallback(
-    (onDealId: (dealId: string) => void) => {
+    (onDealId: (dealId: string) => void, onTimeout?: () => void) => {
       stopPolling();
+      setDealIdPollingTimedOut(false);
       let count = 0;
       const MAX_POLLS = 40;
 
@@ -90,6 +97,8 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
         count += 1;
         if (count > MAX_POLLS) {
           stopPolling();
+          setDealIdPollingTimedOut(true);
+          onTimeout?.();
           return;
         }
         try {
@@ -97,6 +106,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
           setLink(data);
           if (data.deal_id) {
             stopPolling();
+            setDealIdPollingTimedOut(false);
             onDealId(data.deal_id);
           }
         } catch {
@@ -120,6 +130,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
   })();
 
   return {
+    dealIdPollingTimedOut,
     error,
     link,
     role,

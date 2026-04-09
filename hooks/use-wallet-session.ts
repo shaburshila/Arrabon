@@ -25,6 +25,7 @@ export interface WalletSessionState {
   isConnected: boolean;
   isCorrectChain: boolean;
   isSigningIn: boolean;
+  signInError: string | null;
   session: SiweSession | null;
   siweStatus: SiweStatus;
   // actions
@@ -44,6 +45,7 @@ export function useWalletSession(): WalletSessionState {
   const [siweStatus, setSiweStatus] = useState<SiweStatus>("loading");
   const [session, setSession] = useState<SiweSession | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const pingDone = useRef(false);
 
   const isCorrectChain = chainId === baseRuntimeConfig.chainId;
@@ -53,6 +55,7 @@ export function useWalletSession(): WalletSessionState {
     if (!isConnected) {
       setSiweStatus("unauthenticated");
       setSession(null);
+      setSignInError(null);
       pingDone.current = false;
       return;
     }
@@ -86,6 +89,7 @@ export function useWalletSession(): WalletSessionState {
     await logout().catch(() => {});
     setSession(null);
     setSiweStatus("unauthenticated");
+    setSignInError(null);
     pingDone.current = false;
     await disconnectAsync();
   }, [disconnectAsync]);
@@ -93,6 +97,7 @@ export function useWalletSession(): WalletSessionState {
   const signIn = useCallback(async () => {
     if (!address) throw new Error("Wallet not connected");
     setIsSigningIn(true);
+    setSignInError(null);
 
     try {
       const { issued_at, nonce } = await fetchNonce(address);
@@ -114,6 +119,13 @@ export function useWalletSession(): WalletSessionState {
       const s = await verifySiwe(message, signature);
       setSession(s);
       setSiweStatus("authenticated");
+      setSignInError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to sign in with Ethereum.";
+      setSession(null);
+      setSiweStatus("unauthenticated");
+      setSignInError(message);
     } finally {
       setIsSigningIn(false);
     }
@@ -123,6 +135,7 @@ export function useWalletSession(): WalletSessionState {
     await logout().catch(() => {});
     setSession(null);
     setSiweStatus("unauthenticated");
+    setSignInError(null);
     pingDone.current = false;
   }, []);
 
@@ -132,6 +145,7 @@ export function useWalletSession(): WalletSessionState {
     isConnected,
     isCorrectChain,
     isSigningIn,
+    signInError,
     session,
     siweStatus,
     connect,

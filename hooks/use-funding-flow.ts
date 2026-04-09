@@ -32,6 +32,7 @@ export interface FundingState {
 
 export interface FundingFlow {
   execute: () => Promise<void>;
+  handlePollingTimeout: () => void;
   reset: () => void;
   state: FundingState;
 }
@@ -39,7 +40,10 @@ export interface FundingFlow {
 export function useFundingFlow(
   linkId: string,
   onDealIndexed: (dealId: string) => void,
-  startPolling: (onDealId: (dealId: string) => void) => void,
+  startPolling: (
+    onDealId: (dealId: string) => void,
+    onTimeout?: () => void,
+  ) => void,
 ): FundingFlow {
   const config = useConfig();
 
@@ -52,6 +56,14 @@ export function useFundingFlow(
   const set = useCallback((partial: Partial<FundingState>) => {
     setState((prev) => ({ ...prev, ...partial }));
   }, []);
+
+  const handlePollingTimeout = useCallback(() => {
+    set({
+      error: "We couldn't confirm your deal yet. Please retry or refresh this page.",
+      step: "failed",
+      txHash: null,
+    });
+  }, [set]);
 
   const execute = useCallback(async () => {
     if (state.step !== "idle" && state.step !== "failed") return;
@@ -86,7 +98,7 @@ export function useFundingFlow(
       startPolling((dealId) => {
         set({ step: "succeeded" });
         onDealIndexed(dealId);
-      });
+      }, handlePollingTimeout);
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -102,5 +114,5 @@ export function useFundingFlow(
     setState({ error: null, step: "idle", txHash: null });
   }, []);
 
-  return { execute, reset, state };
+  return { execute, handlePollingTimeout, reset, state };
 }

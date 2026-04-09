@@ -30,7 +30,7 @@ export function DealActionsCard({
   release,
   session,
 }: DealActionsCardProps & { buyerDisputable: boolean }) {
-  const { isConnected, isCorrectChain, siweStatus, signIn, isSigningIn } = session;
+  const { isConnected, isCorrectChain, siweStatus, signIn, isSigningIn, signInError } = session;
 
   const noActions =
     !isSeller && !isBuyer;
@@ -76,14 +76,21 @@ export function DealActionsCard({
             Sign in with your wallet to perform actions.
           </p>
           {isConnected && isCorrectChain && (
-            <Btn
-              fullWidth
-              loading={isSigningIn}
-              onClick={signIn}
-              variant="secondary"
-            >
-              Sign in with Ethereum
-            </Btn>
+            <>
+              <Btn
+                fullWidth
+                loading={isSigningIn}
+                onClick={signIn}
+                variant="secondary"
+              >
+                Sign in with Ethereum
+              </Btn>
+              {signInError && (
+                <div style={errorStyle}>
+                  {signInError}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -126,6 +133,15 @@ export function DealActionsCard({
     </div>
   );
 }
+
+const errorStyle = {
+  background: "var(--danger-muted)",
+  border: "1px solid var(--danger)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--danger)",
+  fontSize: 13,
+  padding: "10px 14px",
+} as const;
 
 function ActionGroup({
   action,

@@ -11,7 +11,7 @@ import {
   markCompletedFunctionAbi,
   confirmReleaseFunctionAbi,
   openDisputeFunctionAbi,
-} from "@/lib/base/consult-escrow";
+} from "@/lib/base/consult-escrow-abi";
 import { baseRuntimeConfig } from "@/lib/base/config";
 import type { FundingContractCall } from "@/lib/api/links";
 import type { LifecycleContractCall } from "@/lib/api/deals";

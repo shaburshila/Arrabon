@@ -37,6 +37,11 @@ export default function LinkPage() {
     linkPage.startDealIdPolling,
   );
 
+  const handleRetryPolling = useCallback(() => {
+    funding.reset();
+    linkPage.startDealIdPolling(handleDealIndexed, funding.handlePollingTimeout);
+  }, [funding, handleDealIndexed, linkPage]);
+
   // If link is already consumed + deal_id exists → redirect immediately
   useEffect(() => {
     if (
@@ -97,11 +102,27 @@ export default function LinkPage() {
 
             {/* Funding progress — only shown while funding is active or failed */}
             {funding.state.step !== "idle" && (
-              <FundingProgress
-                error={funding.state.error}
-                step={funding.state.step}
-                txHash={funding.state.txHash}
-              />
+              <>
+                <FundingProgress
+                  error={funding.state.error}
+                  step={funding.state.step}
+                  txHash={funding.state.txHash}
+                />
+                {linkPage.dealIdPollingTimedOut && (
+                  <div style={timeoutCardStyle}>
+                    <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>
+                      Deal creation is taking longer than expected. Retry polling or refresh this page.
+                    </p>
+                    <button
+                      onClick={handleRetryPolling}
+                      style={retryButtonStyle}
+                      type="button"
+                    >
+                      Retry check
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -130,4 +151,25 @@ const centerStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: 200,
+} as const;
+
+const timeoutCardStyle = {
+  background: "var(--danger-muted)",
+  border: "1px solid var(--danger)",
+  borderRadius: "var(--radius-sm)",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+  padding: "12px 14px",
+} as const;
+
+const retryButtonStyle = {
+  alignSelf: "flex-start",
+  background: "none",
+  border: "none",
+  color: "var(--danger)",
+  cursor: "pointer",
+  fontSize: 13,
+  padding: 0,
+  textDecoration: "underline",
 } as const;
