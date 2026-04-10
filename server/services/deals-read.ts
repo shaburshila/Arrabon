@@ -3,7 +3,7 @@ import "server-only";
 import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
-import { DISPUTE_WINDOW_MS } from "@/lib/constants/deals";
+import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
 import type { DealStatus } from "@/lib/db/types";
 import type { DealRouteParams } from "@/lib/validators/deals";
 import { decryptMeetingUrl } from "@/lib/crypto/meeting-url";
@@ -65,7 +65,7 @@ function computeReleaseDeadline(completedAt: string | null): string | null {
     );
   }
 
-  return new Date(completedAtMs + DISPUTE_WINDOW_MS).toISOString();
+  return new Date(computeReleaseDeadlineMs(completedAtMs)).toISOString();
 }
 
 function isSameWallet(left: string, right: string): boolean {

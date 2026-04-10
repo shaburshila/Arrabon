@@ -34,6 +34,8 @@
 - Identity invariant for `consultation_links`: `users.wallet` must match `consultation_links.expert_address` for the owning creator record
 - Approved Sprint 2 Phase 2 funding ABI excludes `fee_snapshot`; backend prepares no fee-provider input, and fee behavior is treated as autonomous contract logic for the current integration boundary
 - Meeting URL reveal uses fail-closed audit logging. If audit-log write fails, the reveal endpoint must not return `meeting_url`. This intentionally couples reveal availability to audit-log availability and is accepted as an MVP operational trade-off.
+- If a confirmed `Funded` event arrives after the offchain link has already become effectively terminal (`Cancelled` or time-expired `Open`), backend still persists the confirmed deal because chain remains source of truth for deal state. In that convergence path backend does not force the link record into `Consumed`; this is an intentional MVP deviation from the simpler `funded => Consumed` summary rule.
+- Meeting URL reveal remains unavailable for `Refunded` deals even to participants. This behavior is frozen by `auth-model.md` and `flows.md`; any broader wording elsewhere must not be interpreted as allowing reveal after refund.
 
 ---
 

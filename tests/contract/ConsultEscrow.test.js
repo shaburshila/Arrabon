@@ -82,6 +82,17 @@ describe("ConsultEscrow", function () {
     return { tx, threshold };
   }
 
+  describe("constructor", function () {
+    it("requires at least one admin", async function () {
+      const [, , , treasury] = await ethers.getSigners();
+      const token = await ethers.deployContract("MockUSDC");
+
+      await expect(
+        ethers.deployContract("ConsultEscrow", [token.target, treasury.address, []])
+      ).to.be.revertedWith("Need at least one admin");
+    });
+  });
+
   describe("funding", function () {
     it("valid funding succeeds", async function () {
       const { seller, buyer, token, escrow } = await deployFixture();

@@ -67,6 +67,7 @@ contract ConsultEscrow is ReentrancyGuard {
         if (usdcAddress == address(0) || treasuryAddress == address(0)) {
             revert InvalidAddress();
         }
+        require(initialAdmins.length > 0, "Need at least one admin");
 
         usdc = IERC20(usdcAddress);
         treasury = treasuryAddress;

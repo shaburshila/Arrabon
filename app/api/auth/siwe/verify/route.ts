@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveExpectedAuthDomain } from "@/lib/auth/config";
 import { setSessionCookie } from "@/lib/auth/cookies";
 import { createAuthSession, isAdminWallet } from "@/lib/auth/session";
 import { verifySiweMessage } from "@/lib/auth/siwe";
@@ -9,10 +10,6 @@ export const runtime = "nodejs";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message, ok: false }, { status });
-}
-
-function resolveExpectedDomain(request: Request) {
-  return (process.env.AUTH_DOMAIN?.trim() || new URL(request.url).host).toLowerCase();
 }
 
 export async function POST(request: Request) {
@@ -39,7 +36,7 @@ export async function POST(request: Request) {
 
   try {
     const verifiedMessage = await verifySiweMessage({
-      expectedDomain: resolveExpectedDomain(request),
+      expectedDomain: resolveExpectedAuthDomain(request),
       message: messageValue,
       signature: signatureValue,
     });

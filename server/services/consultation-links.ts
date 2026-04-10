@@ -3,6 +3,7 @@ import "server-only";
 import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
+import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import type { ConsultationLinkRow, ConsultationLinkStatus } from "@/lib/db/types";
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
 import { assertLinkHash, generateLinkHash } from "@/lib/crypto/link-hash";
@@ -68,11 +69,7 @@ function resolvePublicStatus(
   row: ConsultationLinkRow,
   now: Date,
 ): ConsultationLinkStatus {
-  if (row.status === "Open" && new Date(row.expires_at).getTime() < now.getTime()) {
-    return "Expired";
-  }
-
-  return row.status;
+  return resolveEffectiveConsultationLinkStatus(row, now);
 }
 
 function isSameWallet(left: string, right: string): boolean {

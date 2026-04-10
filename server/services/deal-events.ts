@@ -82,6 +82,13 @@ async function appendFundingSyncAuditLog(input: {
   }
 }
 
+function createAlreadyProcessedResult(txHash: string): DealEventProcessingResult {
+  return {
+    result: "already_processed",
+    txHash,
+  };
+}
+
 async function appendLifecycleSyncAuditLog(input: {
   action: "deal_event_completed_synced" | "deal_event_disputed_synced" | "deal_event_refunded_synced" | "deal_event_released_synced";
   dealId: string;
@@ -128,10 +135,7 @@ export async function processConfirmedFundedEvent(
   const existingMarker = await getByTxHash(event.txHash);
 
   if (existingMarker) {
-    return {
-      result: "already_processed",
-      txHash: event.txHash,
-    };
+    return createAlreadyProcessedResult(event.txHash);
   }
 
   const consultationLink = await getByLinkHash(event.linkHash);
@@ -158,17 +162,20 @@ export async function processConfirmedFundedEvent(
     txHash: event.txHash,
   });
 
+  const marker = await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  if (marker.duplicate) {
+    return createAlreadyProcessedResult(event.txHash);
+  }
+
   await appendFundingSyncAuditLog({
     consultationLinkId: consultationLink.id,
     dealId: deal.id,
     event,
-  });
-
-  // The processed marker is written last so retries can safely replay partial convergence.
-  await insertProcessedTransaction({
-    dealId: deal.id,
-    eventType: event.eventType,
-    txHash: event.txHash,
   });
 
   return {
@@ -184,10 +191,7 @@ export async function processConfirmedCompletedEvent(
   const existingMarker = await getByTxHash(event.txHash);
 
   if (existingMarker) {
-    return {
-      result: "already_processed",
-      txHash: event.txHash,
-    };
+    return createAlreadyProcessedResult(event.txHash);
   }
 
   const deal = await setConfirmPendingByOnchainDealId(
@@ -195,16 +199,20 @@ export async function processConfirmedCompletedEvent(
     event.completedAt,
   );
 
+  const marker = await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  if (marker.duplicate) {
+    return createAlreadyProcessedResult(event.txHash);
+  }
+
   await appendLifecycleSyncAuditLog({
     action: "deal_event_completed_synced",
     dealId: deal.id,
     event,
-  });
-
-  await insertProcessedTransaction({
-    dealId: deal.id,
-    eventType: event.eventType,
-    txHash: event.txHash,
   });
 
   return {
@@ -220,10 +228,7 @@ export async function processConfirmedReleasedEvent(
   const existingMarker = await getByTxHash(event.txHash);
 
   if (existingMarker) {
-    return {
-      result: "already_processed",
-      txHash: event.txHash,
-    };
+    return createAlreadyProcessedResult(event.txHash);
   }
 
   const deal = await setReleasedByOnchainDealId(
@@ -231,16 +236,20 @@ export async function processConfirmedReleasedEvent(
     event.releasedAt,
   );
 
+  const marker = await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  if (marker.duplicate) {
+    return createAlreadyProcessedResult(event.txHash);
+  }
+
   await appendLifecycleSyncAuditLog({
     action: "deal_event_released_synced",
     dealId: deal.id,
     event,
-  });
-
-  await insertProcessedTransaction({
-    dealId: deal.id,
-    eventType: event.eventType,
-    txHash: event.txHash,
   });
 
   return {
@@ -256,24 +265,25 @@ export async function processConfirmedDisputedEvent(
   const existingMarker = await getByTxHash(event.txHash);
 
   if (existingMarker) {
-    return {
-      result: "already_processed",
-      txHash: event.txHash,
-    };
+    return createAlreadyProcessedResult(event.txHash);
   }
 
   const deal = await setDisputedByOnchainDealId(event.onchainDealId);
+
+  const marker = await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  if (marker.duplicate) {
+    return createAlreadyProcessedResult(event.txHash);
+  }
 
   await appendLifecycleSyncAuditLog({
     action: "deal_event_disputed_synced",
     dealId: deal.id,
     event,
-  });
-
-  await insertProcessedTransaction({
-    dealId: deal.id,
-    eventType: event.eventType,
-    txHash: event.txHash,
   });
 
   return {
@@ -289,24 +299,25 @@ export async function processConfirmedRefundedEvent(
   const existingMarker = await getByTxHash(event.txHash);
 
   if (existingMarker) {
-    return {
-      result: "already_processed",
-      txHash: event.txHash,
-    };
+    return createAlreadyProcessedResult(event.txHash);
   }
 
   const deal = await setRefundedByOnchainDealId(event.onchainDealId);
+
+  const marker = await insertProcessedTransaction({
+    dealId: deal.id,
+    eventType: event.eventType,
+    txHash: event.txHash,
+  });
+
+  if (marker.duplicate) {
+    return createAlreadyProcessedResult(event.txHash);
+  }
 
   await appendLifecycleSyncAuditLog({
     action: "deal_event_refunded_synced",
     dealId: deal.id,
     event,
-  });
-
-  await insertProcessedTransaction({
-    dealId: deal.id,
-    eventType: event.eventType,
-    txHash: event.txHash,
   });
 
   return {

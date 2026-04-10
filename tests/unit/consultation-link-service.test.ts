@@ -159,6 +159,21 @@ describe('Expired link', () => {
       },
     );
   });
+
+  test('throws 410 LINK_EXPIRED when now equals expires_at exactly', async () => {
+    const expiresAt = new Date().toISOString();
+    mocks.getById = async () => makeLink({ status: 'Open', expires_at: expiresAt });
+
+    await assert.rejects(
+      () => getPublicConsultationLinkById('link-uuid-001', new Date(expiresAt)),
+      (err: unknown) => {
+        assert.ok(err instanceof ConsultationLinkServiceError);
+        assert.equal(err.status, 410);
+        assert.equal(err.code, 'LINK_EXPIRED');
+        return true;
+      },
+    );
+  });
 });
 
 // ── Cancelled link ────────────────────────────────────────────────────────────

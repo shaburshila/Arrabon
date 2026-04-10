@@ -1,5 +1,6 @@
 import "server-only";
 
+import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import {
   DealsRepositoryError,
   getByConsultationLinkId,
@@ -27,6 +28,7 @@ function isMatchingConfirmedDeal(
 
 export async function handleFundedEvent(
   input: InsertConfirmedDealInput,
+  now: Date = new Date(),
 ) {
   const consultationLink = await getById(input.consultationLinkId);
 
@@ -36,9 +38,10 @@ export async function handleFundedEvent(
     );
   }
 
+  const effectiveStatus = resolveEffectiveConsultationLinkStatus(consultationLink, now);
   const shouldSkipConsumedTransition =
-    consultationLink.status === "Cancelled" ||
-    consultationLink.status === "Expired";
+    effectiveStatus === "Cancelled" ||
+    effectiveStatus === "Expired";
 
   const existingDealByLink = await getByConsultationLinkId(input.consultationLinkId);
 

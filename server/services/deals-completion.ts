@@ -11,7 +11,7 @@ import {
   prepareOpenDisputeCall,
   type PreparedDealLifecycleCall,
 } from "@/lib/base/consult-escrow";
-import { DISPUTE_WINDOW_MS } from "@/lib/constants/deals";
+import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
 import {
   DealsRepositoryError,
   getDealActionContextById,
@@ -77,7 +77,7 @@ function computeReleaseDeadline(completedAt: string | null): Date {
     );
   }
 
-  return new Date(completedAtMs + DISPUTE_WINDOW_MS);
+  return new Date(computeReleaseDeadlineMs(completedAtMs));
 }
 
 function isEconnresetLike(error: unknown): error is Error & { code?: string } {
