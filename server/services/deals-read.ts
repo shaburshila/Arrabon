@@ -26,6 +26,7 @@ export interface DealReadModel {
   completed_at: string | null;
   consultation_link_id: string;
   id: string;
+  mark_completed_after: string;
   onchain_deal_id: string;
   release_deadline_at: string | null;
   scheduled_at: string;
@@ -66,6 +67,29 @@ function computeReleaseDeadline(completedAt: string | null): string | null {
   }
 
   return new Date(computeReleaseDeadlineMs(completedAtMs)).toISOString();
+}
+
+function computeMarkCompletedAfter(
+  scheduledAt: string,
+  durationMinutes: number,
+  gracePeriodMinutes: number,
+): string {
+  const scheduledAtMs = new Date(scheduledAt).getTime();
+
+  if (Number.isNaN(scheduledAtMs)) {
+    throw new DealReadServiceError(
+      "Deal scheduled timestamp is invalid.",
+      500,
+      "DEAL_INTEGRITY_ERROR",
+    );
+  }
+
+  const ms =
+    scheduledAtMs +
+    durationMinutes * 60 * 1000 +
+    gracePeriodMinutes * 60 * 1000;
+
+  return new Date(ms).toISOString();
 }
 
 function isSameWallet(left: string, right: string): boolean {
@@ -181,6 +205,11 @@ export async function getDealReadModel(
     completed_at: deal.completed_at,
     consultation_link_id: deal.consultation_link_id,
     id: deal.id,
+    mark_completed_after: computeMarkCompletedAfter(
+      deal.scheduled_at,
+      deal.duration_minutes,
+      deal.grace_period_minutes,
+    ),
     onchain_deal_id: deal.onchain_deal_id,
     release_deadline_at: computeReleaseDeadline(deal.completed_at),
     scheduled_at: deal.scheduled_at,

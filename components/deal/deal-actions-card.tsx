@@ -14,6 +14,7 @@ interface DealActionsCardProps {
   dealStatus: DealStatus;
   isSeller: boolean;
   isBuyer: boolean;
+  markCompletedAfter: string;
   session: WalletSessionState;
   complete: DealAction;
   release: DealAction;
@@ -27,6 +28,7 @@ export function DealActionsCard({
   dispute,
   isBuyer,
   isSeller,
+  markCompletedAfter,
   release,
   session,
 }: DealActionsCardProps & { buyerDisputable: boolean }) {
@@ -103,7 +105,7 @@ export function DealActionsCard({
           {showComplete && (
             <ActionGroup
               action={complete}
-              description="Mark the consultation as completed. Only available after the scheduled slot + grace period."
+              description={getCompleteDescription(markCompletedAfter)}
               label="Mark completed"
               variant="primary"
             />
@@ -142,6 +144,30 @@ const errorStyle = {
   fontSize: 13,
   padding: "10px 14px",
 } as const;
+
+function formatLocalDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      month: "short",
+      timeZoneName: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function getCompleteDescription(markCompletedAfter: string): string {
+  const markCompletedAfterMs = new Date(markCompletedAfter).getTime();
+
+  if (!Number.isNaN(markCompletedAfterMs) && Date.now() < markCompletedAfterMs) {
+    return `Available after ${formatLocalDateTime(markCompletedAfter)} (after slot + grace period).`;
+  }
+
+  return "Mark the consultation as completed. Only available after the scheduled slot + grace period.";
+}
 
 function ActionGroup({
   action,

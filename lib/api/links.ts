@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/auth";
+import type { Hex } from "viem";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => null);
@@ -151,11 +152,11 @@ export async function prepareFunding(linkId: string): Promise<FundingPrepareResu
 // POST /api/links/:id/funding/sync — requires SIWE session
 export async function triggerFundingSync(
   linkId: string,
-  fromBlock?: bigint,
+  txHash?: Hex,
 ): Promise<FundingSyncResult> {
   const res = await fetch(`/api/links/${encodeURIComponent(linkId)}/funding/sync`, {
     body: JSON.stringify(
-      fromBlock !== undefined ? { from_block: fromBlock.toString(10) } : {},
+      txHash !== undefined ? { tx_hash: txHash } : {},
     ),
     headers: { "Content-Type": "application/json" },
     method: "POST",

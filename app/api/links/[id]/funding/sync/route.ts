@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Hex } from "viem";
 
 import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
@@ -11,6 +12,7 @@ import {
 } from "@/server/workers/deal-events-error-classification";
 import {
   runDealEventsWorker,
+  runDealEventsWorkerForTransaction,
   serializeDealEventsWorkerRunSummary,
   type SerializedDealEventsWorkerRunSummary,
 } from "@/server/workers/deal-events";
@@ -44,16 +46,40 @@ function jsonError(
   );
 }
 
-async function readFromBlockOverride(request: Request): Promise<bigint | undefined> {
+interface SyncRequestOverrides {
+  fromBlock?: bigint;
+  txHash?: Hex;
+}
+
+function isTransactionHash(value: string): value is Hex {
+  return /^0x[0-9a-fA-F]{64}$/.test(value);
+}
+
+async function readSyncRequestOverrides(request: Request): Promise<SyncRequestOverrides> {
   const body = await request.json().catch(() => ({}));
 
+  if (typeof body !== "object" || body === null) {
+    return {};
+  }
+
+  if ("tx_hash" in body && body.tx_hash !== undefined) {
+    if (typeof body.tx_hash !== "string" || !isTransactionHash(body.tx_hash)) {
+      throw new FundingValidationError([
+        {
+          field: "tx_hash",
+          message: "tx_hash must be a 32-byte hex transaction hash.",
+        },
+      ]);
+    }
+
+    return { txHash: body.tx_hash };
+  }
+
   if (
-    typeof body !== "object" ||
-    body === null ||
     !("from_block" in body) ||
     body.from_block === undefined
   ) {
-    return undefined;
+    return {};
   }
 
   if (typeof body.from_block !== "string" || body.from_block.trim().length === 0) {
@@ -72,7 +98,7 @@ async function readFromBlockOverride(request: Request): Promise<bigint | undefin
       throw new Error("negative");
     }
 
-    return fromBlock;
+    return { fromBlock };
   } catch {
     throw new FundingValidationError([
       {
@@ -90,9 +116,11 @@ export async function POST(
   try {
     await requireUser();
     parsePrepareFundingParams(await params);
-    const fromBlock = await readFromBlockOverride(request);
+    const { fromBlock, txHash } = await readSyncRequestOverrides(request);
 
-    const summary = await runDealEventsWorker(fromBlock);
+    const summary = txHash
+      ? await runDealEventsWorkerForTransaction(txHash)
+      : await runDealEventsWorker(fromBlock);
 
     return NextResponse.json({
       ok: true,
@@ -109,9 +137,11 @@ export async function POST(
     }
 
     if (error instanceof FundingValidationError) {
-      const code = error.issues.some((issue) => issue.field === "from_block")
-        ? "INVALID_FROM_BLOCK"
-        : "INVALID_LINK_ID";
+      const code = error.issues.some((issue) => issue.field === "tx_hash")
+        ? "INVALID_TX_HASH"
+        : error.issues.some((issue) => issue.field === "from_block")
+          ? "INVALID_FROM_BLOCK"
+          : "INVALID_LINK_ID";
 
       return jsonError(error.message, 400, {
         code,

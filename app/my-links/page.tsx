@@ -158,7 +158,7 @@ function LinkCard({ link }: { link: MyLink }) {
           </>
         )}
         {link.status === "Consumed" && link.share_url && (
-          <Link href={link.share_url.replace("/link/", "/deal/") + ""} style={linkStyle}>
+          <Link href={link.share_url} style={linkStyle}>
             View deal
           </Link>
         )}

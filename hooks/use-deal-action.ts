@@ -13,6 +13,7 @@ import {
   prepareDispute,
   prepareRelease,
 } from "@/lib/api/deals";
+import { triggerFundingSync } from "@/lib/api/links";
 import { ApiError } from "@/lib/api/auth";
 import { executeLifecycleCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 
@@ -38,6 +39,7 @@ export interface DealAction {
 
 function useSingleAction(
   dealId: string,
+  consultationLinkId: string,
   prepareFn: (id: string) => Promise<{ contract_call: import("@/lib/api/deals").LifecycleContractCall; deal_id: string }>,
   onSuccess: () => Promise<void>,
 ): DealAction {
@@ -68,6 +70,16 @@ function useSingleAction(
       await waitForTx(config, hash);
       set({ step: "succeeded" });
 
+      if (consultationLinkId) {
+        await triggerFundingSync(consultationLinkId, hash).catch((error) => {
+          console.warn("Lifecycle sync trigger failed after confirmed tx.", {
+            dealId,
+            error,
+            txHash: hash,
+          });
+        });
+      }
+
       // Refetch deal state from backend — no optimistic mutation
       await onSuccess();
     } catch (err) {
@@ -79,7 +91,7 @@ function useSingleAction(
             : "Action failed.";
       set({ error: message, step: "failed" });
     }
-  }, [config, dealId, onSuccess, prepareFn, state.step, set]);
+  }, [config, consultationLinkId, dealId, onSuccess, prepareFn, state.step, set]);
 
   const reset = useCallback(() => {
     setState({ error: null, step: "idle", txHash: null });
@@ -90,10 +102,14 @@ function useSingleAction(
 
 // Returns three separate action hooks for complete, release, dispute.
 // Each has independent state — only one should be in flight at a time per UI gating.
-export function useDealActions(dealId: string, refetchDeal: () => Promise<void>) {
-  const complete = useSingleAction(dealId, prepareComplete, refetchDeal);
-  const release = useSingleAction(dealId, prepareRelease, refetchDeal);
-  const dispute = useSingleAction(dealId, prepareDispute, refetchDeal);
+export function useDealActions(
+  dealId: string,
+  consultationLinkId: string,
+  refetchDeal: () => Promise<void>,
+) {
+  const complete = useSingleAction(dealId, consultationLinkId, prepareComplete, refetchDeal);
+  const release = useSingleAction(dealId, consultationLinkId, prepareRelease, refetchDeal);
+  const dispute = useSingleAction(dealId, consultationLinkId, prepareDispute, refetchDeal);
 
   return { complete, dispute, release };
 }

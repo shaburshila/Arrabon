@@ -4,7 +4,7 @@
 // Polls GET /api/links/:id after funding until deal_id appears.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAddress } from "viem";
+import { getAddress, type Hex } from "viem";
 
 import {
   fetchLink,
@@ -36,7 +36,7 @@ export interface LinkPageState {
     onDealId: (dealId: string) => void,
     onTimeout?: () => void,
     onSyncStatus?: (result: FundingSyncResult) => void,
-    fromBlock?: bigint,
+    txHash?: Hex,
   ) => void;
   stopPolling: () => void;
 }
@@ -98,7 +98,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
       onDealId: (dealId: string) => void,
       onTimeout?: () => void,
       onSyncStatus?: (result: FundingSyncResult) => void,
-      fromBlock?: bigint,
+      txHash?: Hex,
     ) => {
       stopPolling();
       setDealIdPollingTimedOut(false);
@@ -114,7 +114,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
           return;
         }
         try {
-          const syncResult = await triggerFundingSync(linkId, fromBlock);
+          const syncResult = await triggerFundingSync(linkId, txHash);
           onSyncStatus?.(syncResult);
 
           if (!syncResult.ok && syncResult.status === "fatal") {

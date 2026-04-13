@@ -26,7 +26,11 @@ export default function DealPage() {
 
   const session = useWalletSession();
   const dealPage = useDealPage(dealId, session.address);
-  const actions = useDealActions(dealId, dealPage.refetch);
+  const actions = useDealActions(
+    dealId,
+    dealPage.deal?.consultation_link_id ?? "",
+    dealPage.refetch,
+  );
 
   return (
     <main style={mainStyle}>
@@ -91,6 +95,7 @@ export default function DealPage() {
               dispute={actions.dispute}
               isBuyer={dealPage.isBuyer}
               isSeller={dealPage.isSeller}
+              markCompletedAfter={dealPage.deal.mark_completed_after}
               release={actions.release}
               session={session}
             />

@@ -38,14 +38,14 @@ export default function LinkPage() {
   );
 
   const handleRetryPolling = useCallback(() => {
-    const txBlockNumber = funding.state.txBlockNumber ?? undefined;
+    const txHash = funding.state.txHash ?? undefined;
 
     funding.reset();
     linkPage.startDealIdPolling(
       handleDealIndexed,
       funding.handlePollingTimeout,
       funding.handleSyncStatus,
-      txBlockNumber,
+      txHash,
     );
   }, [funding, handleDealIndexed, linkPage]);
 

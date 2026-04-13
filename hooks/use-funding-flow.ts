@@ -32,7 +32,6 @@ export type FundingStep =
 export interface FundingState {
   error: string | null;
   step: FundingStep;
-  txBlockNumber: bigint | null;
   txHash: Hex | null;
 }
 
@@ -51,7 +50,7 @@ export function useFundingFlow(
     onDealId: (dealId: string) => void,
     onTimeout?: () => void,
     onSyncStatus?: (result: FundingSyncResult) => void,
-    fromBlock?: bigint,
+    txHash?: Hex,
   ) => void,
 ): FundingFlow {
   const config = useConfig();
@@ -59,7 +58,6 @@ export function useFundingFlow(
   const [state, setState] = useState<FundingState>({
     error: null,
     step: "idle",
-    txBlockNumber: null,
     txHash: null,
   });
 
@@ -98,9 +96,9 @@ export function useFundingFlow(
     return false;
   }, [set]);
 
-  const runSyncTrigger = useCallback(async (fromBlock?: bigint): Promise<boolean> => {
+  const runSyncTrigger = useCallback(async (txHash?: Hex): Promise<boolean> => {
     try {
-      const result = await triggerFundingSync(linkId, fromBlock);
+      const result = await triggerFundingSync(linkId, txHash);
 
       return handleSyncStatus(result);
     } catch (err) {
@@ -123,7 +121,7 @@ export function useFundingFlow(
   const execute = useCallback(async () => {
     if (state.step !== "idle" && state.step !== "failed") return;
 
-    set({ error: null, step: "preparing", txBlockNumber: null, txHash: null });
+    set({ error: null, step: "preparing", txHash: null });
 
     try {
       // 1. Backend prepare — source of truth for all contract args
@@ -146,11 +144,11 @@ export function useFundingFlow(
       set({ step: "fund_pending", txHash: fundHash });
 
       // 4. Wait for on-chain confirmation
-      const txBlockNumber = await waitForTx(config, fundHash);
+      await waitForTx(config, fundHash);
 
       // 5. Trigger sync once immediately, then poll + re-trigger until deal_id appears
-      set({ step: "indexing", txBlockNumber });
-      const canContinueIndexing = await runSyncTrigger(txBlockNumber);
+      set({ step: "indexing" });
+      const canContinueIndexing = await runSyncTrigger(fundHash);
 
       if (!canContinueIndexing) {
         return;
@@ -159,7 +157,7 @@ export function useFundingFlow(
       startPolling((dealId) => {
         set({ error: null, step: "succeeded" });
         onDealIndexed(dealId);
-      }, handlePollingTimeout, handleSyncStatus, txBlockNumber);
+      }, handlePollingTimeout, handleSyncStatus, fundHash);
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -182,7 +180,7 @@ export function useFundingFlow(
   ]);
 
   const reset = useCallback(() => {
-    setState({ error: null, step: "idle", txBlockNumber: null, txHash: null });
+    setState({ error: null, step: "idle", txHash: null });
   }, []);
 
   return { execute, handlePollingTimeout, handleSyncStatus, reset, state };
