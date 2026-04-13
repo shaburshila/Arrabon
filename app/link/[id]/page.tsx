@@ -38,8 +38,15 @@ export default function LinkPage() {
   );
 
   const handleRetryPolling = useCallback(() => {
+    const txBlockNumber = funding.state.txBlockNumber ?? undefined;
+
     funding.reset();
-    linkPage.startDealIdPolling(handleDealIndexed, funding.handlePollingTimeout);
+    linkPage.startDealIdPolling(
+      handleDealIndexed,
+      funding.handlePollingTimeout,
+      funding.handleSyncStatus,
+      txBlockNumber,
+    );
   }, [funding, handleDealIndexed, linkPage]);
 
   // If link is already consumed + deal_id exists → redirect immediately
@@ -108,7 +115,7 @@ export default function LinkPage() {
                   step={funding.state.step}
                   txHash={funding.state.txHash}
                 />
-                {linkPage.dealIdPollingTimedOut && (
+                {(linkPage.dealIdPollingTimedOut || funding.state.step === "indexing_failed") && (
                   <div style={timeoutCardStyle}>
                     <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>
                       Deal creation is taking longer than expected. Retry polling or refresh this page.

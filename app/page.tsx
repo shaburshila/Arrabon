@@ -6,6 +6,8 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
 import { ApiError } from "@/lib/api/auth";
@@ -57,8 +59,8 @@ export default function HomePage() {
 
     try {
       const scheduledAt = new Date(form.scheduled_at);
-      // expires_at = scheduled_at - 30 minutes (always satisfies ≥ 15min invariant)
-      const expiresAt = new Date(scheduledAt.getTime() - 30 * 60 * 1000);
+      // expires_at = scheduled_at - 5 minutes
+      const expiresAt = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
 
       const input: CreateLinkInput = {
         description: form.description,
@@ -97,7 +99,12 @@ export default function HomePage() {
       <div style={pageStyle}>
         {/* Header */}
         <div style={headerStyle}>
-          <span style={logoStyle}>Base Consult Link</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={logoStyle}>Base Consult Link</span>
+            <Link href="/my-links" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 500 }}>
+              My links →
+            </Link>
+          </div>
           <h1 style={h1Style}>Create consultation link</h1>
           <p style={subtitleStyle}>
             Set up a single-use consultation slot. Your client pays USDC into escrow when they book.
@@ -252,7 +259,7 @@ export default function HomePage() {
             />
 
             <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>
-              Expires 30 minutes before the scheduled time. Link is single-use.
+              Expires 5 minutes before the scheduled time. Link is single-use.
             </p>
 
             {error && (
@@ -395,7 +402,6 @@ const logoStyle = {
   fontSize: 12,
   fontWeight: 700,
   letterSpacing: "0.1em",
-  marginBottom: 8,
   textTransform: "uppercase" as const,
 };
 

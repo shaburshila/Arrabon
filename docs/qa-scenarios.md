@@ -61,9 +61,9 @@
 
 ### QA-009 Минимальный разрыв expires_at / scheduled_at
 **[API]**
-- Given: scheduled_at - expires_at < 15 мин
+- Given: scheduled_at - expires_at < 5 мин
 - When: попытка создать ссылку
-- Then: validation error "минимум 15 минут до scheduled_at"
+- Then: validation error "минимум 5 минут до scheduled_at"
 
 ### QA-010 scheduled_at в прошлом
 **[API] [UI]**

@@ -29,7 +29,7 @@ export interface CreateConsultationLinkInput {
 
 const MIN_PRICE_USDC = 10;
 const MAX_PRICE_USDC = 1000;
-const MIN_LEAD_TIME_MS = 15 * 60 * 1000;
+const MIN_LEAD_TIME_MS = 5 * 60 * 1000;
 const DECIMAL_PRICE_PATTERN = /^(0|[1-9]\d*)(\.\d{1,6})?$/;
 const ISO_UTC_OR_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/;
 
@@ -212,6 +212,13 @@ export function parseCreateConsultationLinkInput(
     });
   }
 
+  if (expiresAt && expiresAt.getTime() <= now.getTime()) {
+    issues.push({
+      field: "expires_at",
+      message: "Must be later than the current time.",
+    });
+  }
+
   if (scheduledAt && expiresAt && expiresAt.getTime() >= scheduledAt.getTime()) {
     issues.push({
       field: "expires_at",
@@ -226,7 +233,7 @@ export function parseCreateConsultationLinkInput(
   ) {
     issues.push({
       field: "expires_at",
-      message: "Must be at least 15 minutes earlier than scheduled_at.",
+      message: "Must be at least 5 minutes earlier than scheduled_at.",
     });
   }
 

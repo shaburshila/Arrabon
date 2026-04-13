@@ -21,7 +21,10 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
   const { execute, reset, state: fundingState } = funding;
 
   const isFunding =
-    fundingState.step !== "idle" && fundingState.step !== "failed" && fundingState.step !== "succeeded";
+    fundingState.step !== "idle" &&
+    fundingState.step !== "failed" &&
+    fundingState.step !== "indexing_failed" &&
+    fundingState.step !== "succeeded";
 
   // Seller sees their own link — no fund CTA
   if (role === "seller") {

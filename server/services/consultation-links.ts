@@ -12,6 +12,7 @@ import {
   ConsultationLinksRepositoryError,
   createLink,
   getById,
+  getByCreatorUserId,
   updateStatus,
 } from "@/server/repositories/consultation-links";
 import {
@@ -114,6 +115,39 @@ function createUnavailableLinkError(statusValue: PublicUnavailableStatus): Consu
     case "Cancelled":
       return new ConsultationLinkServiceError("Link has been cancelled.", 410, "LINK_CANCELLED", statusValue);
   }
+}
+
+export interface MyLinkResult {
+  description: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  price_usdc: string;
+  scheduled_at: string;
+  share_url: string;
+  status: ConsultationLinkStatus;
+  timezone: string;
+  title: string;
+}
+
+export async function listMyConsultationLinks(
+  currentUser: CurrentUserContext,
+  now: Date = new Date(),
+): Promise<MyLinkResult[]> {
+  const rows = await getByCreatorUserId(currentUser.id);
+
+  return rows.map((row) => ({
+    description: row.description,
+    duration_minutes: row.duration_minutes,
+    expires_at: row.expires_at,
+    id: row.id,
+    price_usdc: String(row.price_usdc),
+    scheduled_at: row.scheduled_at,
+    share_url: `/link/${row.id}`,
+    status: resolveEffectiveConsultationLinkStatus(row, now),
+    timezone: row.timezone,
+    title: row.title,
+  }));
 }
 
 export async function createConsultationLink(

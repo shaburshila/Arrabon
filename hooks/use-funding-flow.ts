@@ -8,7 +8,11 @@ import { useCallback, useState } from "react";
 import { useConfig } from "wagmi";
 import { getAddress, type Address, type Hex } from "viem";
 
-import { prepareFunding } from "@/lib/api/links";
+import {
+  prepareFunding,
+  triggerFundingSync,
+  type FundingSyncResult,
+} from "@/lib/api/links";
 import { ApiError } from "@/lib/api/auth";
 import { ensureUsdcAllowance } from "@/lib/contract/usdc";
 import { executeFundingCall, waitForTx } from "@/lib/contract/execute-prepared-call";
@@ -21,18 +25,21 @@ export type FundingStep =
   | "fund_signature"      // waiting for createAndFundDeal signature
   | "idle"
   | "indexing"            // waiting for backend to index the deal
+  | "indexing_failed"     // tx confirmed, backend indexing did not converge
   | "preparing"           // calling backend prepare
   | "succeeded";
 
 export interface FundingState {
   error: string | null;
   step: FundingStep;
+  txBlockNumber: bigint | null;
   txHash: Hex | null;
 }
 
 export interface FundingFlow {
   execute: () => Promise<void>;
   handlePollingTimeout: () => void;
+  handleSyncStatus: (result: FundingSyncResult) => boolean;
   reset: () => void;
   state: FundingState;
 }
@@ -43,6 +50,8 @@ export function useFundingFlow(
   startPolling: (
     onDealId: (dealId: string) => void,
     onTimeout?: () => void,
+    onSyncStatus?: (result: FundingSyncResult) => void,
+    fromBlock?: bigint,
   ) => void,
 ): FundingFlow {
   const config = useConfig();
@@ -50,6 +59,7 @@ export function useFundingFlow(
   const [state, setState] = useState<FundingState>({
     error: null,
     step: "idle",
+    txBlockNumber: null,
     txHash: null,
   });
 
@@ -59,16 +69,61 @@ export function useFundingFlow(
 
   const handlePollingTimeout = useCallback(() => {
     set({
-      error: "We couldn't confirm your deal yet. Please retry or refresh this page.",
-      step: "failed",
-      txHash: null,
+      error: "Your payment is confirmed onchain, but we couldn't index the deal yet. Please retry the check or refresh this page.",
+      step: "indexing_failed",
     });
   }, [set]);
+
+  const handleSyncStatus = useCallback((result: FundingSyncResult): boolean => {
+    if (result.ok) {
+      set({ error: null, step: "indexing" });
+
+      return true;
+    }
+
+    if (result.status === "retryable") {
+      set({
+        error: "Your payment is confirmed onchain. Deal indexing is delayed, so we'll keep checking.",
+        step: "indexing",
+      });
+
+      return true;
+    }
+
+    set({
+      error: "Your payment is confirmed onchain, but backend indexing is currently unavailable. Please do not retry payment; retry the check or refresh later.",
+      step: "indexing_failed",
+    });
+
+    return false;
+  }, [set]);
+
+  const runSyncTrigger = useCallback(async (fromBlock?: bigint): Promise<boolean> => {
+    try {
+      const result = await triggerFundingSync(linkId, fromBlock);
+
+      return handleSyncStatus(result);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Backend indexing check failed.";
+
+      return handleSyncStatus({
+        code: "SYNC_TRIGGER_REQUEST_FAILED",
+        error: message,
+        ok: false,
+        status: "retryable",
+      });
+    }
+  }, [handleSyncStatus, linkId]);
 
   const execute = useCallback(async () => {
     if (state.step !== "idle" && state.step !== "failed") return;
 
-    set({ error: null, step: "preparing", txHash: null });
+    set({ error: null, step: "preparing", txBlockNumber: null, txHash: null });
 
     try {
       // 1. Backend prepare — source of truth for all contract args
@@ -91,14 +146,20 @@ export function useFundingFlow(
       set({ step: "fund_pending", txHash: fundHash });
 
       // 4. Wait for on-chain confirmation
-      await waitForTx(config, fundHash);
+      const txBlockNumber = await waitForTx(config, fundHash);
 
-      // 5. Poll backend until deal_id appears
-      set({ step: "indexing" });
+      // 5. Trigger sync once immediately, then poll + re-trigger until deal_id appears
+      set({ step: "indexing", txBlockNumber });
+      const canContinueIndexing = await runSyncTrigger(txBlockNumber);
+
+      if (!canContinueIndexing) {
+        return;
+      }
+
       startPolling((dealId) => {
-        set({ step: "succeeded" });
+        set({ error: null, step: "succeeded" });
         onDealIndexed(dealId);
-      }, handlePollingTimeout);
+      }, handlePollingTimeout, handleSyncStatus, txBlockNumber);
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -108,11 +169,21 @@ export function useFundingFlow(
             : "Funding failed.";
       set({ error: message, step: "failed" });
     }
-  }, [config, linkId, onDealIndexed, startPolling, state.step, set]);
+  }, [
+    config,
+    handlePollingTimeout,
+    handleSyncStatus,
+    linkId,
+    onDealIndexed,
+    runSyncTrigger,
+    startPolling,
+    state.step,
+    set,
+  ]);
 
   const reset = useCallback(() => {
-    setState({ error: null, step: "idle", txHash: null });
+    setState({ error: null, step: "idle", txBlockNumber: null, txHash: null });
   }, []);
 
-  return { execute, handlePollingTimeout, reset, state };
+  return { execute, handlePollingTimeout, handleSyncStatus, reset, state };
 }

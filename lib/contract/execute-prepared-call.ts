@@ -94,6 +94,8 @@ export async function executeLifecycleCall(
 }
 
 // Wait for a transaction to be confirmed on chain.
-export async function waitForTx(config: Config, hash: Hex): Promise<void> {
-  await waitForTransactionReceipt(config, { hash });
+export async function waitForTx(config: Config, hash: Hex): Promise<bigint> {
+  const receipt = await waitForTransactionReceipt(config, { hash });
+
+  return receipt.blockNumber;
 }

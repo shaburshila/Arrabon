@@ -163,7 +163,7 @@ Validation:
 
 - `scheduled_at > now`
 - `expires_at < scheduled_at`
-- `scheduled_at - expires_at >= 15 minutes`
+- `scheduled_at - expires_at >= 5 minutes`
 - `10 <= price_usdc <= 1000`
 - `duration_minutes > 0`
 - `grace_period_minutes >= 0`

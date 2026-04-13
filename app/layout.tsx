@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
 import { Providers } from "@/components/providers";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Base Consult Link",
-  description: "Sprint 0 skeleton for Base Consult Link.",
+  description: "Single-use consultation escrow on Base.",
 };
 
 export default function RootLayout({
@@ -17,7 +18,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <ThemeToggle />
+          {children}
+        </Providers>
       </body>
     </html>
   );

@@ -80,6 +80,27 @@ export interface FundingPrepareResult {
   seller_address: string;
 }
 
+export interface FundingSyncSummary {
+  alreadyProcessed: number;
+  fromBlock: string;
+  processed: number;
+  skipped: number;
+  toBlock: string;
+}
+
+export type FundingSyncResult =
+  | {
+    ok: true;
+    status: "success";
+    summary: FundingSyncSummary;
+  }
+  | {
+    code: string;
+    error: string;
+    ok: false;
+    status: "fatal" | "retryable";
+  };
+
 // GET /api/links/:id — public, no auth required
 // Returns PublicLink on success, throws ApiError on 404/410/5xx
 export async function fetchLink(id: string): Promise<PublicLink> {
@@ -97,6 +118,26 @@ export async function createLink(input: CreateLinkInput): Promise<CreatedLink> {
   return parseResponse<CreatedLink>(res);
 }
 
+// Shape returned by GET /api/links (my links)
+export interface MyLink {
+  description: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  price_usdc: string;
+  scheduled_at: string;
+  share_url: string;
+  status: "Open" | "Expired" | "Cancelled" | "Consumed" | "Draft";
+  timezone: string;
+  title: string;
+}
+
+// GET /api/links — requires SIWE session
+export async function fetchMyLinks(): Promise<MyLink[]> {
+  const res = await fetch("/api/links");
+  return parseResponse<MyLink[]>(res);
+}
+
 // POST /api/links/:id/funding/prepare — requires SIWE session
 export async function prepareFunding(linkId: string): Promise<FundingPrepareResult> {
   const res = await fetch(`/api/links/${encodeURIComponent(linkId)}/funding/prepare`, {
@@ -105,4 +146,39 @@ export async function prepareFunding(linkId: string): Promise<FundingPrepareResu
     method: "POST",
   });
   return parseResponse<FundingPrepareResult>(res);
+}
+
+// POST /api/links/:id/funding/sync — requires SIWE session
+export async function triggerFundingSync(
+  linkId: string,
+  fromBlock?: bigint,
+): Promise<FundingSyncResult> {
+  const res = await fetch(`/api/links/${encodeURIComponent(linkId)}/funding/sync`, {
+    body: JSON.stringify(
+      fromBlock !== undefined ? { from_block: fromBlock.toString(10) } : {},
+    ),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const body = await res.json().catch(() => null);
+
+  if (
+    body &&
+    typeof body === "object" &&
+    "ok" in body &&
+    "status" in body
+  ) {
+    return body as FundingSyncResult;
+  }
+
+  if (!res.ok) {
+    throw new ApiError(res.status, body);
+  }
+
+  return {
+    code: "INVALID_SYNC_RESPONSE",
+    error: "Invalid funding sync response.",
+    ok: false,
+    status: "retryable",
+  };
 }

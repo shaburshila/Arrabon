@@ -11,7 +11,10 @@ import {
   useConnect,
   useDisconnect,
   useSignMessage,
+  useSwitchChain,
 } from "wagmi";
+
+import { getAddress } from "viem";
 
 import { fetchNonce, logout, pingSession, verifySiwe, type SiweSession } from "@/lib/api/auth";
 import { baseRuntimeConfig } from "@/lib/base/config";
@@ -33,14 +36,17 @@ export interface WalletSessionState {
   disconnect: () => Promise<void>;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  switchToCorrectChain: () => Promise<void>;
 }
 
 export function useWalletSession(): WalletSessionState {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const { address, isConnected, chainId: accountChainId } = useAccount();
+  const wagmiChainId = useChainId();
+  const chainId = accountChainId ?? wagmiChainId;
   const { connectAsync, connectors } = useConnect();
   const { disconnectAsync } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
+  const { switchChainAsync } = useSwitchChain();
 
   const [siweStatus, setSiweStatus] = useState<SiweStatus>("loading");
   const [session, setSession] = useState<SiweSession | null>(null);
@@ -60,7 +66,18 @@ export function useWalletSession(): WalletSessionState {
       return;
     }
 
-    if (pingDone.current) return;
+    if (pingDone.current) {
+      // Wallet address changed after sign-in — invalidate session
+      if (session && address && getAddress(session.wallet_address) !== getAddress(address)) {
+        logout().catch(() => {});
+        setSession(null);
+        setSiweStatus("unauthenticated");
+        setSignInError(null);
+        pingDone.current = false;
+      }
+      return;
+    }
+
     pingDone.current = true;
 
     pingSession().then((s) => {
@@ -71,7 +88,7 @@ export function useWalletSession(): WalletSessionState {
         setSiweStatus("unauthenticated");
       }
     });
-  }, [isConnected]);
+  }, [isConnected, address, session]);
 
   const connect = useCallback(
     async (connectorId?: string) => {
@@ -139,6 +156,10 @@ export function useWalletSession(): WalletSessionState {
     pingDone.current = false;
   }, []);
 
+  const switchToCorrectChain = useCallback(async () => {
+    await switchChainAsync({ chainId: baseRuntimeConfig.chainId });
+  }, [switchChainAsync]);
+
   return {
     address: address ?? null,
     chainId: chainId ?? null,
@@ -152,5 +173,6 @@ export function useWalletSession(): WalletSessionState {
     disconnect,
     signIn,
     signOut,
+    switchToCorrectChain,
   };
 }

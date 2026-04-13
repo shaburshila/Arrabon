@@ -82,7 +82,7 @@ Scheduled consultation
 
 - scheduled_at > now
 - expires_at < scheduled_at
-- scheduled_at - expires_at ≥ 15 минут
+- scheduled_at - expires_at ≥ 5 минут
 - duration_minutes > 0
 - grace_period_minutes ≥ 0
 

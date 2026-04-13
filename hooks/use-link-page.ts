@@ -6,7 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAddress } from "viem";
 
-import { fetchLink, type PublicLink } from "@/lib/api/links";
+import {
+  fetchLink,
+  triggerFundingSync,
+  type FundingSyncResult,
+  type PublicLink,
+} from "@/lib/api/links";
 import { ApiError } from "@/lib/api/auth";
 
 export type LinkPageStatus =
@@ -30,6 +35,8 @@ export interface LinkPageState {
   startDealIdPolling: (
     onDealId: (dealId: string) => void,
     onTimeout?: () => void,
+    onSyncStatus?: (result: FundingSyncResult) => void,
+    fromBlock?: bigint,
   ) => void;
   stopPolling: () => void;
 }
@@ -87,7 +94,12 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
   // Poll every 2s until deal_id is non-null, then call onDealId and stop.
   // Max 40 polls (~80s) to avoid infinite loop.
   const startDealIdPolling = useCallback(
-    (onDealId: (dealId: string) => void, onTimeout?: () => void) => {
+    (
+      onDealId: (dealId: string) => void,
+      onTimeout?: () => void,
+      onSyncStatus?: (result: FundingSyncResult) => void,
+      fromBlock?: bigint,
+    ) => {
       stopPolling();
       setDealIdPollingTimedOut(false);
       let count = 0;
@@ -102,6 +114,29 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
           return;
         }
         try {
+          const syncResult = await triggerFundingSync(linkId, fromBlock);
+          onSyncStatus?.(syncResult);
+
+          if (!syncResult.ok && syncResult.status === "fatal") {
+            stopPolling();
+            return;
+          }
+        } catch (err) {
+          const errorMessage =
+            err instanceof ApiError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "Backend indexing check failed.";
+          onSyncStatus?.({
+            code: "POLLING_SYNC_CHECK_FAILED",
+            error: errorMessage,
+            ok: false,
+            status: "retryable",
+          });
+        }
+
+        try {
           const data = await fetchLink(linkId);
           setLink(data);
           if (data.deal_id) {
@@ -109,8 +144,19 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
             setDealIdPollingTimedOut(false);
             onDealId(data.deal_id);
           }
-        } catch {
-          // silently ignore poll errors
+        } catch (err) {
+          const errorMessage =
+            err instanceof ApiError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "Link read check failed.";
+          onSyncStatus?.({
+            code: "POLLING_LINK_FETCH_FAILED",
+            error: errorMessage,
+            ok: false,
+            status: "retryable",
+          });
         }
       }, 2000);
     },

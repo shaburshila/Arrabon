@@ -15,7 +15,7 @@ const steps: { key: FundingStep | FundingStep[]; label: string }[] = [
   { key: "preparing", label: "Preparing transaction" },
   { key: ["approve_signature", "approve_pending"], label: "Approve USDC" },
   { key: ["fund_signature", "fund_pending"], label: "Fund consultation" },
-  { key: "indexing", label: "Confirming deal" },
+  { key: ["indexing", "indexing_failed"], label: "Confirming deal" },
   { key: "succeeded", label: "Funded!" },
 ];
 
@@ -34,6 +34,7 @@ const activeSteps: FundingStep[] = [
   "fund_signature",
   "fund_pending",
   "indexing",
+  "indexing_failed",
   "succeeded",
 ];
 
@@ -43,6 +44,7 @@ const stepLabels: Partial<Record<FundingStep, string>> = {
   fund_pending: "Funding tx confirming…",
   fund_signature: "Confirm funding in wallet…",
   indexing: "Waiting for deal to appear…",
+  indexing_failed: "Deal indexing needs attention.",
   preparing: "Checking state…",
   succeeded: "Deal funded!",
 };
@@ -122,7 +124,10 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
       </div>
 
       {/* Active step label */}
-      {step !== "succeeded" && step !== "failed" && stepLabels[step] && (
+      {step !== "succeeded" &&
+        step !== "failed" &&
+        step !== "indexing_failed" &&
+        stepLabels[step] && (
         <p
           style={{
             color: "var(--muted)",

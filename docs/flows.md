@@ -183,7 +183,7 @@ Client пытается вызвать createAndFundDeal:
   → Contract: revert (expires_at проверяется onchain через scheduled_at, или offchain)
 ```
 
-**Инвариант:** `expires_at < scheduled_at`, `scheduled_at - expires_at ≥ 15 мин`
+**Инвариант:** `expires_at < scheduled_at`, `scheduled_at - expires_at ≥ 5 мин`
 
 ---
 
@@ -422,12 +422,12 @@ markCompleted доступен сразу после scheduled_at + duration.
 Валидно: grace_period_minutes ≥ 0.
 ```
 
-### 7.2 Граница expires_at (ровно 15 минут до scheduled_at)
+### 7.2 Граница expires_at (ровно 5 минут до scheduled_at)
 
 ```
-Минимально допустимое: scheduled_at - expires_at = 15 мин.
-expires_at = scheduled_at - 15 мин → валидно.
-expires_at = scheduled_at - 14 мин → невалидно, форма/backend rejects.
+Минимально допустимое: scheduled_at - expires_at = 5 мин.
+expires_at = scheduled_at - 5 мин → валидно.
+expires_at = scheduled_at - 4 мин → невалидно, форма/backend rejects.
 ```
 
 ### 7.3 Fee waiver в v1 отсутствует

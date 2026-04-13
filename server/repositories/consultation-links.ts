@@ -106,6 +106,26 @@ export async function getById(id: string): Promise<ConsultationLinkRow | null> {
   return data;
 }
 
+export async function getByCreatorUserId(
+  creatorUserId: string,
+): Promise<ConsultationLinkRow[]> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("consultation_links")
+    .select("*")
+    .eq("creator_user_id", creatorUserId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new ConsultationLinksRepositoryError(
+      `Failed to load consultation links: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data ?? [];
+}
+
 export async function getByLinkHash(
   linkHash: string,
 ): Promise<ConsultationLinkRow | null> {

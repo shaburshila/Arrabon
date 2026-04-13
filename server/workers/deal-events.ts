@@ -39,6 +39,14 @@ export interface DealEventsWorkerRunSummary {
   toBlock: bigint;
 }
 
+export interface SerializedDealEventsWorkerRunSummary {
+  alreadyProcessed: number;
+  fromBlock: string;
+  processed: number;
+  skipped: number;
+  toBlock: string;
+}
+
 type RawTaggedDealEventLog =
   | { kind: "Completed"; log: Log }
   | { kind: "Disputed"; log: Log }
@@ -251,15 +259,18 @@ function summarizeProcessingResult(
   }
 }
 
-export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary> {
+export async function runDealEventsWorker(
+  fromBlockOverride?: bigint,
+): Promise<DealEventsWorkerRunSummary> {
   const config = getDealEventsWorkerConfig();
+  const fromBlock = fromBlockOverride ?? config.fromBlock;
   const latestBlock = await dealEventsClient.getBlockNumber();
   const confirmedHead = latestBlock - config.confirmations;
 
-  if (confirmedHead < config.fromBlock) {
+  if (confirmedHead < fromBlock) {
     return {
       alreadyProcessed: 0,
-      fromBlock: config.fromBlock,
+      fromBlock,
       processed: 0,
       skipped: 0,
       toBlock: confirmedHead,
@@ -268,13 +279,13 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
 
   const summary: DealEventsWorkerRunSummary = {
     alreadyProcessed: 0,
-    fromBlock: config.fromBlock,
+    fromBlock,
     processed: 0,
     skipped: 0,
     toBlock: confirmedHead,
   };
 
-  let rangeStart = config.fromBlock;
+  let rangeStart = fromBlock;
   while (rangeStart <= confirmedHead) {
     const rangeEnd = resolveRangeEnd(rangeStart, confirmedHead, config.maxRange);
     const [fundedLogs, completedLogs, releasedLogs, disputedLogs, refundedLogs] = await Promise.all([
@@ -320,4 +331,16 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
   }
 
   return summary;
+}
+
+export function serializeDealEventsWorkerRunSummary(
+  summary: DealEventsWorkerRunSummary,
+): SerializedDealEventsWorkerRunSummary {
+  return {
+    alreadyProcessed: summary.alreadyProcessed,
+    fromBlock: summary.fromBlock.toString(10),
+    processed: summary.processed,
+    skipped: summary.skipped,
+    toBlock: summary.toBlock.toString(10),
+  };
 }
