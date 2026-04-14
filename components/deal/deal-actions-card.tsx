@@ -45,6 +45,11 @@ export function DealActionsCard({
   const showComplete = isSeller && dealStatus === "Funded";
   const showRelease = isBuyer && dealStatus === "ConfirmPending";
   const showDispute = isBuyer && buyerDisputable;
+  const markCompletedAfterMs = new Date(markCompletedAfter).getTime();
+  const completeDisabled =
+    showComplete &&
+    !Number.isNaN(markCompletedAfterMs) &&
+    Date.now() < markCompletedAfterMs;
 
   if (!showComplete && !showRelease && !showDispute) return null;
 
@@ -106,6 +111,8 @@ export function DealActionsCard({
             <ActionGroup
               action={complete}
               description={getCompleteDescription(markCompletedAfter)}
+              disabled={completeDisabled}
+              disabledReason={`Available after ${formatLocalDateTime(markCompletedAfter)}.`}
               label="Mark completed"
               variant="primary"
             />
@@ -172,17 +179,25 @@ function getCompleteDescription(markCompletedAfter: string): string {
 function ActionGroup({
   action,
   description,
+  disabled,
+  disabledReason,
   label,
   variant,
 }: {
   action: DealAction;
   description: string;
+  disabled?: boolean;
+  disabledReason?: string;
   label: string;
   variant: "danger" | "primary";
 }) {
   const { execute, reset, state } = action;
+  const backendSyncFailed = state.step === "sync_failed";
   const inFlight =
-    state.step !== "idle" && state.step !== "failed" && state.step !== "succeeded";
+    state.step !== "idle" &&
+    state.step !== "failed" &&
+    state.step !== "sync_failed" &&
+    state.step !== "succeeded";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -199,13 +214,20 @@ function ActionGroup({
             padding: "10px 14px",
           }}
         >
-          Done — waiting for on-chain confirmation to reflect.
+          Done — backend state is up to date.
         </div>
       ) : (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Btn
-              disabled={inFlight}
+              disabled={disabled || inFlight || backendSyncFailed}
+              disabledReason={
+                backendSyncFailed
+                  ? "Transaction confirmed. Please refresh later instead of retrying the transaction."
+                  : disabled
+                    ? disabledReason
+                    : undefined
+              }
               fullWidth
               loading={inFlight}
               onClick={execute}

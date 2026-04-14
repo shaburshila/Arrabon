@@ -9,6 +9,8 @@ import { useConfig } from "wagmi";
 import type { Hex } from "viem";
 
 import {
+  type DealReadModel,
+  type DealStatus,
   prepareComplete,
   prepareDispute,
   prepareRelease,
@@ -23,6 +25,8 @@ export type ActionStep =
   | "pending_chain"
   | "preparing"
   | "signature"
+  | "sync_failed"
+  | "syncing_backend"
   | "succeeded";
 
 export interface ActionState {
@@ -41,7 +45,8 @@ function useSingleAction(
   dealId: string,
   consultationLinkId: string,
   prepareFn: (id: string) => Promise<{ contract_call: import("@/lib/api/deals").LifecycleContractCall; deal_id: string }>,
-  onSuccess: () => Promise<void>,
+  expectedStatus: DealStatus,
+  onSuccess: () => Promise<DealReadModel | null>,
 ): DealAction {
   const config = useConfig();
 
@@ -55,8 +60,73 @@ function useSingleAction(
     setState((prev) => ({ ...prev, ...partial }));
   }, []);
 
+  const wait = useCallback((ms: number) => {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }, []);
+
+  const syncUntilConverged = useCallback(
+    async (txHash: Hex): Promise<boolean> => {
+      const MAX_ATTEMPTS = 40;
+      const RETRY_INTERVAL_MS = 2_000;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+        const syncResult = consultationLinkId
+          ? await triggerFundingSync(consultationLinkId, txHash).catch((error) => {
+            console.warn("Lifecycle sync trigger failed after confirmed tx.", {
+              attempt,
+              dealId,
+              error,
+              txHash,
+            });
+
+            return {
+              code: "LIFECYCLE_SYNC_TRIGGER_FAILED",
+              error: "Backend sync is temporarily unavailable.",
+              ok: false as const,
+              status: "retryable" as const,
+            };
+          })
+          : null;
+
+        if (syncResult && !syncResult.ok && syncResult.status === "fatal") {
+          set({
+            error: "Transaction confirmed, but backend indexing is unavailable. Please do not retry the transaction; refresh later.",
+            step: "sync_failed",
+          });
+
+          return false;
+        }
+
+        const latestDeal = await onSuccess();
+
+        if (latestDeal?.status === expectedStatus) {
+          return true;
+        }
+
+        if (attempt < MAX_ATTEMPTS) {
+          await wait(RETRY_INTERVAL_MS);
+        }
+      }
+
+      set({
+        error: "Transaction confirmed, but backend sync is delayed. Please refresh this page in a moment.",
+        step: "sync_failed",
+      });
+
+      return false;
+    },
+    [consultationLinkId, dealId, expectedStatus, onSuccess, set, wait],
+  );
+
   const execute = useCallback(async () => {
-    if (state.step !== "idle" && state.step !== "failed") return;
+    if (
+      state.step !== "idle" &&
+      state.step !== "failed"
+    ) {
+      return;
+    }
 
     set({ error: null, step: "preparing", txHash: null });
 
@@ -68,20 +138,15 @@ function useSingleAction(
       set({ step: "pending_chain", txHash: hash });
 
       await waitForTx(config, hash);
-      set({ step: "succeeded" });
+      set({ step: "syncing_backend" });
 
-      if (consultationLinkId) {
-        await triggerFundingSync(consultationLinkId, hash).catch((error) => {
-          console.warn("Lifecycle sync trigger failed after confirmed tx.", {
-            dealId,
-            error,
-            txHash: hash,
-          });
-        });
+      const converged = await syncUntilConverged(hash);
+
+      if (!converged) {
+        return;
       }
 
-      // Refetch deal state from backend — no optimistic mutation
-      await onSuccess();
+      set({ error: null, step: "succeeded" });
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -91,7 +156,7 @@ function useSingleAction(
             : "Action failed.";
       set({ error: message, step: "failed" });
     }
-  }, [config, consultationLinkId, dealId, onSuccess, prepareFn, state.step, set]);
+  }, [config, dealId, prepareFn, state.step, syncUntilConverged, set]);
 
   const reset = useCallback(() => {
     setState({ error: null, step: "idle", txHash: null });
@@ -105,11 +170,29 @@ function useSingleAction(
 export function useDealActions(
   dealId: string,
   consultationLinkId: string,
-  refetchDeal: () => Promise<void>,
+  refetchDeal: () => Promise<DealReadModel | null>,
 ) {
-  const complete = useSingleAction(dealId, consultationLinkId, prepareComplete, refetchDeal);
-  const release = useSingleAction(dealId, consultationLinkId, prepareRelease, refetchDeal);
-  const dispute = useSingleAction(dealId, consultationLinkId, prepareDispute, refetchDeal);
+  const complete = useSingleAction(
+    dealId,
+    consultationLinkId,
+    prepareComplete,
+    "ConfirmPending",
+    refetchDeal,
+  );
+  const release = useSingleAction(
+    dealId,
+    consultationLinkId,
+    prepareRelease,
+    "Released",
+    refetchDeal,
+  );
+  const dispute = useSingleAction(
+    dealId,
+    consultationLinkId,
+    prepareDispute,
+    "Disputed",
+    refetchDeal,
+  );
 
   return { complete, dispute, release };
 }

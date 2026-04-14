@@ -92,7 +92,7 @@ export interface FundingSyncSummary {
 export type FundingSyncResult =
   | {
     ok: true;
-    status: "success";
+    status: "pending_confirmations" | "success";
     summary: FundingSyncSummary;
   }
   | {

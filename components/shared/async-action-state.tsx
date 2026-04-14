@@ -22,6 +22,8 @@ const defaultLabels: Record<string, string> = {
   pending_chain: "Tx on chain…",
   preparing: "Preparing…",
   signature: "Confirm in wallet…",
+  sync_failed: "Backend sync delayed",
+  syncing_backend: "Syncing backend state…",
   succeeded: "Done",
 };
 

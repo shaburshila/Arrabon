@@ -249,11 +249,7 @@ export async function getPublicConsultationLinkById(
     );
   }
 
-  if (publicStatus === "Expired" || publicStatus === "Cancelled") {
-    throw createUnavailableLinkError(publicStatus);
-  }
-
-  let existingDeal = null;
+  let existingDeal: Awaited<ReturnType<typeof getByConsultationLinkId>> = null;
 
   try {
     existingDeal = await getByConsultationLinkId(link.id);
@@ -276,10 +272,18 @@ export async function getPublicConsultationLinkById(
     throw error;
   }
 
+  if (existingDeal) {
+    return mapPublicLink(link, "Consumed", existingDeal.id);
+  }
+
+  if (publicStatus === "Expired" || publicStatus === "Cancelled") {
+    throw createUnavailableLinkError(publicStatus);
+  }
+
   return mapPublicLink(
     link,
     publicStatus,
-    existingDeal?.id ?? null,
+    null,
   );
 }
 

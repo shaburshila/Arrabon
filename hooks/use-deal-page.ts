@@ -21,7 +21,7 @@ export interface DealPageState {
   isSeller: boolean;
   role: DealRole;
   status: DealPageStatus;
-  refetch: () => Promise<void>;
+  refetch: () => Promise<DealReadModel | null>;
 }
 
 export function useDealPage(dealId: string, walletAddress: string | null): DealPageState {
@@ -36,6 +36,8 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
       const data = await fetchDeal(dealId);
       setDeal(data);
       setStatus("ready");
+
+      return data;
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setStatus("not_found");
@@ -43,6 +45,8 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
         setError(err instanceof Error ? err.message : "Failed to load deal.");
         setStatus("error");
       }
+
+      return null;
     }
   }, [dealId]);
 

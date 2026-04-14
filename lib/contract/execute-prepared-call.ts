@@ -16,6 +16,16 @@ import { baseRuntimeConfig } from "@/lib/base/config";
 import type { FundingContractCall } from "@/lib/api/links";
 import type { LifecycleContractCall } from "@/lib/api/deals";
 
+export class TransactionRevertedError extends Error {
+  txHash: Hex;
+
+  constructor(txHash: Hex) {
+    super("Transaction reverted.");
+    this.name = "TransactionRevertedError";
+    this.txHash = txHash;
+  }
+}
+
 // Append Builder Code dataSuffix if configured.
 // Format: raw hex bytes appended after function calldata.
 function withBuilderCodeSuffix(data: Hex): Hex {
@@ -94,8 +104,10 @@ export async function executeLifecycleCall(
 }
 
 // Wait for a transaction to be confirmed on chain.
-export async function waitForTx(config: Config, hash: Hex): Promise<bigint> {
+export async function waitForTx(config: Config, hash: Hex): Promise<void> {
   const receipt = await waitForTransactionReceipt(config, { hash });
 
-  return receipt.blockNumber;
+  if (receipt.status !== "success") {
+    throw new TransactionRevertedError(hash);
+  }
 }

@@ -3,7 +3,7 @@
  *
  * What is tested:
  *   - Open link (no deal)     → 200, status "Open",     deal_id null
- *   - Open link (deal exists) → 200, status "Open",     deal_id set
+ *   - Open link (deal exists) → 200, status "Consumed", deal_id set
  *   - Consumed link + deal    → 200, status "Consumed", deal_id set   ← key change
  *   - Consumed link, no deal  → 200, status "Consumed", deal_id null  ← key change
  *   - Open but past expires_at → 410 LINK_EXPIRED
@@ -145,6 +145,17 @@ describe('Expired link', () => {
     );
   });
 
+  test('returns status Consumed and deal_id when DB status is Expired but deal exists', async () => {
+    const deal = makeDeal({ id: 'deal-uuid-999' });
+    mocks.getById = async () => makeLink({ status: 'Expired', expires_at: PAST });
+    mocks.getByConsultationLinkId = async () => deal;
+
+    const result = await getPublicConsultationLinkById('link-uuid-001');
+
+    assert.equal(result.status, 'Consumed');
+    assert.equal(result.deal_id, 'deal-uuid-999');
+  });
+
   test('throws 410 LINK_EXPIRED when Open but expires_at is in the past', async () => {
     const expiredNow = new Date(Date.now() + 1); // just after PAST
     mocks.getById = async () => makeLink({ status: 'Open', expires_at: PAST });
@@ -210,14 +221,25 @@ describe('Open link — happy path', () => {
     assert.equal(result.meeting_url_revealed, false);
   });
 
-  test('returns status Open and deal_id when deal exists', async () => {
+  test('returns status Consumed and deal_id when deal exists', async () => {
     const deal = makeDeal({ id: 'deal-uuid-999' });
     mocks.getById = async () => makeLink({ status: 'Open' });
     mocks.getByConsultationLinkId = async () => deal;
 
     const result = await getPublicConsultationLinkById('link-uuid-001');
 
-    assert.equal(result.status, 'Open');
+    assert.equal(result.status, 'Consumed');
+    assert.equal(result.deal_id, 'deal-uuid-999');
+  });
+
+  test('returns status Consumed and deal_id when Open link expired after deal indexing', async () => {
+    const deal = makeDeal({ id: 'deal-uuid-999' });
+    mocks.getById = async () => makeLink({ status: 'Open', expires_at: PAST });
+    mocks.getByConsultationLinkId = async () => deal;
+
+    const result = await getPublicConsultationLinkById('link-uuid-001');
+
+    assert.equal(result.status, 'Consumed');
     assert.equal(result.deal_id, 'deal-uuid-999');
   });
 });

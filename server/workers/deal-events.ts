@@ -50,6 +50,16 @@ export interface SerializedDealEventsWorkerRunSummary {
   toBlock: string;
 }
 
+export type DealEventsWorkerTxRunResult =
+  | {
+    status: "processed";
+    summary: DealEventsWorkerRunSummary;
+  }
+  | {
+    status: "pending_confirmations";
+    summary: DealEventsWorkerRunSummary;
+  };
+
 type RawTaggedDealEventLog =
   | { kind: "Completed"; log: Log }
   | { kind: "Disputed"; log: Log }
@@ -285,9 +295,9 @@ export async function runDealEventsWorker(
   return summary;
 }
 
-export async function runDealEventsWorkerForTransaction(
+export async function runDealEventsWorkerForTx(
   txHash: Hex,
-): Promise<DealEventsWorkerRunSummary> {
+): Promise<DealEventsWorkerTxRunResult> {
   const config = getDealEventsWorkerConfig();
   const [receipt, latestBlock] = await Promise.all([
     dealEventsClient.getTransactionReceipt({ hash: txHash }),
@@ -304,7 +314,10 @@ export async function runDealEventsWorkerForTransaction(
   };
 
   if (confirmedHead < fromBlock) {
-    return summary;
+    return {
+      status: "pending_confirmations",
+      summary,
+    };
   }
 
   const contractAddress = getConsultEscrowContractAddress();
@@ -314,7 +327,10 @@ export async function runDealEventsWorkerForTransaction(
 
   await processRawEventLogs(rawLogs, summary);
 
-  return summary;
+  return {
+    status: "processed",
+    summary,
+  };
 }
 
 export function serializeDealEventsWorkerRunSummary(

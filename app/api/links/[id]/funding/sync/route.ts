@@ -12,7 +12,7 @@ import {
 } from "@/server/workers/deal-events-error-classification";
 import {
   runDealEventsWorker,
-  runDealEventsWorkerForTransaction,
+  runDealEventsWorkerForTx,
   serializeDealEventsWorkerRunSummary,
   type SerializedDealEventsWorkerRunSummary,
 } from "@/server/workers/deal-events";
@@ -20,6 +20,11 @@ import {
 export const runtime = "nodejs";
 
 type FundingSyncResponse =
+  | {
+    ok: true;
+    status: "pending_confirmations";
+    summary: SerializedDealEventsWorkerRunSummary;
+  }
   | {
     ok: true;
     status: "success";
@@ -118,9 +123,22 @@ export async function POST(
     parsePrepareFundingParams(await params);
     const { fromBlock, txHash } = await readSyncRequestOverrides(request);
 
-    const summary = txHash
-      ? await runDealEventsWorkerForTransaction(txHash)
-      : await runDealEventsWorker(fromBlock);
+    if (txHash) {
+      const result = await runDealEventsWorkerForTx(txHash);
+
+      return NextResponse.json(
+        {
+          ok: true,
+          status: result.status === "pending_confirmations"
+            ? "pending_confirmations"
+            : "success",
+          summary: serializeDealEventsWorkerRunSummary(result.summary),
+        } satisfies FundingSyncResponse,
+        { status: result.status === "pending_confirmations" ? 202 : 200 },
+      );
+    }
+
+    const summary = await runDealEventsWorker(fromBlock);
 
     return NextResponse.json({
       ok: true,
