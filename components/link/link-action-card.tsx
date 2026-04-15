@@ -110,7 +110,13 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
             </Btn>
           )}
 
-          {(fundingState.step === "idle" || fundingState.step === "failed") && (
+          {fundingState.step === "indexing_failed" && (
+            <div style={infoStyle}>
+              Your payment is confirmed on-chain. Do not retry the payment — check the status below.
+            </div>
+          )}
+
+          {fundingState.step === "idle" && (
             <Btn
               disabled={isFunding}
               fullWidth
@@ -182,6 +188,15 @@ const errorStyle = {
   border: "1px solid var(--danger)",
   borderRadius: "var(--radius-sm)",
   color: "var(--danger)",
+  fontSize: 13,
+  padding: "10px 14px",
+} as const;
+
+const infoStyle = {
+  background: "var(--accent-muted)",
+  border: "1px solid var(--accent)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--accent)",
   fontSize: 13,
   padding: "10px 14px",
 } as const;

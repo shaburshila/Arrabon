@@ -4,6 +4,7 @@
 // Handles: deal info, reveal, complete/release/dispute lifecycle actions.
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { useDealPage } from "@/hooks/use-deal-page";
@@ -35,6 +36,10 @@ export default function DealPage() {
   return (
     <main style={mainStyle}>
       <div style={pageStyle}>
+        <Link href="/my-links" style={backLinkStyle}>
+          ← My links
+        </Link>
+
         {/* Loading */}
         {dealPage.status === "loading" && (
           <div style={centerStyle}>
@@ -79,7 +84,7 @@ export default function DealPage() {
           <>
             <DealStatusCard deal={dealPage.deal} />
             <WalletSessionCard session={session} />
-            <KeyTimes deal={dealPage.deal} />
+            <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
 
             <MeetingUrlCard
               dealId={dealId}
@@ -93,6 +98,7 @@ export default function DealPage() {
               complete={actions.complete}
               dealStatus={dealPage.deal.status}
               dispute={actions.dispute}
+              isAnyActionInFlight={actions.isAnyActionInFlight}
               isBuyer={dealPage.isBuyer}
               isSeller={dealPage.isSeller}
               markCompletedAfter={dealPage.deal.mark_completed_after}
@@ -126,4 +132,12 @@ const centerStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: 200,
+} as const;
+
+const backLinkStyle = {
+  alignSelf: "flex-start",
+  color: "var(--accent)",
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: "none",
 } as const;

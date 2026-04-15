@@ -40,6 +40,7 @@ export interface FundingFlow {
   handlePollingTimeout: () => void;
   handleSyncStatus: (result: FundingSyncResult) => boolean;
   reset: () => void;
+  retryIndexing: () => void;
   state: FundingState;
 }
 
@@ -183,5 +184,9 @@ export function useFundingFlow(
     setState({ error: null, step: "idle", txHash: null });
   }, []);
 
-  return { execute, handlePollingTimeout, handleSyncStatus, reset, state };
+  const retryIndexing = useCallback(() => {
+    set({ error: null, step: "indexing" });
+  }, [set]);
+
+  return { execute, handlePollingTimeout, handleSyncStatus, reset, retryIndexing, state };
 }

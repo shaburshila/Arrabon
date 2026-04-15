@@ -4,6 +4,7 @@ import type { DealReadModel } from "@/lib/api/deals";
 
 interface KeyTimesProps {
   deal: DealReadModel;
+  isSeller: boolean;
 }
 
 function formatDate(iso: string | null) {
@@ -21,13 +22,17 @@ function formatDate(iso: string | null) {
   }
 }
 
-export function KeyTimes({ deal }: KeyTimesProps) {
+export function KeyTimes({ deal, isSeller }: KeyTimesProps) {
   const items: { label: string; value: string | null }[] = [
     { label: "Consultation scheduled", value: formatDate(deal.scheduled_at) },
+    {
+      label: "Available to complete from",
+      value: deal.status === "Funded" ? formatDate(deal.mark_completed_after) : null,
+    },
     { label: "Completed at", value: deal.completed_at ? formatDate(deal.completed_at) : null },
     {
       label: "Release / dispute deadline",
-      value: deal.release_deadline_at ? formatDate(deal.release_deadline_at) : null,
+      value: !isSeller && deal.release_deadline_at ? formatDate(deal.release_deadline_at) : null,
     },
   ].filter((item) => item.value !== null);
 

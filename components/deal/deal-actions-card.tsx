@@ -19,6 +19,7 @@ interface DealActionsCardProps {
   complete: DealAction;
   release: DealAction;
   dispute: DealAction;
+  isAnyActionInFlight: boolean;
 }
 
 export function DealActionsCard({
@@ -26,6 +27,7 @@ export function DealActionsCard({
   complete,
   dealStatus,
   dispute,
+  isAnyActionInFlight,
   isBuyer,
   isSeller,
   markCompletedAfter,
@@ -51,7 +53,17 @@ export function DealActionsCard({
     !Number.isNaN(markCompletedAfterMs) &&
     Date.now() < markCompletedAfterMs;
 
-  if (!showComplete && !showRelease && !showDispute) return null;
+  if (!showComplete && !showRelease && !showDispute) {
+    if (isParticipantTerminalStatus(dealStatus)) {
+      return (
+        <DealActionInfoCard
+          message={getParticipantStatusMessage(dealStatus)}
+        />
+      );
+    }
+
+    return null;
+  }
 
   return (
     <div
@@ -110,6 +122,7 @@ export function DealActionsCard({
           {showComplete && (
             <ActionGroup
               action={complete}
+              disabledByOtherAction={isAnyActionInFlight}
               description={getCompleteDescription(markCompletedAfter)}
               disabled={completeDisabled}
               disabledReason={`Available after ${formatLocalDateTime(markCompletedAfter)}.`}
@@ -122,6 +135,7 @@ export function DealActionsCard({
           {showRelease && (
             <ActionGroup
               action={release}
+              disabledByOtherAction={isAnyActionInFlight}
               description="Release payment to the seller. Confirm the consultation went well."
               label="Release payment"
               variant="primary"
@@ -132,7 +146,8 @@ export function DealActionsCard({
           {showDispute && (
             <ActionGroup
               action={dispute}
-              description="Open a dispute if the consultation did not take place or there was an issue."
+              disabledByOtherAction={isAnyActionInFlight}
+              description={getDisputeDescription(dealStatus)}
               label="Open dispute"
               variant="danger"
             />
@@ -151,6 +166,60 @@ const errorStyle = {
   fontSize: 13,
   padding: "10px 14px",
 } as const;
+
+const labelStyle = {
+  color: "var(--muted)",
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.08em",
+  margin: "0 0 16px",
+  textTransform: "uppercase" as const,
+};
+
+function isParticipantTerminalStatus(status: DealStatus): boolean {
+  return status === "Disputed" || status === "Released" || status === "Refunded";
+}
+
+function getParticipantStatusMessage(status: DealStatus): string {
+  switch (status) {
+    case "Disputed":
+      return "This deal is under admin review. An admin will resolve the dispute.";
+    case "Released":
+      return "Payment has been released to the seller.";
+    case "Refunded":
+      return "This deal was refunded to the buyer.";
+    default:
+      return "";
+  }
+}
+
+function DealActionInfoCard({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
+        boxShadow: "var(--shadow-card)",
+        padding: 20,
+      }}
+    >
+      <p style={labelStyle}>Actions</p>
+      <div
+        style={{
+          background: "var(--muted-bg)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          color: "var(--muted)",
+          fontSize: 14,
+          padding: "12px 14px",
+        }}
+      >
+        {message}
+      </div>
+    </div>
+  );
+}
 
 function formatLocalDateTime(iso: string): string {
   try {
@@ -176,8 +245,17 @@ function getCompleteDescription(markCompletedAfter: string): string {
   return "Mark the consultation as completed. Only available after the scheduled slot + grace period.";
 }
 
+function getDisputeDescription(dealStatus: DealStatus): string {
+  if (dealStatus === "Funded") {
+    return "Open a dispute if the consultation cannot proceed or the seller did not show up. This sends the deal to admin review.";
+  }
+
+  return "Open a dispute if the consultation did not take place or there was an issue.";
+}
+
 function ActionGroup({
   action,
+  disabledByOtherAction,
   description,
   disabled,
   disabledReason,
@@ -185,6 +263,7 @@ function ActionGroup({
   variant,
 }: {
   action: DealAction;
+  disabledByOtherAction: boolean;
   description: string;
   disabled?: boolean;
   disabledReason?: string;
@@ -220,11 +299,13 @@ function ActionGroup({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Btn
-              disabled={disabled || inFlight || backendSyncFailed}
+              disabled={disabled || disabledByOtherAction || inFlight || backendSyncFailed}
               disabledReason={
                 backendSyncFailed
                   ? "Transaction confirmed. Please refresh later instead of retrying the transaction."
-                  : disabled
+                  : disabledByOtherAction && !inFlight
+                    ? "Another action is in progress."
+                    : disabled
                     ? disabledReason
                     : undefined
               }

@@ -174,8 +174,8 @@ function LinkCard({ link }: { link: MyLink }) {
             </button>
           </>
         )}
-        {link.deal_id && link.share_url && (
-          <Link href={link.share_url} style={linkStyle}>
+        {link.deal_id && (
+          <Link href={`/deal/${link.deal_id}`} style={linkStyle}>
             View deal
           </Link>
         )}

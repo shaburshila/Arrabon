@@ -3,6 +3,7 @@
 // Meeting URL reveal card.
 // Explicit rules:
 // - Refunded → reveal unavailable (shown explicitly, not silently hidden)
+// - Wallet/chain unavailable → prompt before participant checks
 // - No SIWE session → prompt to sign in
 // - Non-participant → unavailable
 // - All other allowed states → reveal button
@@ -58,6 +59,30 @@ export function MeetingUrlCard({
     );
   }
 
+  // Not connected
+  if (!isConnected) {
+    return (
+      <div style={cardStyle}>
+        <p style={labelStyle}>Meeting link</p>
+        <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 12px" }}>
+          Connect your wallet to reveal the meeting link.
+        </p>
+      </div>
+    );
+  }
+
+  // Wrong chain
+  if (!isCorrectChain) {
+    return (
+      <div style={cardStyle}>
+        <p style={labelStyle}>Meeting link</p>
+        <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 12px" }}>
+          Switch to the correct network to reveal the meeting link.
+        </p>
+      </div>
+    );
+  }
+
   // Non-participant: unavailable
   if (!isParticipant) {
     return (
@@ -65,18 +90,6 @@ export function MeetingUrlCard({
         <p style={labelStyle}>Meeting link</p>
         <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
           Only the buyer and seller can access the meeting link.
-        </p>
-      </div>
-    );
-  }
-
-  // Not connected
-  if (!isConnected || !isCorrectChain) {
-    return (
-      <div style={cardStyle}>
-        <p style={labelStyle}>Meeting link</p>
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 12px" }}>
-          Connect your wallet to reveal the meeting link.
         </p>
       </div>
     );

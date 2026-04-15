@@ -4,7 +4,7 @@
 // Pattern: backend prepare → execute wallet tx → wait for chain → refetch deal.
 // One in-flight action at a time (duplicate calls blocked while active).
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState, type MutableRefObject } from "react";
 import { useConfig } from "wagmi";
 import type { Hex } from "viem";
 
@@ -41,12 +41,18 @@ export interface DealAction {
   state: ActionState;
 }
 
+interface ActionMutex {
+  lockRef: MutableRefObject<boolean>;
+  setIsAnyActionInFlight: (value: boolean) => void;
+}
+
 function useSingleAction(
   dealId: string,
   consultationLinkId: string,
   prepareFn: (id: string) => Promise<{ contract_call: import("@/lib/api/deals").LifecycleContractCall; deal_id: string }>,
   expectedStatus: DealStatus,
   onSuccess: () => Promise<DealReadModel | null>,
+  mutex: ActionMutex,
 ): DealAction {
   const config = useConfig();
 
@@ -121,6 +127,10 @@ function useSingleAction(
   );
 
   const execute = useCallback(async () => {
+    if (mutex.lockRef.current) {
+      return;
+    }
+
     if (
       state.step !== "idle" &&
       state.step !== "failed"
@@ -128,6 +138,8 @@ function useSingleAction(
       return;
     }
 
+    mutex.lockRef.current = true;
+    mutex.setIsAnyActionInFlight(true);
     set({ error: null, step: "preparing", txHash: null });
 
     try {
@@ -155,8 +167,11 @@ function useSingleAction(
             ? err.message
             : "Action failed.";
       set({ error: message, step: "failed" });
+    } finally {
+      mutex.lockRef.current = false;
+      mutex.setIsAnyActionInFlight(false);
     }
-  }, [config, dealId, prepareFn, state.step, syncUntilConverged, set]);
+  }, [config, dealId, mutex, prepareFn, state.step, syncUntilConverged, set]);
 
   const reset = useCallback(() => {
     setState({ error: null, step: "idle", txHash: null });
@@ -172,12 +187,20 @@ export function useDealActions(
   consultationLinkId: string,
   refetchDeal: () => Promise<DealReadModel | null>,
 ) {
+  const actionLockRef = useRef(false);
+  const [isAnyActionInFlight, setIsAnyActionInFlight] = useState(false);
+  const mutex: ActionMutex = {
+    lockRef: actionLockRef,
+    setIsAnyActionInFlight,
+  };
+
   const complete = useSingleAction(
     dealId,
     consultationLinkId,
     prepareComplete,
     "ConfirmPending",
     refetchDeal,
+    mutex,
   );
   const release = useSingleAction(
     dealId,
@@ -185,6 +208,7 @@ export function useDealActions(
     prepareRelease,
     "Released",
     refetchDeal,
+    mutex,
   );
   const dispute = useSingleAction(
     dealId,
@@ -192,7 +216,8 @@ export function useDealActions(
     prepareDispute,
     "Disputed",
     refetchDeal,
+    mutex,
   );
 
-  return { complete, dispute, release };
+  return { complete, dispute, isAnyActionInFlight, release };
 }

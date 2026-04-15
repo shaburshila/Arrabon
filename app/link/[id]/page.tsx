@@ -3,7 +3,7 @@
 // /link/[id] — public link page + funding flow.
 // Handles: display, wallet connect, SIWE, fund, post-fund polling, deal redirect.
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
@@ -23,6 +23,7 @@ export default function LinkPage() {
 
   const session = useWalletSession();
   const linkPage = useLinkPage(linkId, session.address);
+  const consumedIndexingPollingStartedRef = useRef(false);
 
   const handleDealIndexed = useCallback(
     (dealId: string) => {
@@ -40,7 +41,7 @@ export default function LinkPage() {
   const handleRetryPolling = useCallback(() => {
     const txHash = funding.state.txHash ?? undefined;
 
-    funding.reset();
+    funding.retryIndexing();
     linkPage.startDealIdPolling(
       handleDealIndexed,
       funding.handlePollingTimeout,
@@ -59,6 +60,32 @@ export default function LinkPage() {
       router.replace(`/deal/${linkPage.link.deal_id}`);
     }
   }, [linkPage.link, linkPage.status, router]);
+
+  useEffect(() => {
+    const shouldPollConsumedLink =
+      linkPage.status === "ready" &&
+      linkPage.link?.status === "Consumed" &&
+      !linkPage.link.deal_id &&
+      funding.state.step === "idle";
+
+    if (!shouldPollConsumedLink) {
+      if (linkPage.link?.status !== "Consumed" || linkPage.link.deal_id) {
+        consumedIndexingPollingStartedRef.current = false;
+      }
+      return;
+    }
+
+    if (consumedIndexingPollingStartedRef.current) {
+      return;
+    }
+
+    consumedIndexingPollingStartedRef.current = true;
+    linkPage.startDealIdPolling(handleDealIndexed);
+  }, [
+    funding.state.step,
+    handleDealIndexed,
+    linkPage,
+  ]);
 
   return (
     <main style={mainStyle}>
@@ -91,7 +118,21 @@ export default function LinkPage() {
         {linkPage.status === "ready" &&
           linkPage.link?.status === "Consumed" &&
           !linkPage.link.deal_id && (
-            <StatusNotice type="consumed_indexing" />
+            <>
+              <StatusNotice type="consumed_indexing" />
+              <div style={indexingRetryCardStyle}>
+                <p style={{ color: "var(--accent)", fontSize: 13, margin: 0 }}>
+                  We are checking automatically. You can retry the check manually if it takes too long.
+                </p>
+                <button
+                  onClick={handleRetryPolling}
+                  style={retryButtonStyle}
+                  type="button"
+                >
+                  Retry check
+                </button>
+              </div>
+            </>
           )}
 
         {/* Main content */}
@@ -163,6 +204,16 @@ const centerStyle = {
 const timeoutCardStyle = {
   background: "var(--danger-muted)",
   border: "1px solid var(--danger)",
+  borderRadius: "var(--radius-sm)",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+  padding: "12px 14px",
+} as const;
+
+const indexingRetryCardStyle = {
+  background: "var(--accent-muted)",
+  border: "1px solid var(--accent)",
   borderRadius: "var(--radius-sm)",
   display: "flex",
   flexDirection: "column" as const,

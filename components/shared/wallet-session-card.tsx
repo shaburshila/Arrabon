@@ -18,7 +18,6 @@ function truncateAddress(addr: string) {
 export function WalletSessionCard({ session }: WalletSessionCardProps) {
   const {
     address,
-    chainId,
     isConnected,
     isCorrectChain,
     isSigningIn,
@@ -62,9 +61,6 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
           </div>
 
           {/* Chain check */}
-          <div style={{ fontSize: 11, color: "var(--muted)", fontFamily: "monospace" }}>
-            wallet chainId: {chainId ?? "undefined"} | expected: {baseRuntimeConfig.chainId} | match: {String(isCorrectChain)}
-          </div>
           {!isCorrectChain && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={warningStyle}>
