@@ -126,7 +126,7 @@ export default function LinkPage() {
                 </p>
                 <button
                   onClick={handleRetryPolling}
-                  style={retryButtonStyle}
+                  style={indexingRetryButtonStyle}
                   type="button"
                 >
                   Retry check
@@ -230,4 +230,9 @@ const retryButtonStyle = {
   fontSize: 13,
   padding: 0,
   textDecoration: "underline",
+} as const;
+
+const indexingRetryButtonStyle = {
+  ...retryButtonStyle,
+  color: "var(--accent)",
 } as const;

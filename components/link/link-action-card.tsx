@@ -17,7 +17,7 @@ interface LinkActionCardProps {
 }
 
 export function LinkActionCard({ funding, link, role, session }: LinkActionCardProps) {
-  const { address, isConnected, isCorrectChain, siweStatus, connect, signIn, signInError } = session;
+  const { isConnected, isCorrectChain, siweStatus, connect, signIn, signInError } = session;
   const { execute, reset, state: fundingState } = funding;
 
   const isFunding =

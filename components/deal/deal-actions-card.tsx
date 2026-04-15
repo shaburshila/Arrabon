@@ -54,7 +54,7 @@ export function DealActionsCard({
     Date.now() < markCompletedAfterMs;
 
   if (!showComplete && !showRelease && !showDispute) {
-    if (isParticipantTerminalStatus(dealStatus)) {
+    if (shouldShowParticipantStatusInfo(dealStatus, isSeller)) {
       return (
         <DealActionInfoCard
           message={getParticipantStatusMessage(dealStatus)}
@@ -176,14 +176,21 @@ const labelStyle = {
   textTransform: "uppercase" as const,
 };
 
-function isParticipantTerminalStatus(status: DealStatus): boolean {
-  return status === "Disputed" || status === "Released" || status === "Refunded";
+function shouldShowParticipantStatusInfo(status: DealStatus, isSeller: boolean): boolean {
+  return (
+    status === "Disputed" ||
+    status === "Released" ||
+    status === "Refunded" ||
+    (isSeller && status === "ConfirmPending")
+  );
 }
 
 function getParticipantStatusMessage(status: DealStatus): string {
   switch (status) {
     case "Disputed":
       return "This deal is under admin review. An admin will resolve the dispute.";
+    case "ConfirmPending":
+      return "Waiting for the buyer to confirm payment release.";
     case "Released":
       return "Payment has been released to the seller.";
     case "Refunded":

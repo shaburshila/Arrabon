@@ -4,7 +4,7 @@
 // Pattern: backend prepare → execute wallet tx → wait for chain → refetch deal.
 // One in-flight action at a time (duplicate calls blocked while active).
 
-import { useCallback, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useConfig } from "wagmi";
 import type { Hex } from "viem";
 
@@ -189,10 +189,10 @@ export function useDealActions(
 ) {
   const actionLockRef = useRef(false);
   const [isAnyActionInFlight, setIsAnyActionInFlight] = useState(false);
-  const mutex: ActionMutex = {
+  const mutex = useMemo<ActionMutex>(() => ({
     lockRef: actionLockRef,
     setIsAnyActionInFlight,
-  };
+  }), []);
 
   const complete = useSingleAction(
     dealId,
