@@ -39,6 +39,34 @@ export interface WalletSessionState {
   switchToCorrectChain: () => Promise<void>;
 }
 
+function normalizeAuthDomain(value: string): string {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  try {
+    return new URL(trimmedValue).host.toLowerCase();
+  } catch {
+    return trimmedValue.split("/")[0].toLowerCase();
+  }
+}
+
+function resolveSiweClientDomain(): string {
+  const configuredDomain = normalizeAuthDomain(
+    process.env.NEXT_PUBLIC_AUTH_DOMAIN ?? "",
+  );
+
+  if (configuredDomain) {
+    return configuredDomain;
+  }
+
+  return typeof window !== "undefined"
+    ? window.location.host.toLowerCase()
+    : "localhost";
+}
+
 export function useWalletSession(): WalletSessionState {
   const { address, isConnected, chainId: accountChainId } = useAccount();
   const wagmiChainId = useChainId();
@@ -118,8 +146,7 @@ export function useWalletSession(): WalletSessionState {
 
     try {
       const { issued_at, nonce } = await fetchNonce(address);
-      const domain =
-        typeof window !== "undefined" ? window.location.host : "localhost";
+      const domain = resolveSiweClientDomain();
       const uri =
         typeof window !== "undefined" ? window.location.origin : "http://localhost";
 
