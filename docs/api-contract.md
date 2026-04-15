@@ -142,7 +142,6 @@ Request:
   "scheduled_at": "2026-03-28T12:00:00Z",
   "timezone": "Europe/Berlin",
   "duration_minutes": 30,
-  "grace_period_minutes": 10,
   "expires_at": "2026-03-28T11:30:00Z",
   "meeting_url": "https://meet.example/room"
 }
@@ -163,10 +162,14 @@ Validation:
 
 - `scheduled_at > now`
 - `expires_at < scheduled_at`
-- `scheduled_at - expires_at >= 5 minutes`
+- `expires_at > now`
 - `10 <= price_usdc <= 1000`
 - `duration_minutes > 0`
-- `grace_period_minutes >= 0`
+
+Notes:
+
+- `expires_at` is selected by the seller and must be before `scheduled_at`.
+- `grace_period_minutes` is server-controlled for MVP and defaults to `10`.
 
 ### `POST /api/links/:id/cancel`
 

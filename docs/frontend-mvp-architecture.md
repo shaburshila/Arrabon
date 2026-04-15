@@ -304,7 +304,7 @@ Boundary:
 - `scheduled_at`
 - `timezone`
 - `duration_minutes`
-- `grace_period_minutes`
+- `grace_period_minutes` (server-controlled; read-only for frontend)
 - `expires_at`
 - `status`
 - `seller_address`

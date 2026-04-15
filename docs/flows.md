@@ -183,7 +183,7 @@ Client пытается вызвать createAndFundDeal:
   → Contract: revert (expires_at проверяется onchain через scheduled_at, или offchain)
 ```
 
-**Инвариант:** `expires_at < scheduled_at`, `scheduled_at - expires_at ≥ 5 мин`
+**Инвариант:** `expires_at > now`, `expires_at < scheduled_at`
 
 ---
 
@@ -415,19 +415,19 @@ Expert/Client вызывают adminResolveRelease или adminResolveRefund:
 
 ## 7. Edge Cases
 
-### 7.1 grace_period = 0
+### 7.1 Grace period backend default
 
 ```
-markCompleted доступен сразу после scheduled_at + duration.
-Валидно: grace_period_minutes ≥ 0.
+Для MVP продавец не задаёт grace_period_minutes в форме или API payload.
+Backend использует server-controlled значение 10 минут.
 ```
 
-### 7.2 Граница expires_at (ровно 5 минут до scheduled_at)
+### 7.2 Граница expires_at
 
 ```
-Минимально допустимое: scheduled_at - expires_at = 5 мин.
-expires_at = scheduled_at - 5 мин → валидно.
-expires_at = scheduled_at - 4 мин → невалидно, форма/backend rejects.
+Продавец задаёт expires_at вручную.
+expires_at должен быть позже now и раньше scheduled_at.
+Минимальный разрыв до scheduled_at не применяется.
 ```
 
 ### 7.3 Fee waiver в v1 отсутствует

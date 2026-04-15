@@ -15,22 +15,26 @@ import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { Btn } from "@/components/shared/btn";
 import { CopyBtn } from "@/components/shared/copy-btn";
 
+const DEFAULT_EXPIRATION_OFFSET_MS = 5 * 60 * 1000;
+
 interface FormState {
   title: string;
   description: string;
   price_usdc: string;
   scheduled_date: string;
   scheduled_time: string;
+  expires_date: string;
+  expires_time: string;
   timezone: string;
   duration_minutes: string;
-  grace_period_minutes: string;
   meeting_url: string;
 }
 
 const emptyForm: FormState = {
   description: "",
   duration_minutes: "60",
-  grace_period_minutes: "15",
+  expires_date: "",
+  expires_time: "",
   meeting_url: "",
   price_usdc: "",
   scheduled_date: "",
@@ -45,10 +49,64 @@ export default function HomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [expirationAutoFilled, setExpirationAutoFilled] = useState(true);
 
   const canCreate = session.isConnected && session.isCorrectChain && session.siweStatus === "authenticated";
 
+  function splitLocalDateTime(value: Date): { date: string; time: string } {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    const hours = String(value.getHours()).padStart(2, "0");
+    const minutes = String(value.getMinutes()).padStart(2, "0");
+
+    return {
+      date: `${year}-${month}-${day}`,
+      time: `${hours}:${minutes}`,
+    };
+  }
+
+  function getDefaultExpiration(date: string, time: string) {
+    if (!date || !time) {
+      return null;
+    }
+
+    const scheduledAt = new Date(`${date}T${time}`);
+
+    if (Number.isNaN(scheduledAt.getTime())) {
+      return null;
+    }
+
+    return splitLocalDateTime(
+      new Date(scheduledAt.getTime() - DEFAULT_EXPIRATION_OFFSET_MS),
+    );
+  }
+
   function setField(field: keyof FormState, value: string) {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (
+        expirationAutoFilled &&
+        (field === "scheduled_date" || field === "scheduled_time")
+      ) {
+        const defaultExpiration = getDefaultExpiration(
+          field === "scheduled_date" ? value : next.scheduled_date,
+          field === "scheduled_time" ? value : next.scheduled_time,
+        );
+
+        if (defaultExpiration) {
+          next.expires_date = defaultExpiration.date;
+          next.expires_time = defaultExpiration.time;
+        }
+      }
+
+      return next;
+    });
+  }
+
+  function setExpirationField(field: "expires_date" | "expires_time", value: string) {
+    setExpirationAutoFilled(false);
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -64,15 +122,35 @@ export default function HomePage() {
         throw new Error("Scheduled date and time are required.");
       }
 
+      if (!form.expires_date || !form.expires_time) {
+        throw new Error("Expiration date and time are required.");
+      }
+
       const scheduledAt = new Date(`${form.scheduled_date}T${form.scheduled_time}`);
-      // expires_at = scheduled_at - 5 minutes
-      const expiresAt = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
+      const expiresAt = new Date(`${form.expires_date}T${form.expires_time}`);
+
+      if (Number.isNaN(scheduledAt.getTime()) || Number.isNaN(expiresAt.getTime())) {
+        throw new Error("Scheduled and expiration times must be valid.");
+      }
+
+      const now = new Date();
+
+      if (scheduledAt.getTime() <= now.getTime()) {
+        throw new Error("Scheduled time must be later than the current time.");
+      }
+
+      if (expiresAt.getTime() <= now.getTime()) {
+        throw new Error("Expiration must be later than the current time.");
+      }
+
+      if (expiresAt.getTime() >= scheduledAt.getTime()) {
+        throw new Error("Expiration must be before the scheduled time.");
+      }
 
       const input: CreateLinkInput = {
         description: form.description,
         duration_minutes: parseInt(form.duration_minutes, 10),
         expires_at: expiresAt.toISOString(),
-        grace_period_minutes: parseInt(form.grace_period_minutes, 10),
         meeting_url: form.meeting_url,
         price_usdc: form.price_usdc,
         scheduled_at: scheduledAt.toISOString(),
@@ -87,6 +165,7 @@ export default function HomePage() {
           : result.share_url;
       setShareUrl(fullUrl);
       setForm(emptyForm);
+      setExpirationAutoFilled(true);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -211,10 +290,21 @@ export default function HomePage() {
             />
 
             <ScheduledDateTimeField
+              idPrefix="scheduled"
+              label="Scheduled date & time"
               dateValue={form.scheduled_date}
               timeValue={form.scheduled_time}
               onDateChange={(v) => setField("scheduled_date", v)}
               onTimeChange={(v) => setField("scheduled_time", v)}
+            />
+
+            <ScheduledDateTimeField
+              idPrefix="expires"
+              label="Link expires at"
+              dateValue={form.expires_date}
+              timeValue={form.expires_time}
+              onDateChange={(v) => setExpirationField("expires_date", v)}
+              onTimeChange={(v) => setExpirationField("expires_time", v)}
             />
 
             <Field
@@ -227,30 +317,15 @@ export default function HomePage() {
               placeholder="Europe/Berlin"
             />
 
-            <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <Field
-                  id="duration_minutes"
-                  label="Duration (min)"
-                  required
-                  type="number"
-                  value={form.duration_minutes}
-                  onChange={(v) => setField("duration_minutes", v)}
-                  min="1"
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <Field
-                  id="grace_period_minutes"
-                  label="Grace period (min)"
-                  required
-                  type="number"
-                  value={form.grace_period_minutes}
-                  onChange={(v) => setField("grace_period_minutes", v)}
-                  min="0"
-                />
-              </div>
-            </div>
+            <Field
+              id="duration_minutes"
+              label="Duration (min)"
+              required
+              type="number"
+              value={form.duration_minutes}
+              onChange={(v) => setField("duration_minutes", v)}
+              min="1"
+            />
 
             <Field
               id="meeting_url"
@@ -263,7 +338,7 @@ export default function HomePage() {
             />
 
             <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>
-              Expires 5 minutes before the scheduled time. Link is single-use.
+              Link is single-use and expires at the selected date and time.
             </p>
 
             {error && (
@@ -365,24 +440,31 @@ function Field({
 
 function ScheduledDateTimeField({
   dateValue,
+  idPrefix,
+  label,
   onDateChange,
   onTimeChange,
   timeValue,
 }: {
   dateValue: string;
+  idPrefix: string;
+  label: string;
   onDateChange: (value: string) => void;
   onTimeChange: (value: string) => void;
   timeValue: string;
 }) {
+  const dateId = `${idPrefix}_date`;
+  const timeId = `${idPrefix}_time`;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label style={fieldLabelStyle}>
-        Scheduled date & time
+      <label htmlFor={dateId} style={fieldLabelStyle}>
+        {label}
         <span style={{ color: "var(--danger)", marginLeft: 2 }}>*</span>
       </label>
       <div style={scheduledDateTimeRowStyle}>
         <input
-          id="scheduled_date"
+          id={dateId}
           onChange={(e) => onDateChange(e.target.value)}
           required
           style={scheduledDateInputStyle}
@@ -390,7 +472,7 @@ function ScheduledDateTimeField({
           value={dateValue}
         />
         <input
-          id="scheduled_time"
+          id={timeId}
           onChange={(e) => onTimeChange(e.target.value)}
           required
           style={scheduledTimeInputStyle}

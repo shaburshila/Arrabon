@@ -97,9 +97,9 @@
 
 - `scheduled_at > now`
 - `expires_at < scheduled_at`
-- `scheduled_at - expires_at >= 5 minutes`
+- `expires_at > now`
 - `duration_minutes > 0`
-- `grace_period_minutes >= 0`
+- `grace_period_minutes >= 0` (server-controlled; MVP default: 10 minutes)
 
 ### Deal windows
 

@@ -70,7 +70,7 @@ Scheduled consultation
 - scheduled_at (UTC)
 - timezone (display only)
 - duration_minutes
-- grace_period_minutes
+- grace_period_minutes (backend default, MVP: 10 minutes)
 - expires_at
 - meeting_url
 
@@ -82,9 +82,9 @@ Scheduled consultation
 
 - scheduled_at > now
 - expires_at < scheduled_at
-- scheduled_at - expires_at ≥ 5 минут
+- expires_at > now
 - duration_minutes > 0
-- grace_period_minutes ≥ 0
+- grace_period_minutes ≥ 0 (server-controlled)
 
 `markCompleted` доступен только после:
 

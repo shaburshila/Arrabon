@@ -44,7 +44,6 @@ export interface CreateLinkInput {
   description: string;
   duration_minutes: number;
   expires_at: string;
-  grace_period_minutes: number;
   meeting_url: string;
   price_usdc: string;
   scheduled_at: string;

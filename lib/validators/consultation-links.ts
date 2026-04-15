@@ -22,14 +22,12 @@ export interface CreateConsultationLinkInput {
   scheduledAt: Date;
   timezone: string;
   durationMinutes: number;
-  gracePeriodMinutes: number;
   expiresAt: Date;
   meetingUrl: string;
 }
 
 const MIN_PRICE_USDC = 10;
 const MAX_PRICE_USDC = 1000;
-const MIN_LEAD_TIME_MS = 5 * 60 * 1000;
 const DECIMAL_PRICE_PATTERN = /^(0|[1-9]\d*)(\.\d{1,6})?$/;
 const ISO_UTC_OR_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/;
 
@@ -206,7 +204,6 @@ export function parseCreateConsultationLinkInput(
   const scheduledAt = readUtcDate(payload, "scheduled_at", issues);
   const timezone = readRequiredString(payload, "timezone", issues);
   const durationMinutes = readInteger(payload, "duration_minutes", issues);
-  const gracePeriodMinutes = readInteger(payload, "grace_period_minutes", issues);
   const expiresAt = readUtcDate(payload, "expires_at", issues);
   const meetingUrl = validateMeetingUrl(payload, issues);
 
@@ -214,13 +211,6 @@ export function parseCreateConsultationLinkInput(
     issues.push({
       field: "duration_minutes",
       message: "Must be greater than 0.",
-    });
-  }
-
-  if (gracePeriodMinutes !== null && gracePeriodMinutes < 0) {
-    issues.push({
-      field: "grace_period_minutes",
-      message: "Must be greater than or equal to 0.",
     });
   }
 
@@ -246,24 +236,12 @@ export function parseCreateConsultationLinkInput(
   }
 
   if (
-    scheduledAt &&
-    expiresAt &&
-    scheduledAt.getTime() - expiresAt.getTime() < MIN_LEAD_TIME_MS
-  ) {
-    issues.push({
-      field: "expires_at",
-      message: "Must be at least 5 minutes earlier than scheduled_at.",
-    });
-  }
-
-  if (
     issues.length > 0 ||
     !title ||
     !priceUsdc ||
     !scheduledAt ||
     !timezone ||
     durationMinutes === null ||
-    gracePeriodMinutes === null ||
     !expiresAt ||
     !meetingUrl
   ) {
@@ -277,7 +255,6 @@ export function parseCreateConsultationLinkInput(
     scheduledAt,
     timezone,
     durationMinutes,
-    gracePeriodMinutes,
     expiresAt,
     meetingUrl,
   };

@@ -59,11 +59,11 @@
 - When: submit
 - Then: validation error; ссылка не создаётся
 
-### QA-009 Минимальный разрыв expires_at / scheduled_at
+### QA-009 Минимальный разрыв expires_at / scheduled_at не требуется
 **[API]**
-- Given: scheduled_at - expires_at < 5 мин
+- Given: expires_at позже now и раньше scheduled_at, но разрыв меньше 5 мин
 - When: попытка создать ссылку
-- Then: validation error "минимум 5 минут до scheduled_at"
+- Then: ссылка создаётся успешно
 
 ### QA-010 scheduled_at в прошлом
 **[API] [UI]**
@@ -77,11 +77,15 @@
 - When: создание ссылки
 - Then: validation error; duration_minutes должен быть > 0
 
-### QA-012 grace_period_minutes = 0 (валидно)
+### QA-012 grace_period_minutes не управляется client payload
 **[API]**
-- Given: grace_period_minutes = 0
+- Given: expert создаёт ссылку без grace_period_minutes
 - When: создание ссылки
-- Then: ссылка создаётся успешно; markCompleted доступен сразу после scheduled_at + duration
+- Then: ссылка создаётся успешно; backend применяет MVP default grace period 10 минут
+
+- Given: client всё же отправляет grace_period_minutes
+- When: создание ссылки
+- Then: backend не использует client value; применяется server-controlled default 10 минут
 
 ---
 

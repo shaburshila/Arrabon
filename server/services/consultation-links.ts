@@ -26,6 +26,7 @@ import {
 } from "@/server/repositories/deals";
 
 const LINK_HASH_INSERT_RETRY_COUNT = 3;
+const DEFAULT_GRACE_PERIOD_MINUTES = 10;
 
 type PublicUnavailableStatus = "Cancelled" | "Expired";
 
@@ -210,7 +211,7 @@ export async function createConsultationLink(
         durationMinutes: input.durationMinutes,
         expertAddress: currentUser.wallet_address,
         expiresAt: input.expiresAt,
-        gracePeriodMinutes: input.gracePeriodMinutes,
+        gracePeriodMinutes: DEFAULT_GRACE_PERIOD_MINUTES,
         linkHash,
         meetingUrlEncrypted,
         priceUsdc: input.priceUsdc,
