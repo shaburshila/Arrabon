@@ -13,8 +13,11 @@ import { useDealActions } from "@/hooks/use-deal-action";
 import { DealStatusCard } from "@/components/deal/deal-status-card";
 import { MeetingUrlCard } from "@/components/deal/meeting-url-card";
 import { DealActionsCard } from "@/components/deal/deal-actions-card";
+import { DealGuidanceCard } from "@/components/deal/deal-guidance-card";
 import { KeyTimes } from "@/components/deal/key-times";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
+import { LiveBadge } from "@/components/shared/live-badge";
+import { isDealStatusPollable } from "@/lib/api/deals";
 
 // Buyer can dispute from Funded (no-show) or ConfirmPending (within window)
 function isBuyerDisputable(status: string): boolean {
@@ -36,6 +39,15 @@ export default function DealPage() {
   return (
     <main style={mainStyle}>
       <div style={pageStyle}>
+        <div style={pageHeaderStyle}>
+          <Link href="/" style={brandStyle}>
+            Base Consult Link
+          </Link>
+          {dealPage.status === "ready" && dealPage.deal && isDealStatusPollable(dealPage.deal.status) && (
+            <LiveBadge />
+          )}
+        </div>
+
         <Link href="/my-links" style={backLinkStyle}>
           ← My links
         </Link>
@@ -82,7 +94,16 @@ export default function DealPage() {
         {/* Main content */}
         {dealPage.status === "ready" && dealPage.deal && (
           <>
-            <DealStatusCard deal={dealPage.deal} />
+            <DealStatusCard deal={dealPage.deal} role={dealPage.role} />
+            <DealGuidanceCard
+              dealStatus={dealPage.deal.status}
+              isBuyer={dealPage.isBuyer}
+              isSeller={dealPage.isSeller}
+              isViewer={!dealPage.isParticipant}
+              priceUsdc={dealPage.deal.price_usdc}
+              releaseDeadlineAt={dealPage.deal.release_deadline_at}
+              scheduledAt={dealPage.deal.scheduled_at}
+            />
             <WalletSessionCard session={session} />
             <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
 
@@ -132,6 +153,21 @@ const centerStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: 200,
+} as const;
+
+const pageHeaderStyle = {
+  alignItems: "center",
+  display: "flex",
+  justifyContent: "space-between",
+} as const;
+
+const brandStyle = {
+  color: "var(--accent)",
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+  textDecoration: "none",
+  textTransform: "uppercase" as const,
 } as const;
 
 const backLinkStyle = {

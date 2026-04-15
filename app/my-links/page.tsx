@@ -28,7 +28,7 @@ const LINK_STATUS_COLORS: Record<MyLink["status"], string> = {
 };
 
 const DEAL_STATUS_LABELS: Record<NonNullable<MyLink["deal_status"]>, string> = {
-  ConfirmPending: "Awaiting release",
+  ConfirmPending: "Awaiting confirmation",
   Disputed: "Disputed",
   Funded: "Funded",
   Refunded: "Refunded",

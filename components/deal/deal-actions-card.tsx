@@ -53,17 +53,7 @@ export function DealActionsCard({
     !Number.isNaN(markCompletedAfterMs) &&
     Date.now() < markCompletedAfterMs;
 
-  if (!showComplete && !showRelease && !showDispute) {
-    if (shouldShowParticipantStatusInfo(dealStatus, isSeller)) {
-      return (
-        <DealActionInfoCard
-          message={getParticipantStatusMessage(dealStatus)}
-        />
-      );
-    }
-
-    return null;
-  }
+  if (!showComplete && !showRelease && !showDispute) return null;
 
   return (
     <div
@@ -166,67 +156,6 @@ const errorStyle = {
   fontSize: 13,
   padding: "10px 14px",
 } as const;
-
-const labelStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "0.08em",
-  margin: "0 0 16px",
-  textTransform: "uppercase" as const,
-};
-
-function shouldShowParticipantStatusInfo(status: DealStatus, isSeller: boolean): boolean {
-  return (
-    status === "Disputed" ||
-    status === "Released" ||
-    status === "Refunded" ||
-    (isSeller && status === "ConfirmPending")
-  );
-}
-
-function getParticipantStatusMessage(status: DealStatus): string {
-  switch (status) {
-    case "Disputed":
-      return "This deal is under admin review. An admin will resolve the dispute.";
-    case "ConfirmPending":
-      return "Waiting for the buyer to confirm payment release.";
-    case "Released":
-      return "Payment has been released to the seller.";
-    case "Refunded":
-      return "This deal was refunded to the buyer.";
-    default:
-      return "";
-  }
-}
-
-function DealActionInfoCard({ message }: { message: string }) {
-  return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        boxShadow: "var(--shadow-card)",
-        padding: 20,
-      }}
-    >
-      <p style={labelStyle}>Actions</p>
-      <div
-        style={{
-          background: "var(--muted-bg)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-sm)",
-          color: "var(--muted)",
-          fontSize: 14,
-          padding: "12px 14px",
-        }}
-      >
-        {message}
-      </div>
-    </div>
-  );
-}
 
 function formatLocalDateTime(iso: string): string {
   try {

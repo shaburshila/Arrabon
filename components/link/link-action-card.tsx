@@ -8,6 +8,7 @@ import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import type { FundingFlow } from "@/hooks/use-funding-flow";
 import type { PublicLink } from "@/lib/api/links";
 import { Btn } from "@/components/shared/btn";
+import Link from "next/link";
 
 interface LinkActionCardProps {
   link: PublicLink;
@@ -34,6 +35,9 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
         <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
           This is your consultation link. Share it with your client.
         </p>
+        <Link href="/my-links" style={myLinksLinkStyle}>
+          View in My Links →
+        </Link>
       </div>
     );
   }
@@ -199,4 +203,13 @@ const infoStyle = {
   color: "var(--accent)",
   fontSize: 13,
   padding: "10px 14px",
+} as const;
+
+const myLinksLinkStyle = {
+  color: "var(--accent)",
+  display: "inline-block",
+  fontSize: 13,
+  fontWeight: 600,
+  marginTop: 12,
+  textDecoration: "none",
 } as const;

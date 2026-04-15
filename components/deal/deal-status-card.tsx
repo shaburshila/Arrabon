@@ -4,6 +4,7 @@ import type { DealReadModel, DealStatus } from "@/lib/api/deals";
 
 interface DealStatusCardProps {
   deal: DealReadModel;
+  role: "buyer" | "seller" | "viewer";
 }
 
 function truncateAddress(addr: string) {
@@ -30,7 +31,7 @@ const statusConfig: Record<DealStatus, { bg: string; color: string; label: strin
   ConfirmPending: {
     bg: "var(--warning-muted)",
     color: "var(--warning)",
-    label: "Confirm Pending",
+    label: "Awaiting confirmation",
   },
   Disputed: {
     bg: "var(--danger-muted)",
@@ -54,7 +55,7 @@ const statusConfig: Record<DealStatus, { bg: string; color: string; label: strin
   },
 };
 
-export function DealStatusCard({ deal }: DealStatusCardProps) {
+export function DealStatusCard({ deal, role }: DealStatusCardProps) {
   const sc = statusConfig[deal.status];
 
   return (
@@ -79,13 +80,14 @@ export function DealStatusCard({ deal }: DealStatusCardProps) {
       </div>
 
       <div style={gridStyle}>
-        <Detail label="Seller" value={truncateAddress(deal.seller_address)} mono />
-        <Detail label="Buyer" value={truncateAddress(deal.buyer_address)} mono />
+        <Detail label="Seller" value={formatPartyAddress(deal.seller_address, role === "seller")} mono />
+        <Detail label="Buyer" value={formatPartyAddress(deal.buyer_address, role === "buyer")} mono />
+        <Detail label="Amount" value={`$${deal.price_usdc} USDC`} />
         <Detail label="Scheduled" value={formatDate(deal.scheduled_at)} />
         {deal.completed_at && (
           <Detail label="Completed" value={formatDate(deal.completed_at)} />
         )}
-        {deal.release_deadline_at && (
+        {role !== "seller" && deal.release_deadline_at && (
           <Detail label="Release deadline" value={formatDate(deal.release_deadline_at)} />
         )}
         {deal.tx_hash && (
@@ -98,6 +100,10 @@ export function DealStatusCard({ deal }: DealStatusCardProps) {
       </div>
     </div>
   );
+}
+
+function formatPartyAddress(address: string, isCurrentUser: boolean): string {
+  return isCurrentUser ? `${truncateAddress(address)} (you)` : truncateAddress(address);
 }
 
 function Detail({

@@ -31,6 +31,7 @@ export interface DealReadModel {
   id: string;
   mark_completed_after: string;
   onchain_deal_id: string;
+  price_usdc: string;
   release_deadline_at: string | null;
   scheduled_at: string;
   seller_address: string;

@@ -5,6 +5,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { useLinkPage } from "@/hooks/use-link-page";
@@ -90,6 +91,12 @@ export default function LinkPage() {
   return (
     <main style={mainStyle}>
       <div style={pageStyle}>
+        <div style={pageHeaderStyle}>
+          <Link href="/" style={brandStyle}>
+            Base Consult Link
+          </Link>
+        </div>
+
         {/* Loading */}
         {linkPage.status === "loading" && (
           <div style={centerStyle}>
@@ -199,6 +206,21 @@ const centerStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: 200,
+} as const;
+
+const pageHeaderStyle = {
+  alignItems: "center",
+  display: "flex",
+  justifyContent: "space-between",
+} as const;
+
+const brandStyle = {
+  color: "var(--accent)",
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+  textDecoration: "none",
+  textTransform: "uppercase" as const,
 } as const;
 
 const timeoutCardStyle = {

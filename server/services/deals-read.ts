@@ -28,6 +28,7 @@ export interface DealReadModel {
   id: string;
   mark_completed_after: string;
   onchain_deal_id: string;
+  price_usdc: string;
   release_deadline_at: string | null;
   scheduled_at: string;
   seller_address: string;
@@ -211,6 +212,7 @@ export async function getDealReadModel(
       deal.grace_period_minutes,
     ),
     onchain_deal_id: deal.onchain_deal_id,
+    price_usdc: deal.price_usdc,
     release_deadline_at: computeReleaseDeadline(deal.completed_at),
     scheduled_at: deal.scheduled_at,
     seller_address: deal.seller_address,

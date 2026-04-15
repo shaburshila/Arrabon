@@ -37,6 +37,7 @@ export interface DealReadViewRow {
   grace_period_minutes: number;
   id: string;
   onchain_deal_id: string;
+  price_usdc: string;
   scheduled_at: string;
   seller_address: string;
   status: DealRow["status"];
@@ -203,6 +204,7 @@ export async function getDealReadViewById(
     grace_period_minutes: linkedConsultationLink.grace_period_minutes,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
+    price_usdc: String(linkedConsultationLink.price_usdc),
     scheduled_at: linkedConsultationLink.scheduled_at,
     seller_address: deal.seller_address,
     status: deal.status,
