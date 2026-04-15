@@ -68,7 +68,9 @@ Response:
   "status": "Funded",
   "buyer_address": "0xbuyer...",
   "seller_address": "0xseller...",
+  "price_usdc": "100.00",
   "scheduled_at": "2026-03-28T12:00:00Z",
+  "mark_completed_after": "2026-03-28T14:10:00Z",
   "completed_at": null,
   "release_deadline_at": null,
   "tx_hash": "0xhash"
@@ -161,7 +163,7 @@ Response:
 Validation:
 
 - `scheduled_at > now`
-- `expires_at < scheduled_at`
+- `expires_at <= scheduled_at`
 - `expires_at > now`
 - `10 <= price_usdc <= 1000`
 - `duration_minutes > 0`
@@ -244,7 +246,6 @@ Notes:
 - Response contains structured args only; encoded calldata is not returned.
 - The prepare response is a snapshot. By tx submission time, offchain state may already have changed.
 - Source-of-truth boundary: funding must be unavailable once `now >= expires_at`.
-- Current implementation is temporarily inconsistent at the exact boundary: when `expires_at == now`, the service still treats the link as `Open` because expiry checks use strict `<` comparison.
 
 ---
 
@@ -385,7 +386,7 @@ Errors:
 
 ---
 
-## 7. Interface Freeze
+## 8. Interface Freeze
 
 До завершения MVP нельзя без согласования:
 

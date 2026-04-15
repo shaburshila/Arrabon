@@ -143,8 +143,8 @@ export default function HomePage() {
         throw new Error("Expiration must be later than the current time.");
       }
 
-      if (expiresAt.getTime() >= scheduledAt.getTime()) {
-        throw new Error("Expiration must be before the scheduled time.");
+      if (expiresAt.getTime() > scheduledAt.getTime()) {
+        throw new Error("Expiration must be at or before the scheduled time.");
       }
 
       const input: CreateLinkInput = {

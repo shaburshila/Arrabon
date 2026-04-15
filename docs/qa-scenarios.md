@@ -53,9 +53,9 @@
 
 ## 2. Link Time Invariants
 
-### QA-008 expires_at < scheduled_at (обязательно)
+### QA-008 expires_at <= scheduled_at (обязательно)
 **[API] [UI]**
-- Given: expert заполняет форму с expires_at ≥ scheduled_at
+- Given: expert заполняет форму с expires_at > scheduled_at
 - When: submit
 - Then: validation error; ссылка не создаётся
 
@@ -257,17 +257,11 @@
 
 ### QA-037 Fee 2% фиксируется при funding
 **[CONTRACT]**
-- Given: expert старше 14 дней с регистрации; amount = 100 USDC
+- Given: amount = 100 USDC
 - When: `createAndFundDeal`
 - Then: fee_amount = floor(100 × 0.02) = 2 USDC зафиксировано в сделке
 
-### QA-038 Fee waiver (≤14 дней)
-**[CONTRACT]**
-- Given: expert зарегистрирован ≤14 дней назад
-- When: `createAndFundDeal`
-- Then: fee_amount = 0; seller получает полную сумму при release
-
-### QA-039 Fee округляется вниз
+### QA-038 Fee округляется вниз
 **[CONTRACT]**
 - Given: amount = 15 USDC; fee rate = 2%
 - When: funding
