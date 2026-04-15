@@ -6,8 +6,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAddress } from "viem";
 
-import { fetchDeal, type DealReadModel } from "@/lib/api/deals";
+import {
+  fetchDeal,
+  isDealStatusPollable,
+  type DealReadModel,
+} from "@/lib/api/deals";
 import { ApiError } from "@/lib/api/auth";
+
+const DEAL_PAGE_POLL_INTERVAL_MS = 7_500;
 
 export type DealPageStatus = "error" | "loading" | "not_found" | "ready";
 
@@ -28,9 +34,17 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
   const [deal, setDeal] = useState<DealReadModel | null>(null);
   const [status, setStatus] = useState<DealPageStatus>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [isPageVisible, setIsPageVisible] = useState(
+    () => typeof document === "undefined" || document.visibilityState === "visible",
+  );
 
-  const load = useCallback(async () => {
-    setStatus("loading");
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+
+    if (!silent) {
+      setStatus("loading");
+    }
+
     setError(null);
     try {
       const data = await fetchDeal(dealId);
@@ -40,8 +54,12 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
       return data;
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
+        setDeal(null);
         setStatus("not_found");
-      } else {
+        return null;
+      }
+
+      if (!silent) {
         setError(err instanceof Error ? err.message : "Failed to load deal.");
         setStatus("error");
       }
@@ -50,9 +68,42 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
     }
   }, [dealId]);
 
+  const refetch = useCallback(() => load({ silent: true }), [load]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!deal || !isDealStatusPollable(deal.status)) {
+      return undefined;
+    }
+
+    if (!isPageVisible) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refetch();
+    }, DEAL_PAGE_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [deal?.status, isPageVisible, refetch]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      const isVisible = document.visibilityState === "visible";
+      setIsPageVisible(isVisible);
+
+      if (isVisible && deal && isDealStatusPollable(deal.status)) {
+        void refetch();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [deal?.status, refetch]);
 
   // Role inference — normalized address comparison only (raw string equality forbidden)
   const role: DealRole = (() => {
@@ -79,6 +130,6 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
     isSeller,
     role,
     status,
-    refetch: load,
+    refetch,
   };
 }

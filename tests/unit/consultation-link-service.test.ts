@@ -26,6 +26,7 @@ import assert from 'node:assert/strict';
 import type { ConsultationLinkRow, DealRow } from '../../lib/db/types';
 import {
   getPublicConsultationLinkById,
+  listMyConsultationLinks,
   ConsultationLinkServiceError,
 } from '../../server/services/consultation-links';
 
@@ -33,7 +34,9 @@ import {
 
 interface ServiceMocks {
   getById: (id: string) => Promise<ConsultationLinkRow | null>;
+  getByCreatorUserId: (creatorUserId: string) => Promise<ConsultationLinkRow[]>;
   getByConsultationLinkId: (id: string) => Promise<DealRow | null>;
+  getByConsultationLinkIds: (ids: readonly string[]) => Promise<DealRow[]>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ConsultationLinksRepositoryError: new (message: string, code?: string) => any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +50,15 @@ const mocks = (global as any).__serviceMocks as ServiceMocks;
 
 const FUTURE = new Date(Date.now() + 60 * 60 * 1_000).toISOString();
 const PAST   = new Date(Date.now() - 60 * 60 * 1_000).toISOString();
+
+const currentUser = {
+  avatar_url: null,
+  expires_at: FUTURE,
+  id: 'user-uuid-001',
+  is_admin: false,
+  username: null,
+  wallet_address: '0xExpertAddress',
+};
 
 function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLinkRow {
   return {
@@ -90,7 +102,9 @@ function makeDeal(overrides: Partial<DealRow> = {}): DealRow {
 
 beforeEach(() => {
   mocks.getById = async () => null;
+  mocks.getByCreatorUserId = async () => [];
   mocks.getByConsultationLinkId = async () => null;
+  mocks.getByConsultationLinkIds = async () => [];
 });
 
 // ── link not found ────────────────────────────────────────────────────────────
@@ -361,5 +375,50 @@ describe('response shape', () => {
     assert.equal(result.expires_at, FUTURE);
     assert.equal(result.meeting_url_revealed, false);
     assert.equal(result.deal_id, null);
+  });
+});
+
+// ── Seller link list ─────────────────────────────────────────────────────────
+
+describe('listMyConsultationLinks', () => {
+  test('returns Consumed for a time-expired Open link when a deal exists', async () => {
+    const link = makeLink({
+      expires_at: PAST,
+      id: 'link-uuid-001',
+      status: 'Open',
+    });
+    const deal = makeDeal({
+      consultation_link_id: link.id,
+      id: 'deal-uuid-999',
+    });
+
+    mocks.getByCreatorUserId = async () => [link];
+    mocks.getByConsultationLinkIds = async (ids) => {
+      assert.deepEqual(ids, ['link-uuid-001']);
+      return [deal];
+    };
+
+    const result = await listMyConsultationLinks(currentUser);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].status, 'Consumed');
+    assert.equal(result[0].share_url, '/deal/deal-uuid-999');
+  });
+
+  test('returns Expired for a time-expired Open link when no deal exists', async () => {
+    mocks.getByCreatorUserId = async () => [
+      makeLink({
+        expires_at: PAST,
+        id: 'link-uuid-001',
+        status: 'Open',
+      }),
+    ];
+    mocks.getByConsultationLinkIds = async () => [];
+
+    const result = await listMyConsultationLinks(currentUser);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].status, 'Expired');
+    assert.equal(result[0].share_url, '/link/link-uuid-001');
   });
 });

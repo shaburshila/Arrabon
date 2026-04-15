@@ -64,7 +64,9 @@ class DealsRepositoryError extends Error {
 
 const mocks = {
   getById: async () => null,
+  getByCreatorUserId: async () => [],
   getByConsultationLinkId: async () => null,
+  getByConsultationLinkIds: async () => [],
   ConsultationLinksRepositoryError,
   DealsRepositoryError,
 };
@@ -91,6 +93,7 @@ const consultationLinksRepoPath = path.resolve(
 require.cache[consultationLinksRepoPath] = makeEntry(consultationLinksRepoPath, {
   ConsultationLinksRepositoryError,
   getById: (...args) => mocks.getById(...args),
+  getByCreatorUserId: (...args) => mocks.getByCreatorUserId(...args),
   createLink: async () => { throw new Error('createLink: not mocked in service tests'); },
   updateStatus: async () => { throw new Error('updateStatus: not mocked in service tests'); },
   getByLinkHash: async () => { throw new Error('getByLinkHash: not mocked in service tests'); },
@@ -101,4 +104,5 @@ const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');
 require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
   DealsRepositoryError,
   getByConsultationLinkId: (...args) => mocks.getByConsultationLinkId(...args),
+  getByConsultationLinkIds: (...args) => mocks.getByConsultationLinkIds(...args),
 });

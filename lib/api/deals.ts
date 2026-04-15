@@ -13,6 +13,16 @@ export type DealStatus =
   | "Refunded"
   | "Released";
 
+const POLLABLE_DEAL_STATUSES: ReadonlySet<DealStatus> = new Set([
+  "ConfirmPending",
+  "Disputed",
+  "Funded",
+]);
+
+export function isDealStatusPollable(status: DealStatus): boolean {
+  return POLLABLE_DEAL_STATUSES.has(status);
+}
+
 // Shape returned by GET /api/deals/:id
 export interface DealReadModel {
   buyer_address: string;

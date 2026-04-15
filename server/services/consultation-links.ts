@@ -18,6 +18,7 @@ import {
 import {
   DealsRepositoryError,
   getByConsultationLinkId,
+  getByConsultationLinkIds,
 } from "@/server/repositories/deals";
 
 const LINK_HASH_INSERT_RETRY_COUNT = 3;
@@ -134,20 +135,55 @@ export async function listMyConsultationLinks(
   currentUser: CurrentUserContext,
   now: Date = new Date(),
 ): Promise<MyLinkResult[]> {
-  const rows = await getByCreatorUserId(currentUser.id);
+  let rows: ConsultationLinkRow[];
 
-  return rows.map((row) => ({
-    description: row.description,
-    duration_minutes: row.duration_minutes,
-    expires_at: row.expires_at,
-    id: row.id,
-    price_usdc: String(row.price_usdc),
-    scheduled_at: row.scheduled_at,
-    share_url: `/link/${row.id}`,
-    status: resolveEffectiveConsultationLinkStatus(row, now),
-    timezone: row.timezone,
-    title: row.title,
-  }));
+  try {
+    rows = await getByCreatorUserId(currentUser.id);
+  } catch (error) {
+    if (error instanceof ConsultationLinksRepositoryError) {
+      throw new ConsultationLinkServiceError(
+        "Failed to load consultation links.",
+        500,
+        error.code ?? "LINKS_LOAD_FAILED",
+      );
+    }
+
+    throw error;
+  }
+
+  let dealsByLinkId: Map<string, Awaited<ReturnType<typeof getByConsultationLinkIds>>[number]>;
+
+  try {
+    const deals = await getByConsultationLinkIds(rows.map((row) => row.id));
+    dealsByLinkId = new Map(deals.map((deal) => [deal.consultation_link_id, deal]));
+  } catch (error) {
+    if (error instanceof DealsRepositoryError) {
+      throw new ConsultationLinkServiceError(
+        "Failed to load consultation links.",
+        500,
+        error.code ?? "DEALS_LOAD_FAILED",
+      );
+    }
+
+    throw error;
+  }
+
+  return rows.map((row) => {
+    const existingDeal = dealsByLinkId.get(row.id);
+
+    return {
+      description: row.description,
+      duration_minutes: row.duration_minutes,
+      expires_at: row.expires_at,
+      id: row.id,
+      price_usdc: String(row.price_usdc),
+      scheduled_at: row.scheduled_at,
+      share_url: existingDeal ? `/deal/${existingDeal.id}` : `/link/${row.id}`,
+      status: existingDeal ? "Consumed" : resolveEffectiveConsultationLinkStatus(row, now),
+      timezone: row.timezone,
+      title: row.title,
+    };
+  });
 }
 
 export async function createConsultationLink(

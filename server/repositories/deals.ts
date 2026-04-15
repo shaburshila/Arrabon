@@ -92,6 +92,29 @@ export async function getByConsultationLinkId(
   return data;
 }
 
+export async function getByConsultationLinkIds(
+  consultationLinkIds: readonly string[],
+): Promise<DealRow[]> {
+  if (consultationLinkIds.length === 0) {
+    return [];
+  }
+
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("deals")
+    .select("*")
+    .in("consultation_link_id", [...consultationLinkIds]);
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load deals by consultation link ids: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data ?? [];
+}
+
 export async function getByOnchainDealId(
   onchainDealId: string,
 ): Promise<DealRow | null> {
