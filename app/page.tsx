@@ -19,7 +19,8 @@ interface FormState {
   title: string;
   description: string;
   price_usdc: string;
-  scheduled_at: string;
+  scheduled_date: string;
+  scheduled_time: string;
   timezone: string;
   duration_minutes: string;
   grace_period_minutes: string;
@@ -32,7 +33,8 @@ const emptyForm: FormState = {
   grace_period_minutes: "15",
   meeting_url: "",
   price_usdc: "",
-  scheduled_at: "",
+  scheduled_date: "",
+  scheduled_time: "",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   title: "",
 };
@@ -58,7 +60,11 @@ export default function HomePage() {
     setError(null);
 
     try {
-      const scheduledAt = new Date(form.scheduled_at);
+      if (!form.scheduled_date || !form.scheduled_time) {
+        throw new Error("Scheduled date and time are required.");
+      }
+
+      const scheduledAt = new Date(`${form.scheduled_date}T${form.scheduled_time}`);
       // expires_at = scheduled_at - 5 minutes
       const expiresAt = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
 
@@ -204,13 +210,11 @@ export default function HomePage() {
               max="1000"
             />
 
-            <Field
-              id="scheduled_at"
-              label="Scheduled date & time"
-              required
-              type="datetime-local"
-              value={form.scheduled_at}
-              onChange={(v) => setField("scheduled_at", v)}
+            <ScheduledDateTimeField
+              dateValue={form.scheduled_date}
+              timeValue={form.scheduled_time}
+              onDateChange={(v) => setField("scheduled_date", v)}
+              onTimeChange={(v) => setField("scheduled_time", v)}
             />
 
             <Field
@@ -320,32 +324,14 @@ function Field({
   onChange: (v: string) => void;
   placeholder?: string;
   required?: boolean;
-  type: "datetime-local" | "number" | "text" | "textarea" | "url";
+  type: "number" | "text" | "textarea" | "url";
   value: string;
 }) {
-  const inputStyle = {
-    background: "var(--surface-raised)",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-sm)",
-    color: "var(--foreground)",
-    fontSize: 15,
-    minHeight: 44,
-    outline: "none",
-    padding: "10px 14px",
-    width: "100%",
-  } as const;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <label
         htmlFor={id}
-        style={{
-          color: "var(--muted)",
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-        }}
+        style={fieldLabelStyle}
       >
         {label}
         {required && <span style={{ color: "var(--danger)", marginLeft: 2 }}>*</span>}
@@ -373,6 +359,45 @@ function Field({
           value={value}
         />
       )}
+    </div>
+  );
+}
+
+function ScheduledDateTimeField({
+  dateValue,
+  onDateChange,
+  onTimeChange,
+  timeValue,
+}: {
+  dateValue: string;
+  onDateChange: (value: string) => void;
+  onTimeChange: (value: string) => void;
+  timeValue: string;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={fieldLabelStyle}>
+        Scheduled date & time
+        <span style={{ color: "var(--danger)", marginLeft: 2 }}>*</span>
+      </label>
+      <div style={scheduledDateTimeRowStyle}>
+        <input
+          id="scheduled_date"
+          onChange={(e) => onDateChange(e.target.value)}
+          required
+          style={scheduledDateInputStyle}
+          type="date"
+          value={dateValue}
+        />
+        <input
+          id="scheduled_time"
+          onChange={(e) => onTimeChange(e.target.value)}
+          required
+          style={scheduledTimeInputStyle}
+          type="time"
+          value={timeValue}
+        />
+      </div>
     </div>
   );
 }
@@ -417,4 +442,44 @@ const subtitleStyle = {
   fontSize: 15,
   lineHeight: 1.5,
   margin: 0,
+} as const;
+
+const fieldLabelStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase" as const,
+} as const;
+
+const inputStyle = {
+  background: "var(--surface-raised)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--foreground)",
+  fontSize: 15,
+  minHeight: 44,
+  outline: "none",
+  padding: "10px 14px",
+  width: "100%",
+} as const;
+
+const scheduledDateTimeRowStyle = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: 8,
+} as const;
+
+const scheduledDateInputStyle = {
+  ...inputStyle,
+  flex: "2 1 170px",
+  minWidth: 0,
+  width: 0,
+} as const;
+
+const scheduledTimeInputStyle = {
+  ...inputStyle,
+  flex: "1 1 110px",
+  minWidth: 0,
+  width: 0,
 } as const;

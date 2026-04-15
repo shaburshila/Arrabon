@@ -22,14 +22,34 @@ export function ensureAuthEnvironment() {
   }
 }
 
-export function resolveExpectedAuthDomain(request: Request): string {
+function parseAllowedAuthDomains(): string[] {
+  const values = [
+    process.env.AUTH_DOMAIN,
+    ...(process.env.AUTH_ALLOWED_DOMAINS ?? "").split(","),
+  ];
+
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeAuthDomain(value ?? ""))
+        .filter(Boolean),
+    ),
+  );
+}
+
+export function resolveAllowedAuthDomains(request: Request): string[] {
   ensureAuthEnvironment();
 
-  const authDomain = process.env.AUTH_DOMAIN?.trim();
+  const requestHost = new URL(request.url).host.toLowerCase();
+  const allowedDomains = parseAllowedAuthDomains();
 
-  if (authDomain) {
-    return normalizeAuthDomain(authDomain);
+  if (!isProductionRuntime()) {
+    return Array.from(new Set([...allowedDomains, requestHost]));
   }
 
-  return new URL(request.url).host.toLowerCase();
+  if (allowedDomains.length > 0) {
+    return allowedDomains;
+  }
+
+  return [requestHost];
 }

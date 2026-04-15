@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveExpectedAuthDomain } from "@/lib/auth/config";
+import { resolveAllowedAuthDomains } from "@/lib/auth/config";
 import { setSessionCookie } from "@/lib/auth/cookies";
 import { createAuthSession, isAdminWallet } from "@/lib/auth/session";
 import { verifySiweMessage } from "@/lib/auth/siwe";
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
   try {
     const verifiedMessage = await verifySiweMessage({
-      expectedDomain: resolveExpectedAuthDomain(request),
+      expectedDomains: resolveAllowedAuthDomains(request),
       message: messageValue,
       signature: signatureValue,
     });

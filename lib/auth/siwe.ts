@@ -157,11 +157,11 @@ export function parseSiweMessage(message: string): Omit<ParsedSiweMessage, "mess
 }
 
 export async function verifySiweMessage(input: {
-  expectedDomain: string;
+  expectedDomains: readonly string[];
   message: string;
   signature: string;
 }) {
-  const { expectedDomain, message, signature } = input;
+  const { expectedDomains, message, signature } = input;
 
   if (!isHex(signature)) {
     throw new Error("Invalid SIWE signature.");
@@ -170,10 +170,12 @@ export async function verifySiweMessage(input: {
   const normalizedSignature = signature as Hex;
 
   const parsedMessage = parseSiweMessage(message);
-  const normalizedExpectedDomain = expectedDomain.trim().toLowerCase();
+  const normalizedExpectedDomains = expectedDomains.map((domain) => domain.trim().toLowerCase());
 
-  if (parsedMessage.domain !== normalizedExpectedDomain) {
-    throw new Error("SIWE domain mismatch.");
+  if (!normalizedExpectedDomains.includes(parsedMessage.domain)) {
+    throw new Error(
+      `SIWE domain mismatch. Expected one of ${normalizedExpectedDomains.join(", ")}, received ${parsedMessage.domain}.`,
+    );
   }
 
   if (parsedMessage.chainId !== baseRuntimeConfig.chainId) {
