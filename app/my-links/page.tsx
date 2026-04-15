@@ -11,7 +11,7 @@ import { fetchMyLinks, type MyLink } from "@/lib/api/links";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { Btn } from "@/components/shared/btn";
 
-const STATUS_LABELS: Record<MyLink["status"], string> = {
+const LINK_STATUS_LABELS: Record<MyLink["status"], string> = {
   Cancelled: "Cancelled",
   Consumed: "Funded",
   Draft: "Draft",
@@ -19,12 +19,28 @@ const STATUS_LABELS: Record<MyLink["status"], string> = {
   Open: "Open",
 };
 
-const STATUS_COLORS: Record<MyLink["status"], string> = {
+const LINK_STATUS_COLORS: Record<MyLink["status"], string> = {
   Cancelled: "var(--muted)",
   Consumed: "var(--accent)",
   Draft: "var(--muted)",
   Expired: "var(--muted)",
   Open: "var(--success)",
+};
+
+const DEAL_STATUS_LABELS: Record<NonNullable<MyLink["deal_status"]>, string> = {
+  ConfirmPending: "Awaiting release",
+  Disputed: "Disputed",
+  Funded: "Funded",
+  Refunded: "Refunded",
+  Released: "Released",
+};
+
+const DEAL_STATUS_COLORS: Record<NonNullable<MyLink["deal_status"]>, string> = {
+  ConfirmPending: "var(--accent)",
+  Disputed: "var(--danger)",
+  Funded: "var(--accent)",
+  Refunded: "var(--muted)",
+  Released: "var(--success)",
 };
 
 function formatDate(iso: string, tz: string) {
@@ -121,6 +137,7 @@ export default function MyLinksPage() {
 function LinkCard({ link }: { link: MyLink }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = `${origin}${link.share_url}`;
+  const badge = getMyLinkBadge(link);
 
   return (
     <div style={cardStyle}>
@@ -133,7 +150,7 @@ function LinkCard({ link }: { link: MyLink }) {
             {formatDate(link.scheduled_at, link.timezone)} · {link.duration_minutes} min · {link.price_usdc} USDC
           </p>
         </div>
-        <span style={statusBadge(link.status)}>{STATUS_LABELS[link.status]}</span>
+        <span style={statusBadge(badge.color)}>{badge.label}</span>
       </div>
 
       {link.description && (
@@ -157,7 +174,7 @@ function LinkCard({ link }: { link: MyLink }) {
             </button>
           </>
         )}
-        {link.status === "Consumed" && link.share_url && (
+        {link.deal_id && link.share_url && (
           <Link href={link.share_url} style={linkStyle}>
             View deal
           </Link>
@@ -167,12 +184,26 @@ function LinkCard({ link }: { link: MyLink }) {
   );
 }
 
-function statusBadge(status: MyLink["status"]) {
+function getMyLinkBadge(link: MyLink): { color: string; label: string } {
+  if (link.deal_status) {
+    return {
+      color: DEAL_STATUS_COLORS[link.deal_status],
+      label: DEAL_STATUS_LABELS[link.deal_status],
+    };
+  }
+
   return {
-    background: STATUS_COLORS[status] + "1a",
-    border: `1px solid ${STATUS_COLORS[status]}33`,
+    color: LINK_STATUS_COLORS[link.status],
+    label: LINK_STATUS_LABELS[link.status],
+  };
+}
+
+function statusBadge(color: string) {
+  return {
+    background: color + "1a",
+    border: `1px solid ${color}33`,
     borderRadius: 99,
-    color: STATUS_COLORS[status],
+    color,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: 600,

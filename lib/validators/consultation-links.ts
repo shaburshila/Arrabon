@@ -59,6 +59,25 @@ function readRequiredString(
   return trimmedValue;
 }
 
+function readOptionalString(
+  source: Record<string, unknown>,
+  field: string,
+  issues: ValidationIssue[],
+): string {
+  const value = source[field];
+
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (typeof value !== "string") {
+    issues.push({ field, message: "Expected a string." });
+    return "";
+  }
+
+  return value.trim();
+}
+
 function readInteger(
   source: Record<string, unknown>,
   field: string,
@@ -182,7 +201,7 @@ export function parseCreateConsultationLinkInput(
   }
 
   const title = readRequiredString(payload, "title", issues);
-  const description = readRequiredString(payload, "description", issues);
+  const description = readOptionalString(payload, "description", issues);
   const priceUsdc = validatePrice(payload, issues);
   const scheduledAt = readUtcDate(payload, "scheduled_at", issues);
   const timezone = readRequiredString(payload, "timezone", issues);
@@ -240,7 +259,6 @@ export function parseCreateConsultationLinkInput(
   if (
     issues.length > 0 ||
     !title ||
-    !description ||
     !priceUsdc ||
     !scheduledAt ||
     !timezone ||

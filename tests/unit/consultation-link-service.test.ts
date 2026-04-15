@@ -401,6 +401,32 @@ describe('listMyConsultationLinks', () => {
     const result = await listMyConsultationLinks(currentUser);
 
     assert.equal(result.length, 1);
+    assert.equal(result[0].deal_id, 'deal-uuid-999');
+    assert.equal(result[0].deal_status, 'Funded');
+    assert.equal(result[0].status, 'Consumed');
+    assert.equal(result[0].share_url, '/deal/deal-uuid-999');
+  });
+
+  test('returns the real deal status when an existing deal is already released', async () => {
+    const link = makeLink({
+      expires_at: PAST,
+      id: 'link-uuid-001',
+      status: 'Open',
+    });
+    const deal = makeDeal({
+      consultation_link_id: link.id,
+      id: 'deal-uuid-999',
+      status: 'Released',
+    });
+
+    mocks.getByCreatorUserId = async () => [link];
+    mocks.getByConsultationLinkIds = async () => [deal];
+
+    const result = await listMyConsultationLinks(currentUser);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].deal_id, 'deal-uuid-999');
+    assert.equal(result[0].deal_status, 'Released');
     assert.equal(result[0].status, 'Consumed');
     assert.equal(result[0].share_url, '/deal/deal-uuid-999');
   });
@@ -418,6 +444,8 @@ describe('listMyConsultationLinks', () => {
     const result = await listMyConsultationLinks(currentUser);
 
     assert.equal(result.length, 1);
+    assert.equal(result[0].deal_id, null);
+    assert.equal(result[0].deal_status, null);
     assert.equal(result[0].status, 'Expired');
     assert.equal(result[0].share_url, '/link/link-uuid-001');
   });

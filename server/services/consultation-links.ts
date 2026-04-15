@@ -4,7 +4,11 @@ import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
-import type { ConsultationLinkRow, ConsultationLinkStatus } from "@/lib/db/types";
+import type {
+  ConsultationLinkRow,
+  ConsultationLinkStatus,
+  DealStatus,
+} from "@/lib/db/types";
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
 import { assertLinkHash, generateLinkHash } from "@/lib/crypto/link-hash";
 import type { CreateConsultationLinkInput } from "@/lib/validators/consultation-links";
@@ -119,6 +123,8 @@ function createUnavailableLinkError(statusValue: PublicUnavailableStatus): Consu
 }
 
 export interface MyLinkResult {
+  deal_id: string | null;
+  deal_status: DealStatus | null;
   description: string;
   duration_minutes: number;
   expires_at: string;
@@ -172,6 +178,8 @@ export async function listMyConsultationLinks(
     const existingDeal = dealsByLinkId.get(row.id);
 
     return {
+      deal_id: existingDeal?.id ?? null,
+      deal_status: existingDeal?.status ?? null,
       description: row.description,
       duration_minutes: row.duration_minutes,
       expires_at: row.expires_at,
