@@ -1,0 +1,68 @@
+import { ApiError } from "@/lib/api/auth";
+import type { DealStatus } from "@/lib/api/deals";
+
+async function parseResponse<T>(res: Response): Promise<T> {
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, body);
+  return body as T;
+}
+
+export type AdminResolution = "refund" | "release";
+
+export interface AdminDealReview {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  created_at: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  release_deadline_at: string | null;
+  released_at: string | null;
+  scheduled_at: string;
+  seller_address: string;
+  status: Extract<DealStatus, "Disputed">;
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
+}
+
+export interface AdminContractCall {
+  args: { deal_id: string };
+  chain_id: number;
+  contract_address: string;
+  function_name: "adminResolveRefund" | "adminResolveRelease";
+}
+
+export interface AdminResolvePrepareResult {
+  contract_call: AdminContractCall;
+  deal_id: string;
+  resolution: AdminResolution;
+}
+
+// GET /api/admin/deals — requires SIWE admin session
+export async function fetchAdminDisputedDeals(): Promise<AdminDealReview[]> {
+  const res = await fetch("/api/admin/deals");
+  return parseResponse<AdminDealReview[]>(res);
+}
+
+// GET /api/admin/deals/:id — requires SIWE admin session
+export async function fetchAdminDeal(id: string): Promise<AdminDealReview> {
+  const res = await fetch(`/api/admin/deals/${encodeURIComponent(id)}`);
+  return parseResponse<AdminDealReview>(res);
+}
+
+// POST /api/admin/deals/:id/resolve — requires SIWE admin session
+export async function prepareAdminResolve(
+  dealId: string,
+  resolution: AdminResolution,
+): Promise<AdminResolvePrepareResult> {
+  const res = await fetch(`/api/admin/deals/${encodeURIComponent(dealId)}/resolve`, {
+    body: JSON.stringify({ resolution }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return parseResponse<AdminResolvePrepareResult>(res);
+}

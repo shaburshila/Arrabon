@@ -77,3 +77,13 @@ export async function requireUser() {
 
   return user;
 }
+
+export async function requireAdmin() {
+  const user = await requireUser();
+
+  if (!user.is_admin) {
+    throw new AuthGuardError("Access denied.", 403);
+  }
+
+  return user;
+}

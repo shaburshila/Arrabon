@@ -9,6 +9,8 @@ import {
 
 import { assertLinkHash } from "@/lib/crypto/link-hash";
 import {
+  adminResolveRefundFunctionAbi,
+  adminResolveReleaseFunctionAbi,
   autoReleaseFunctionAbi,
   confirmReleaseFunctionAbi,
   createAndFundDealFunctionAbi,
@@ -68,6 +70,8 @@ export const consultEscrowAbi = [
   confirmReleaseFunctionAbi,
   openDisputeFunctionAbi,
   autoReleaseFunctionAbi,
+  adminResolveReleaseFunctionAbi,
+  adminResolveRefundFunctionAbi,
   dealFundedEventAbi,
   completedEventAbi,
   releasedEventAbi,
@@ -101,7 +105,13 @@ export interface PreparedCreateAndFundDealCall {
 export interface PreparedDealLifecycleCall {
   chain_id: number;
   contract_address: Address;
-  function_name: "autoRelease" | "confirmRelease" | "markCompleted" | "openDispute";
+  function_name:
+    | "adminResolveRefund"
+    | "adminResolveRelease"
+    | "autoRelease"
+    | "confirmRelease"
+    | "markCompleted"
+    | "openDispute";
   args: {
     deal_id: string;
   };
@@ -408,6 +418,14 @@ export function prepareOpenDisputeCall(onchainDealId: string): PreparedDealLifec
 
 export function prepareAutoReleaseCall(onchainDealId: string): PreparedDealLifecycleCall {
   return prepareDealLifecycleCall("autoRelease", onchainDealId);
+}
+
+export function prepareAdminResolveReleaseCall(onchainDealId: string): PreparedDealLifecycleCall {
+  return prepareDealLifecycleCall("adminResolveRelease", onchainDealId);
+}
+
+export function prepareAdminResolveRefundCall(onchainDealId: string): PreparedDealLifecycleCall {
+  return prepareDealLifecycleCall("adminResolveRefund", onchainDealId);
 }
 
 export function prepareCreateAndFundDealCall(

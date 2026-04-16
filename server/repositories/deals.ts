@@ -65,6 +65,25 @@ export interface DealActionContextRow {
   status: DealRow["status"];
 }
 
+export interface AdminDealReviewRow {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  created_at: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  released_at: string | null;
+  scheduled_at: string;
+  seller_address: string;
+  status: DealRow["status"];
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
+}
+
 function toUtcIsoString(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -289,6 +308,94 @@ export async function getDealActionContextById(
     seller_address: deal.seller_address,
     status: deal.status,
   };
+}
+
+function toAdminDealReviewRow(
+  deal: DealRow,
+  linkedConsultationLink: ConsultationLinkRow,
+): AdminDealReviewRow {
+  return {
+    buyer_address: deal.buyer_address,
+    completed_at: deal.completed_at,
+    consultation_link_id: deal.consultation_link_id,
+    created_at: deal.created_at,
+    duration_minutes: linkedConsultationLink.duration_minutes,
+    expires_at: linkedConsultationLink.expires_at,
+    id: deal.id,
+    onchain_deal_id: deal.onchain_deal_id,
+    price_usdc: String(linkedConsultationLink.price_usdc),
+    released_at: deal.released_at,
+    scheduled_at: linkedConsultationLink.scheduled_at,
+    seller_address: deal.seller_address,
+    status: deal.status,
+    timezone: linkedConsultationLink.timezone,
+    title: linkedConsultationLink.title,
+    tx_hash: deal.tx_hash,
+  };
+}
+
+export async function listDisputedDealReviewRows(): Promise<AdminDealReviewRow[]> {
+  const db = getServerDbClient().schema("public");
+  const { data: deals, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("status", "Disputed")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to list disputed deals: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return Promise.all(
+    (deals ?? []).map(async (deal) => {
+      const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+
+      if (!linkedConsultationLink) {
+        throw new DealsRepositoryError(
+          `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+          "CONSULTATION_LINK_MISSING",
+        );
+      }
+
+      return toAdminDealReviewRow(deal, linkedConsultationLink);
+    }),
+  );
+}
+
+export async function getAdminDealReviewRowById(
+  dealId: string,
+): Promise<AdminDealReviewRow | null> {
+  const db = getServerDbClient().schema("public");
+  const { data: deal, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("id", dealId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load admin deal review row: ${error.message}`,
+      error.code,
+    );
+  }
+
+  if (!deal) {
+    return null;
+  }
+
+  const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+
+  if (!linkedConsultationLink) {
+    throw new DealsRepositoryError(
+      `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+      "CONSULTATION_LINK_MISSING",
+    );
+  }
+
+  return toAdminDealReviewRow(deal, linkedConsultationLink);
 }
 
 async function updateLifecycleStateByOnchainDealId(input: {

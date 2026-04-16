@@ -44,3 +44,19 @@ export const autoReleaseFunctionAbi = {
   inputs: [{ name: "dealId", type: "uint256" }],
   outputs: [],
 } as const;
+
+export const adminResolveReleaseFunctionAbi = {
+  type: "function",
+  name: "adminResolveRelease",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "dealId", type: "uint256" }],
+  outputs: [],
+} as const;
+
+export const adminResolveRefundFunctionAbi = {
+  type: "function",
+  name: "adminResolveRefund",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "dealId", type: "uint256" }],
+  outputs: [],
+} as const;

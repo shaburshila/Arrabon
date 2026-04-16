@@ -343,9 +343,38 @@ Errors:
 
 ## 7. Admin Endpoints
 
+### `GET /api/admin/deals`
+
+Returns disputed deals for manual review.
+
+Behavior:
+
+- backend validates admin allowlist
+- returns deals in `Disputed` status
+
+Errors:
+
+- `401` no SIWE session
+- `403` not admin
+
+---
+
 ### `GET /api/admin/deals/:id`
 
 Returns dispute context for manual review.
+
+Behavior:
+
+- backend validates admin allowlist
+- returns deal only when it is in `Disputed`
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` not admin
+- `404` deal not found
+- `409` deal not in `Disputed`
 
 ### `POST /api/admin/deals/:id/resolve`
 
@@ -373,8 +402,11 @@ Behavior:
 
 Errors:
 
+- `400` invalid UUID `:id`
+- `400` invalid `resolution`
 - `401` no SIWE session
 - `403` not admin
+- `404` deal not found
 - `409` deal not in `Disputed`
 
 ---

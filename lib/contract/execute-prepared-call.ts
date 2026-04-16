@@ -7,6 +7,8 @@ import { encodeFunctionData, getAddress, type Address, type Hex } from "viem";
 import type { Config } from "wagmi";
 
 import {
+  adminResolveRefundFunctionAbi,
+  adminResolveReleaseFunctionAbi,
   createAndFundDealFunctionAbi,
   markCompletedFunctionAbi,
   confirmReleaseFunctionAbi,
@@ -15,6 +17,7 @@ import {
 import { baseRuntimeConfig } from "@/lib/base/config";
 import type { FundingContractCall } from "@/lib/api/links";
 import type { LifecycleContractCall } from "@/lib/api/deals";
+import type { AdminContractCall } from "@/lib/api/admin-deals";
 
 export class TransactionRevertedError extends Error {
   txHash: Hex;
@@ -94,6 +97,31 @@ export async function executeLifecycleCall(
       functionName: "openDispute",
     });
   }
+
+  return sendTransaction(config, {
+    chainId: contractCall.chain_id,
+    data: withBuilderCodeSuffix(encodedData),
+    to: getAddress(contract_address),
+  });
+}
+
+// Execute a backend-prepared admin dispute resolution call.
+// args.deal_id from backend is the onchain uint256 deal id as a decimal string.
+export async function executeAdminCall(
+  config: Config,
+  contractCall: AdminContractCall,
+): Promise<Hex> {
+  const { args, contract_address, function_name } = contractCall;
+  const onchainDealId = BigInt(args.deal_id);
+
+  const encodedData = encodeFunctionData({
+    abi:
+      function_name === "adminResolveRelease"
+        ? [adminResolveReleaseFunctionAbi]
+        : [adminResolveRefundFunctionAbi],
+    args: [onchainDealId],
+    functionName: function_name,
+  });
 
   return sendTransaction(config, {
     chainId: contractCall.chain_id,
