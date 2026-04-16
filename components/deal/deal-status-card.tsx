@@ -27,6 +27,21 @@ function formatDate(iso: string | null) {
   }
 }
 
+function resolutionLabel(deal: DealReadModel): string | null {
+  switch (deal.resolution_type) {
+    case "admin_release":
+      return "Released after dispute";
+    case "admin_refund":
+      return "Refunded after dispute";
+    case "auto_release":
+      return "Auto-released after deadline";
+    case "buyer_confirmed":
+      return "Released by buyer confirmation";
+    default:
+      return null;
+  }
+}
+
 const statusConfig: Record<DealStatus, { bg: string; color: string; label: string }> = {
   ConfirmPending: {
     bg: "var(--warning-muted)",
@@ -57,6 +72,7 @@ const statusConfig: Record<DealStatus, { bg: string; color: string; label: strin
 
 export function DealStatusCard({ deal, role }: DealStatusCardProps) {
   const sc = statusConfig[deal.status];
+  const resolution = resolutionLabel(deal);
 
   return (
     <div style={cardStyle}>
@@ -86,6 +102,12 @@ export function DealStatusCard({ deal, role }: DealStatusCardProps) {
         <Detail label="Scheduled" value={formatDate(deal.scheduled_at)} />
         {deal.completed_at && (
           <Detail label="Completed" value={formatDate(deal.completed_at)} />
+        )}
+        {resolution && (
+          <Detail label="Resolution" value={resolution} />
+        )}
+        {deal.resolved_at && (
+          <Detail label="Resolved" value={formatDate(deal.resolved_at)} />
         )}
         {role !== "seller" && deal.release_deadline_at && (
           <Detail label="Release deadline" value={formatDate(deal.release_deadline_at)} />

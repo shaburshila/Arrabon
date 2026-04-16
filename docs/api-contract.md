@@ -57,6 +57,17 @@ Errors:
 
 Returns read model for deal status screen.
 
+Terminal deals keep `status` as `Released` or `Refunded`. Resolution metadata
+describes how that terminal state was reached:
+
+- `buyer_confirmed`
+- `auto_release`
+- `admin_release`
+- `admin_refund`
+
+For admin-resolved disputes, UI should display this as released/refunded after
+dispute without introducing separate terminal statuses.
+
 Response:
 
 ```json
@@ -71,6 +82,10 @@ Response:
   "scheduled_at": "2026-03-28T12:00:00Z",
   "completed_at": null,
   "release_deadline_at": null,
+  "resolution_type": null,
+  "resolved_at": null,
+  "resolved_by_wallet": null,
+  "resolved_from_status": null,
   "tx_hash": "0xhash"
 }
 ```

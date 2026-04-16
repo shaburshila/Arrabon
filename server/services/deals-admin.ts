@@ -31,6 +31,10 @@ export interface AdminDealReviewModel {
   price_usdc: string;
   release_deadline_at: string | null;
   released_at: string | null;
+  resolution_type: AdminDealReviewRow["resolution_type"];
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: AdminDealReviewRow["resolved_from_status"];
   scheduled_at: string;
   seller_address: string;
   status: "Disputed";
@@ -100,6 +104,10 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
     price_usdc: row.price_usdc,
     release_deadline_at: computeReleaseDeadline(row.completed_at),
     released_at: row.released_at,
+    resolution_type: row.resolution_type,
+    resolved_at: row.resolved_at,
+    resolved_by_wallet: row.resolved_by_wallet,
+    resolved_from_status: row.resolved_from_status,
     scheduled_at: row.scheduled_at,
     seller_address: row.seller_address,
     status: row.status,

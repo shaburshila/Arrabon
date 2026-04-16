@@ -1,8 +1,10 @@
 import type {
   ConsultationLinkRow,
   Database,
+  DealResolutionType,
   DealRow,
 } from "@/lib/db/types";
+import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
 import { getServerDbClient } from "@/lib/db/server";
 import { getById as getConsultationLinkById } from "@/server/repositories/consultation-links";
 
@@ -36,6 +38,10 @@ export interface DealReadViewRow {
   id: string;
   onchain_deal_id: string;
   price_usdc: string;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: DealRow["status"] | null;
   scheduled_at: string;
   seller_address: string;
   status: DealRow["status"];
@@ -76,6 +82,10 @@ export interface AdminDealReviewRow {
   onchain_deal_id: string;
   price_usdc: string;
   released_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: DealRow["status"] | null;
   scheduled_at: string;
   seller_address: string;
   status: DealRow["status"];
@@ -218,6 +228,10 @@ export async function getDealReadViewById(
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: String(linkedConsultationLink.price_usdc),
+    resolution_type: deal.resolution_type,
+    resolved_at: deal.resolved_at,
+    resolved_by_wallet: deal.resolved_by_wallet,
+    resolved_from_status: deal.resolved_from_status,
     scheduled_at: linkedConsultationLink.scheduled_at,
     seller_address: deal.seller_address,
     status: deal.status,
@@ -325,6 +339,10 @@ function toAdminDealReviewRow(
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: String(linkedConsultationLink.price_usdc),
     released_at: deal.released_at,
+    resolution_type: deal.resolution_type,
+    resolved_at: deal.resolved_at,
+    resolved_by_wallet: deal.resolved_by_wallet,
+    resolved_from_status: deal.resolved_from_status,
     scheduled_at: linkedConsultationLink.scheduled_at,
     seller_address: deal.seller_address,
     status: deal.status,
@@ -401,7 +419,16 @@ export async function getAdminDealReviewRowById(
 async function updateLifecycleStateByOnchainDealId(input: {
   alreadyConvergedStatuses: DealRow["status"][];
   onchainDealId: string;
-  patch: Partial<Pick<DealRow, "completed_at" | "released_at" | "status">>;
+  patch: Partial<Pick<
+    DealRow,
+    | "completed_at"
+    | "released_at"
+    | "resolution_type"
+    | "resolved_at"
+    | "resolved_by_wallet"
+    | "resolved_from_status"
+    | "status"
+  >>;
   requiredTimestampField?: "completed_at" | "released_at";
   targetStatus: DealRow["status"];
   validFromStatuses: DealRow["status"][];
@@ -484,17 +511,58 @@ export async function setConfirmPendingByOnchainDealId(
   });
 }
 
+function resolveReleaseResolutionType(
+  deal: DealRow,
+  releasedAt: Date,
+): DealResolutionType {
+  if (deal.status === "Disputed") {
+    return "admin_release";
+  }
+
+  if (!deal.completed_at) {
+    return "buyer_confirmed";
+  }
+
+  const completedAtMs = new Date(deal.completed_at).getTime();
+
+  if (Number.isNaN(completedAtMs)) {
+    return "buyer_confirmed";
+  }
+
+  const releaseDeadlineMs = computeReleaseDeadlineMs(completedAtMs);
+
+  return releasedAt.getTime() > releaseDeadlineMs
+    ? "auto_release"
+    : "buyer_confirmed";
+}
+
 export async function setReleasedByOnchainDealId(
   onchainDealId: string,
   releasedAt: Date,
 ): Promise<DealRow> {
+  const currentDeal = await getByOnchainDealId(onchainDealId);
+  const releasedAtIso = toUtcIsoString(releasedAt);
+
+  if (!currentDeal) {
+    throw new DealsRepositoryError(
+      `Deal not found for onchain deal id: ${onchainDealId}`,
+      "DEAL_NOT_FOUND",
+    );
+  }
+
+  const resolutionType = resolveReleaseResolutionType(currentDeal, releasedAt);
+
   // "Disputed" is included so the indexer can converge admin-resolved disputes
   // (adminResolveRelease emits a Released event from the Disputed state).
   return updateLifecycleStateByOnchainDealId({
     alreadyConvergedStatuses: ["Released"],
     onchainDealId,
     patch: {
-      released_at: toUtcIsoString(releasedAt),
+      released_at: releasedAtIso,
+      resolution_type: resolutionType,
+      resolved_at: releasedAtIso,
+      resolved_by_wallet: null,
+      resolved_from_status: currentDeal.status,
       status: "Released",
     },
     requiredTimestampField: "released_at",
@@ -519,11 +587,25 @@ export async function setDisputedByOnchainDealId(
 
 export async function setRefundedByOnchainDealId(
   onchainDealId: string,
+  resolvedAt: Date = new Date(),
 ): Promise<DealRow> {
+  const currentDeal = await getByOnchainDealId(onchainDealId);
+
+  if (!currentDeal) {
+    throw new DealsRepositoryError(
+      `Deal not found for onchain deal id: ${onchainDealId}`,
+      "DEAL_NOT_FOUND",
+    );
+  }
+
   return updateLifecycleStateByOnchainDealId({
     alreadyConvergedStatuses: ["Refunded"],
     onchainDealId,
     patch: {
+      resolution_type: "admin_refund",
+      resolved_at: toUtcIsoString(resolvedAt),
+      resolved_by_wallet: null,
+      resolved_from_status: currentDeal.status,
       status: "Refunded",
     },
     targetStatus: "Refunded",

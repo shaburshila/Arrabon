@@ -228,10 +228,10 @@ export function parseCreateConsultationLinkInput(
     });
   }
 
-  if (scheduledAt && expiresAt && expiresAt.getTime() >= scheduledAt.getTime()) {
+  if (scheduledAt && expiresAt && expiresAt.getTime() > scheduledAt.getTime()) {
     issues.push({
       field: "expires_at",
-      message: "Must be earlier than scheduled_at.",
+      message: "Must be at or before scheduled_at.",
     });
   }
 

@@ -82,6 +82,7 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
         {steps.map((s, i) => {
           const done = currentIndex > i;
           const active = isActive(step, s.key);
+          const showSpinner = active && step === "indexing";
           return (
             <div key={i} style={{ alignItems: "center", display: "flex", gap: 10 }}>
               <span
@@ -107,16 +108,20 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
               </span>
               <span
                 style={{
+                  alignItems: "center",
                   color: active
                     ? "var(--foreground)"
                     : done
                       ? "var(--muted)"
                       : "var(--border)",
+                  display: "inline-flex",
                   fontSize: 14,
+                  gap: 8,
                   fontWeight: active ? 600 : 400,
                 }}
               >
                 {s.label}
+                {showSpinner && <Spinner />}
               </span>
             </div>
           );
@@ -166,5 +171,24 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
         </div>
       )}
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        animation: "funding-progress-spin 0.8s linear infinite",
+        border: "2px solid var(--accent)",
+        borderRadius: "50%",
+        borderTopColor: "transparent",
+        display: "inline-block",
+        height: 14,
+        width: 14,
+      }}
+    >
+      <style>{`@keyframes funding-progress-spin { to { transform: rotate(360deg); } }`}</style>
+    </span>
   );
 }

@@ -13,6 +13,12 @@ export type DealStatus =
   | "Refunded"
   | "Released";
 
+export type DealResolutionType =
+  | "admin_refund"
+  | "admin_release"
+  | "auto_release"
+  | "buyer_confirmed";
+
 const POLLABLE_DEAL_STATUSES: ReadonlySet<DealStatus> = new Set([
   "ConfirmPending",
   "Disputed",
@@ -32,6 +38,10 @@ export interface DealReadModel {
   onchain_deal_id: string;
   price_usdc: string;
   release_deadline_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: DealStatus | null;
   scheduled_at: string;
   seller_address: string;
   status: DealStatus;

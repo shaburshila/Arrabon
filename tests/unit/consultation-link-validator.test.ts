@@ -136,10 +136,19 @@ describe("parseCreateConsultationLinkInput expiration and removed grace period",
     );
   });
 
-  test("rejects expires_at at or after scheduled_at", () => {
+  test("allows expires_at equal to scheduled_at", () => {
+    const result = parseCreateConsultationLinkInput(
+      makePayload({ expires_at: "2026-01-01T01:00:00.000Z" }),
+      NOW,
+    );
+
+    assert.equal(result.expiresAt.toISOString(), "2026-01-01T01:00:00.000Z");
+  });
+
+  test("rejects expires_at after scheduled_at", () => {
     assert.throws(
       () => parseCreateConsultationLinkInput(
-        makePayload({ expires_at: "2026-01-01T01:00:00.000Z" }),
+        makePayload({ expires_at: "2026-01-01T01:00:01.000Z" }),
         NOW,
       ),
       (error: unknown) => {
@@ -147,7 +156,7 @@ describe("parseCreateConsultationLinkInput expiration and removed grace period",
         assert.deepEqual(error.issues, [
           {
             field: "expires_at",
-            message: "Must be earlier than scheduled_at.",
+            message: "Must be at or before scheduled_at.",
           },
         ]);
         return true;

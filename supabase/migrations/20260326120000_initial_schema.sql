@@ -41,6 +41,10 @@ create table if not exists public.deals (
   funded_at timestamptz null,
   completed_at timestamptz null,
   released_at timestamptz null,
+  resolution_type text null check (resolution_type in ('buyer_confirmed', 'auto_release', 'admin_release', 'admin_refund')),
+  resolved_from_status text null check (resolved_from_status in ('Funded', 'ConfirmPending', 'Released', 'Refunded', 'Disputed')),
+  resolved_at timestamptz null,
+  resolved_by_wallet text null,
   tx_hash text null,
   created_at timestamptz not null default timezone('utc', now())
 );

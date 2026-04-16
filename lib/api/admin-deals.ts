@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/auth";
-import type { DealStatus } from "@/lib/api/deals";
+import type { DealResolutionType, DealStatus } from "@/lib/api/deals";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => null);
@@ -21,6 +21,10 @@ export interface AdminDealReview {
   price_usdc: string;
   release_deadline_at: string | null;
   released_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: DealStatus | null;
   scheduled_at: string;
   seller_address: string;
   status: Extract<DealStatus, "Disputed">;

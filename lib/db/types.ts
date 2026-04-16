@@ -12,6 +12,12 @@ export type DealStatus =
   | "Refunded"
   | "Disputed";
 
+export type DealResolutionType =
+  | "admin_refund"
+  | "admin_release"
+  | "auto_release"
+  | "buyer_confirmed";
+
 export interface UserRow {
   id: string;
   wallet: string;
@@ -94,6 +100,10 @@ export interface DealRow {
   funded_at: string | null;
   completed_at: string | null;
   released_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: DealStatus | null;
   tx_hash: string | null;
   created_at: string;
 }
@@ -108,6 +118,10 @@ export interface DealInsert {
   funded_at?: string | null;
   completed_at?: string | null;
   released_at?: string | null;
+  resolution_type?: DealResolutionType | null;
+  resolved_at?: string | null;
+  resolved_by_wallet?: string | null;
+  resolved_from_status?: DealStatus | null;
   tx_hash?: string | null;
   created_at?: string;
 }
@@ -121,6 +135,10 @@ export interface DealUpdate {
   funded_at?: string | null;
   completed_at?: string | null;
   released_at?: string | null;
+  resolution_type?: DealResolutionType | null;
+  resolved_at?: string | null;
+  resolved_by_wallet?: string | null;
+  resolved_from_status?: DealStatus | null;
   tx_hash?: string | null;
   created_at?: string;
 }
