@@ -38,26 +38,6 @@ function isSameWallet(left: string, right: string): boolean {
   return getAddress(left) === getAddress(right);
 }
 
-function computeCompletionEligibleAt(input: {
-  durationMinutes: number;
-  gracePeriodMinutes: number;
-  scheduledAt: string;
-}): Date {
-  const scheduledAtMs = new Date(input.scheduledAt).getTime();
-
-  if (Number.isNaN(scheduledAtMs)) {
-    throw new DealCompletionServiceError(
-      "Deal timing data is invalid.",
-      500,
-      "DEAL_TIMING_INVALID",
-    );
-  }
-
-  const totalMinutes = input.durationMinutes + input.gracePeriodMinutes;
-
-  return new Date(scheduledAtMs + totalMinutes * 60 * 1000);
-}
-
 function computeReleaseDeadline(completedAt: string | null): Date {
   if (!completedAt) {
     throw new DealCompletionServiceError(
@@ -142,7 +122,6 @@ function buildPreparedResult(dealId: string, contractCall: PreparedDealLifecycle
 export async function prepareMarkCompletedForDeal(
   currentUser: CurrentUserContext,
   input: DealCompletionRouteParams,
-  now: Date = new Date(),
 ): Promise<PreparedDealLifecycleResult> {
   const context = await getActionContext(input);
 
@@ -157,20 +136,6 @@ export async function prepareMarkCompletedForDeal(
       "Deal cannot be marked completed in its current state.",
       409,
       "DEAL_NOT_FUNDED",
-    );
-  }
-
-  const eligibleAt = computeCompletionEligibleAt({
-    durationMinutes: context.duration_minutes,
-    gracePeriodMinutes: context.grace_period_minutes,
-    scheduledAt: context.scheduled_at,
-  });
-
-  if (now.getTime() < eligibleAt.getTime()) {
-    throw new DealCompletionServiceError(
-      "Deal cannot be marked completed yet.",
-      409,
-      "COMPLETION_TOO_EARLY",
     );
   }
 

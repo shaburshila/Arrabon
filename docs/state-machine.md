@@ -66,7 +66,7 @@
 | From | To | Trigger | Caller | Gate |
 |---|---|---|---|---|
 | — | Funded | `createAndFundDeal` | Buyer | valid link, valid amount, link unused |
-| Funded | ConfirmPending | `markCompleted` | Seller | `now >= scheduled_at + duration + grace` |
+| Funded | ConfirmPending | `markCompleted` | Seller | deal is Funded |
 | Funded | Disputed | `openDispute` | Buyer | no-show or service issue before completion |
 | ConfirmPending | Released | `confirmRelease` | Buyer | within dispute window |
 | ConfirmPending | Released | `autoRelease` | Anyone | `now > completed_at + 48h`, no dispute |
@@ -99,12 +99,11 @@
 - `expires_at < scheduled_at`
 - `expires_at > now`
 - `duration_minutes > 0`
-- `grace_period_minutes >= 0` (server-controlled; MVP default: 10 minutes)
 
 ### Deal windows
 
-- `markCompleted` доступен после:
-  - `scheduled_at + duration + grace_period`
+- `markCompleted` доступен продавцу сразу после funding
+- `completed_at` выставляется onchain в момент `markCompleted`
 - dispute/confirm окно после completion:
   - `48 hours`
 - `autoRelease` доступен только после завершения dispute window

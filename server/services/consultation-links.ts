@@ -26,8 +26,6 @@ import {
 } from "@/server/repositories/deals";
 
 const LINK_HASH_INSERT_RETRY_COUNT = 3;
-const DEFAULT_GRACE_PERIOD_MINUTES = 10;
-
 type PublicUnavailableStatus = "Cancelled" | "Expired";
 
 export interface CreateConsultationLinkResult {
@@ -42,7 +40,6 @@ export interface PublicConsultationLinkResult {
   description: string;
   duration_minutes: number;
   expires_at: string;
-  grace_period_minutes: number;
   id: string;
   meeting_url_revealed: false;
   price_usdc: string;
@@ -102,7 +99,6 @@ function mapPublicLink(
     description: row.description,
     duration_minutes: row.duration_minutes,
     expires_at: row.expires_at,
-    grace_period_minutes: row.grace_period_minutes,
     id: row.id,
     meeting_url_revealed: false,
     price_usdc: String(row.price_usdc),
@@ -211,7 +207,6 @@ export async function createConsultationLink(
         durationMinutes: input.durationMinutes,
         expertAddress: currentUser.wallet_address,
         expiresAt: input.expiresAt,
-        gracePeriodMinutes: DEFAULT_GRACE_PERIOD_MINUTES,
         linkHash,
         meetingUrlEncrypted,
         priceUsdc: input.priceUsdc,

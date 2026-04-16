@@ -37,7 +37,6 @@ describe("ConsultEscrow", function () {
     price = MIN_PRICE,
     linkHash = ethers.keccak256(ethers.toUtf8Bytes("link-1")),
     durationMinutes = 60n,
-    gracePeriodMinutes = 15n,
     scheduledAt,
   }) {
     const now = BigInt(await time.latest());
@@ -53,8 +52,7 @@ describe("ConsultEscrow", function () {
       buyer.address,
       price,
       effectiveScheduledAt,
-      durationMinutes,
-      gracePeriodMinutes
+      durationMinutes
     );
 
     return {
@@ -63,7 +61,6 @@ describe("ConsultEscrow", function () {
       linkHash,
       scheduledAt: effectiveScheduledAt,
       durationMinutes,
-      gracePeriodMinutes,
       price,
     };
   }
@@ -74,9 +71,8 @@ describe("ConsultEscrow", function () {
     dealId = 1n,
     scheduledAt,
     durationMinutes = 60n,
-    gracePeriodMinutes = 15n,
   }) {
-    const threshold = scheduledAt + durationMinutes * 60n + gracePeriodMinutes * 60n;
+    const threshold = scheduledAt + durationMinutes * 60n;
     await time.setNextBlockTimestamp(threshold);
     const tx = await escrow.connect(seller).markCompleted(dealId);
     return { tx, threshold };
@@ -111,8 +107,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           price,
           scheduledAt,
-          30,
-          0
+          30
         )
       )
         .to.emit(escrow, "DealFunded")
@@ -126,7 +121,6 @@ describe("ConsultEscrow", function () {
       expect(deal.feeAmount).to.equal(feeFor(price));
       expect(deal.scheduledAt).to.equal(scheduledAt);
       expect(deal.durationMinutes).to.equal(30n);
-      expect(deal.gracePeriodMinutes).to.equal(0n);
       expect(deal.completedAt).to.equal(0n);
       expect(deal.status).to.equal(1n);
       expect(await escrow.usedLinkHashes(linkHash)).to.equal(true);
@@ -149,8 +143,7 @@ describe("ConsultEscrow", function () {
         buyer.address,
         MIN_PRICE,
         scheduledAt,
-        30,
-        0
+        30
       );
 
       await token.mint(outsider.address, MIN_PRICE);
@@ -163,8 +156,7 @@ describe("ConsultEscrow", function () {
           outsider.address,
           MIN_PRICE,
           scheduledAt + 100n,
-          30,
-          0
+          30
         )
       ).to.be.revertedWithCustomError(escrow, "LinkHashAlreadyUsed");
     });
@@ -184,8 +176,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           MIN_PRICE,
           scheduledAt,
-          30,
-          0
+          30
         )
       ).to.be.revertedWithCustomError(escrow, "UnauthorizedCaller");
     });
@@ -205,8 +196,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           MIN_PRICE,
           scheduledAt,
-          30,
-          0
+          30
         )
       ).to.be.revertedWithCustomError(escrow, "UnauthorizedCaller");
     });
@@ -228,8 +218,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           9_999_999n,
           scheduledAt,
-          30,
-          0
+          30
         )
       ).to.be.revertedWithCustomError(escrow, "InvalidPrice");
 
@@ -240,8 +229,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           10_000_000n,
           scheduledAt + 1n,
-          30,
-          0
+          30
         )
       ).to.not.be.reverted;
 
@@ -252,8 +240,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           1_000_000_000n,
           scheduledAt + 2n,
-          30,
-          0
+          30
         )
       ).to.not.be.reverted;
 
@@ -264,8 +251,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           1_000_000_001n,
           scheduledAt + 3n,
-          30,
-          0
+          30
         )
       ).to.be.revertedWithCustomError(escrow, "InvalidPrice");
     });
@@ -284,8 +270,7 @@ describe("ConsultEscrow", function () {
           buyer.address,
           MIN_PRICE,
           now,
-          30,
-          0
+          30
         )
       ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
     });
@@ -305,7 +290,6 @@ describe("ConsultEscrow", function () {
           buyer.address,
           MIN_PRICE,
           scheduledAt,
-          0,
           0
         )
       ).to.be.revertedWithCustomError(escrow, "InvalidDuration");
@@ -316,9 +300,6 @@ describe("ConsultEscrow", function () {
     it("only seller can call", async function () {
       const { seller, buyer, outsider, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
-      await time.setNextBlockTimestamp(
-        funded.scheduledAt + funded.durationMinutes * 60n + funded.gracePeriodMinutes * 60n
-      );
 
       await expect(escrow.connect(outsider).markCompleted(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
@@ -326,23 +307,9 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("fails before threshold", async function () {
+    it("seller can mark completed immediately after funding and completedAt starts buyer window", async function () {
       const { seller, buyer, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
-      const threshold = funded.scheduledAt + funded.durationMinutes * 60n + funded.gracePeriodMinutes * 60n;
-      await time.setNextBlockTimestamp(threshold - 1n);
-
-      await expect(escrow.connect(seller).markCompleted(funded.dealId)).to.be.revertedWithCustomError(
-        escrow,
-        "CompletionTooEarly"
-      );
-    });
-
-    it("succeeds at exact threshold, writes completedAt correctly, and emits exact timestamp", async function () {
-      const { seller, buyer, token, escrow } = await deployFixture();
-      const funded = await fundDeal({ escrow, token, seller, buyer });
-      const threshold = funded.scheduledAt + funded.durationMinutes * 60n + funded.gracePeriodMinutes * 60n;
-      await time.setNextBlockTimestamp(threshold);
 
       const tx = await escrow.connect(seller).markCompleted(funded.dealId);
       const receipt = await tx.wait();
@@ -364,7 +331,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       const firstCompletedAt = (await escrow.deals(funded.dealId)).completedAt;
@@ -388,7 +354,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       await expect(escrow.connect(outsider).confirmRelease(funded.dealId)).to.be.revertedWithCustomError(
@@ -417,7 +382,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
@@ -449,7 +413,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
@@ -494,7 +457,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       await expect(escrow.connect(buyer).openDispute(funded.dealId))
@@ -513,7 +475,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
@@ -535,7 +496,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
@@ -578,7 +538,6 @@ describe("ConsultEscrow", function () {
         dealId: funded2.dealId,
         scheduledAt: funded2.scheduledAt,
         durationMinutes: funded2.durationMinutes,
-        gracePeriodMinutes: funded2.gracePeriodMinutes,
       });
       const completedAt = (await escrow.deals(funded2.dealId)).completedAt;
       await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
@@ -603,7 +562,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
 
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
@@ -631,7 +589,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
       await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
@@ -652,7 +609,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
       await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
@@ -751,7 +707,6 @@ describe("ConsultEscrow", function () {
         dealId: funded.dealId,
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
-        gracePeriodMinutes: funded.gracePeriodMinutes,
       });
       const completedAt = (await escrow.deals(funded.dealId)).completedAt;
       await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
@@ -839,8 +794,7 @@ describe("ConsultEscrow", function () {
         buyer,
         MIN_PRICE,
         scheduledAt,
-        30,
-        0
+        30
       );
 
       await time.setNextBlockTimestamp(scheduledAt + 30n * 60n);
@@ -884,8 +838,7 @@ describe("ConsultEscrow", function () {
         buyer,
         MIN_PRICE,
         scheduledAt,
-        30,
-        0
+        30
       );
 
       await escrow.connect(buyerSigner).openDispute(1n);
@@ -931,8 +884,7 @@ describe("ConsultEscrow", function () {
         buyer,
         MIN_PRICE,
         firstScheduledAt,
-        30,
-        0
+        30
       );
 
       await escrow.connect(buyerSigner).createAndFundDeal(
@@ -941,8 +893,7 @@ describe("ConsultEscrow", function () {
         buyer,
         MIN_PRICE,
         secondScheduledAt,
-        30,
-        0
+        30
       );
 
       await time.setNextBlockTimestamp(firstScheduledAt + 30n * 60n);

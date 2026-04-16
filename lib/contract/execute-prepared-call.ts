@@ -53,7 +53,6 @@ export async function executeFundingCall(
       BigInt(args.price),
       BigInt(args.scheduled_at),
       BigInt(args.duration_minutes),
-      BigInt(args.grace_period_minutes),
     ],
     functionName: "createAndFundDeal",
   });

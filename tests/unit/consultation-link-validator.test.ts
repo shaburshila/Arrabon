@@ -79,7 +79,7 @@ describe("parseCreateConsultationLinkInput description", () => {
   });
 });
 
-describe("parseCreateConsultationLinkInput expiration and backend grace period", () => {
+describe("parseCreateConsultationLinkInput expiration and removed grace period", () => {
   test("accepts a valid payload without client-provided grace_period_minutes", () => {
     const result = parseCreateConsultationLinkInput(makePayload(), NOW);
 

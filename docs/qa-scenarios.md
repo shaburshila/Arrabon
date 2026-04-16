@@ -53,7 +53,7 @@
 
 ## 2. Link Time Invariants
 
-### QA-008 expires_at <= scheduled_at (обязательно)
+### QA-008 expires_at < scheduled_at (обязательно)
 **[API] [UI]**
 - Given: expert заполняет форму с expires_at > scheduled_at
 - When: submit
@@ -77,31 +77,31 @@
 - When: создание ссылки
 - Then: validation error; duration_minutes должен быть > 0
 
-### QA-012 grace_period_minutes не управляется client payload
+### QA-012 grace_period_minutes отсутствует
 **[API]**
-- Given: expert создаёт ссылку без grace_period_minutes
+- Given: expert создаёт ссылку
 - When: создание ссылки
-- Then: ссылка создаётся успешно; backend применяет MVP default grace period 10 минут
+- Then: ссылка создаётся успешно; grace_period_minutes не сохраняется и не возвращается
 
 - Given: client всё же отправляет grace_period_minutes
 - When: создание ссылки
-- Then: backend не использует client value; применяется server-controlled default 10 минут
+- Then: backend не использует client value
 
 ---
 
 ## 3. markCompleted
 
-### QA-013 markCompleted слишком рано — revert
+### QA-013 markCompleted сразу после funding — успех
 **[CONTRACT]**
-- Given: deal.status == Funded; now < scheduled_at + duration + grace_period
+- Given: deal.status == Funded
 - When: seller вызывает `markCompleted(dealId)`
-- Then: revert; deal остаётся Funded
+- Then: событие `Completed` эмитируется; deal.status == ConfirmPending; completed_at установлен
 
-### QA-014 markCompleted вовремя — успех
+### QA-014 markCompleted запускает buyer response window
 **[CONTRACT]**
-- Given: deal.status == Funded; now ≥ scheduled_at + duration + grace_period
+- Given: seller вызвал `markCompleted`
 - When: seller вызывает `markCompleted(dealId)`
-- Then: событие `Completed` эмитируется; deal.status == ConfirmPending
+- Then: 48h окно confirm/dispute считается от completed_at
 
 ### QA-015 markCompleted не от seller — revert
 **[CONTRACT]**
@@ -400,7 +400,7 @@
 | # | Инвариант | Уровень |
 |---|---|---|
 | I-1 | Повторный funding с тем же link_hash → revert | CONTRACT |
-| I-2 | markCompleted раньше scheduled_at + duration + grace → revert | CONTRACT |
+| I-2 | markCompleted сразу после funding от seller → ConfirmPending | CONTRACT |
 | I-3 | autoRelease до дедлайна → revert | CONTRACT |
 | I-4 | autoRelease при dispute → revert | CONTRACT |
 | I-5 | autoRelease после дедлайна (нет dispute) → Released | CONTRACT |

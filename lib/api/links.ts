@@ -14,7 +14,6 @@ export interface PublicLink {
   description: string;
   duration_minutes: number;
   expires_at: string;
-  grace_period_minutes: number;
   id: string;
   meeting_url_revealed: false;
   price_usdc: string;
@@ -56,7 +55,6 @@ export interface FundingContractCall {
   args: {
     buyer: string;
     duration_minutes: string;
-    grace_period_minutes: string;
     link_hash: string;
     price: string;
     scheduled_at: string;
@@ -75,7 +73,6 @@ export interface FundingPrepareResult {
   link_hash: string;
   schedule: {
     duration_minutes: number;
-    grace_period_minutes: number;
     scheduled_at: string;
   };
   seller_address: string;

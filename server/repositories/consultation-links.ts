@@ -42,7 +42,6 @@ export interface CreateConsultationLinkInput {
   timezone: string;
   expiresAt: Date;
   durationMinutes: number;
-  gracePeriodMinutes: number;
   meetingUrlEncrypted: string;
   linkHash: string;
   status: ConsultationLinkRow["status"];
@@ -66,7 +65,6 @@ export async function createLink(
     timezone: input.timezone,
     expires_at: toUtcIsoString(input.expiresAt),
     duration_minutes: input.durationMinutes,
-    grace_period_minutes: input.gracePeriodMinutes,
     meeting_url_encrypted: input.meetingUrlEncrypted,
     link_hash: input.linkHash,
     status: input.status,

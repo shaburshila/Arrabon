@@ -107,9 +107,8 @@ price_usdc               status (Funded|ConfirmPending|Released|Refunded|Dispute
 scheduled_at (UTC)       funded_at
 expires_at (UTC)         completed_at
 duration_minutes         released_at
-grace_period_minutes     tx_hash
-meeting_url_encrypted    created_at
-link_hash UNIQUE
+meeting_url_encrypted    tx_hash
+link_hash UNIQUE         created_at
 status (Draft|Open|Expired|Cancelled|Consumed)
 created_at
 
@@ -136,7 +135,7 @@ processed_at             action
 | `link_hash` uniqueness (`usedLinkHashes`) | Onchain enforcement single-use, revert on replay |
 | Deal state machine (Funded → ConfirmPending → Released/Refunded/Disputed) | Tamper-proof state transitions |
 | `createAndFundDeal` — atomic creation + funding | No split tx race conditions |
-| `markCompleted` with time gate | `scheduled_at + duration + grace` enforced in contract |
+| `markCompleted` seller assertion | Seller can mark a funded deal completed; buyer controls release/dispute response |
 | `autoRelease` — permissionless | Any caller, contract checks deadline; backend не обязателен |
 | Fee calculation + treasury transfer | On-chain at funding time, autonomous contract logic; backend does not prepare fee params in the current ABI |
 | Event log (Funded, Completed, Released, Refunded, Disputed) | Source of truth для indexer |
@@ -245,7 +244,7 @@ Backend is source of truth for link metadata and meeting_url.
 | F-15 | **`deals.consultation_link_id UNIQUE`** — одна ссылка = одна сделка в DB | Дублирует onchain `link_hash`; двойная защита |
 | F-16 | **`processed_transactions.tx_hash UNIQUE`** — идемпотентный indexer | Повторная обработка события не меняет state |
 | F-17 | **Все timestamps в UTC** | Единственный формат хранения; timezone — display only |
-| F-18 | **`markCompleted` доступен только после `scheduled_at + duration + grace_period`** | Time gate enforced onchain |
+| F-18 | **`markCompleted` доступен продавцу сразу после funding** | Buyer release/dispute decision and 48h window protect payout |
 | F-19 | **Лимиты сделки $10–$1000 USDC** | Enforced в контракте при `createAndFundDeal` |
 | F-20 | **mobile-first, Base App built-in browser** — primary target | Все UI решения принимаются с этим ограничением |
 

@@ -46,7 +46,6 @@ export interface ConsultationLinkRow {
   timezone: string;
   expires_at: string;
   duration_minutes: number;
-  grace_period_minutes: number;
   meeting_url_encrypted: string;
   link_hash: string;
   status: ConsultationLinkStatus;
@@ -64,7 +63,6 @@ export interface ConsultationLinkInsert {
   timezone: string;
   expires_at: string;
   duration_minutes: number;
-  grace_period_minutes: number;
   meeting_url_encrypted: string;
   link_hash: string;
   status: ConsultationLinkStatus;
@@ -80,7 +78,6 @@ export interface ConsultationLinkUpdate {
   timezone?: string;
   expires_at?: string;
   duration_minutes?: number;
-  grace_period_minutes?: number;
   meeting_url_encrypted?: string;
   link_hash?: string;
   status?: ConsultationLinkStatus;

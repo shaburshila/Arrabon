@@ -122,7 +122,6 @@ export default function DealPage() {
               isAnyActionInFlight={actions.isAnyActionInFlight}
               isBuyer={dealPage.isBuyer}
               isSeller={dealPage.isSeller}
-              markCompletedAfter={dealPage.deal.mark_completed_after}
               release={actions.release}
               session={session}
             />

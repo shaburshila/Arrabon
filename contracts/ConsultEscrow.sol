@@ -31,7 +31,6 @@ contract ConsultEscrow is ReentrancyGuard {
         uint256 feeAmount;
         uint256 scheduledAt;
         uint256 durationMinutes;
-        uint256 gracePeriodMinutes;
         uint256 completedAt;
         Status status;
     }
@@ -43,7 +42,6 @@ contract ConsultEscrow is ReentrancyGuard {
     error InvalidSchedule();
     error InvalidDuration();
     error InvalidStateTransition();
-    error CompletionTooEarly();
     error ConfirmDisputeWindowExpired();
     error AutoReleaseTooEarly();
     error CallerNotAdmin();
@@ -89,8 +87,7 @@ contract ConsultEscrow is ReentrancyGuard {
         address buyer,
         uint256 price,
         uint256 scheduled_at,
-        uint256 duration_minutes,
-        uint256 grace_period_minutes
+        uint256 duration_minutes
     ) external {
         if (msg.sender != buyer) {
             revert UnauthorizedCaller();
@@ -127,7 +124,6 @@ contract ConsultEscrow is ReentrancyGuard {
             feeAmount: feeAmount,
             scheduledAt: scheduled_at,
             durationMinutes: duration_minutes,
-            gracePeriodMinutes: grace_period_minutes,
             completedAt: 0,
             status: Status.Funded
         });
@@ -145,11 +141,6 @@ contract ConsultEscrow is ReentrancyGuard {
         }
         if (deal.status != Status.Funded) {
             revert InvalidStateTransition();
-        }
-
-        uint256 completionThreshold = deal.scheduledAt + (deal.durationMinutes * 60) + (deal.gracePeriodMinutes * 60);
-        if (block.timestamp < completionThreshold) {
-            revert CompletionTooEarly();
         }
 
         deal.completedAt = block.timestamp;

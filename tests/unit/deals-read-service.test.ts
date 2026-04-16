@@ -51,8 +51,6 @@ function makeReadView(overrides: Partial<DealReadViewRow> = {}): DealReadViewRow
     buyer_address: BUYER,
     completed_at: null,
     consultation_link_id: "link-id-1",
-    duration_minutes: 60,
-    grace_period_minutes: 15,
     id: "deal-id-1",
     onchain_deal_id: "1",
     price_usdc: "125.50",

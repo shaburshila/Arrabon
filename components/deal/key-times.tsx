@@ -70,12 +70,6 @@ export function KeyTimes({ deal, isSeller }: KeyTimesProps) {
       ),
     },
     {
-      label: "Available to complete from",
-      value: deal.status === "Funded"
-        ? formatRelativeAndAbsolute(deal.mark_completed_after, "until")
-        : null,
-    },
-    {
       label: "Completed at",
       value: formatRelativeAndAbsolute(deal.completed_at, "past-absolute"),
     },

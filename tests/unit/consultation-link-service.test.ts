@@ -72,7 +72,6 @@ function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLin
     timezone: 'UTC',
     expires_at: FUTURE,
     duration_minutes: 30,
-    grace_period_minutes: 10,
     meeting_url_encrypted: 'mock-encrypted-url',
     link_hash: '0x' + 'a'.repeat(64),
     status: 'Open',
@@ -355,7 +354,6 @@ describe('response shape', () => {
       expert_address: '0xExpert',
       timezone: 'America/New_York',
       duration_minutes: 60,
-      grace_period_minutes: 15,
       scheduled_at: FUTURE,
       expires_at: FUTURE,
     });
@@ -370,7 +368,6 @@ describe('response shape', () => {
     assert.equal(result.seller_address, '0xExpert');
     assert.equal(result.timezone, 'America/New_York');
     assert.equal(result.duration_minutes, 60);
-    assert.equal(result.grace_period_minutes, 15);
     assert.equal(result.scheduled_at, FUTURE);
     assert.equal(result.expires_at, FUTURE);
     assert.equal(result.meeting_url_revealed, false);

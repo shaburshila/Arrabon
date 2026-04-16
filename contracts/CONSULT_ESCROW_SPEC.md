@@ -18,7 +18,7 @@ Do not add:
 
 Required public/external methods:
 
-- `createAndFundDeal(link_hash, seller, buyer, price, scheduled_at, duration_minutes, grace_period_minutes)`
+- `createAndFundDeal(link_hash, seller, buyer, price, scheduled_at, duration_minutes)`
 - `markCompleted(dealId)`
 - `confirmRelease(dealId)`
 - `openDispute(dealId)`
@@ -52,7 +52,6 @@ Deal must store:
 - `feeAmount`
 - `scheduledAt`
 - `durationMinutes`
-- `gracePeriodMinutes`
 - `completedAt`
 - `status`
 
@@ -167,7 +166,8 @@ Refund path:
 
 `markCompleted` gate:
 
-- `block.timestamp >= scheduledAt + durationMinutes * 60 + gracePeriodMinutes * 60`
+- seller may call any time while the deal is `Funded`
+- this records `completedAt = block.timestamp` and starts the buyer response window
 
 Post-completion window:
 
@@ -277,8 +277,8 @@ Before considering contract done, verify:
 - duplicate `linkHash` funding fails
 - buyer-only funding enforced
 - seller cannot fund own link
-- `markCompleted` fails before threshold
-- `markCompleted` succeeds at exact threshold
+- `markCompleted` succeeds immediately after funding when called by seller
+- `markCompleted` records `completedAt`
 - `confirmRelease` succeeds at exact deadline
 - `autoRelease` fails at exact deadline and succeeds after
 - `openDispute` works from `Funded`

@@ -75,7 +75,7 @@ function getGuidanceMessage({
       }
 
       if (isSeller) {
-        return `A consultation is booked for ${scheduledTime}. After the session and grace period, come back to mark it completed.`;
+        return `A consultation is booked for ${scheduledTime}. When you believe the session is complete, mark it completed so the buyer can confirm payment or open a dispute.`;
       }
 
       break;

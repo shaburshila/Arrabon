@@ -70,7 +70,6 @@ Scheduled consultation
 - scheduled_at (UTC)
 - timezone (display only)
 - duration_minutes
-- grace_period_minutes (backend default, MVP: 10 minutes)
 - expires_at
 - meeting_url
 
@@ -84,11 +83,10 @@ Scheduled consultation
 - expires_at < scheduled_at
 - expires_at > now
 - duration_minutes > 0
-- grace_period_minutes ≥ 0 (server-controlled)
 
-`markCompleted` доступен только после:
+`markCompleted` доступен продавцу сразу после funding:
 
-`scheduled_at + duration + grace_period`
+`completed_at` фиксируется onchain в момент `markCompleted` и запускает 48-часовое окно buyer response.
 
 ## 5. Single-use модель
 
@@ -129,7 +127,6 @@ Funding = contract call через wagmi/viem + paymaster
 - amount
 - scheduled_at
 - duration
-- grace_period
 - fee params snapshot
 
 Примечание: `fee_snapshot` намеренно исключён из ABI в текущей фазе. Для этого спринта `docs/decisions.md` имеет приоритет над данной секцией.
@@ -172,11 +169,7 @@ Funding = contract call через wagmi/viem + paymaster
 
 ### 8.2 Completion
 
-После:
-
-`scheduled_at + duration + grace`
-
-seller может вызвать:
+После funding seller может вызвать:
 
 `markCompleted(dealId)`
 

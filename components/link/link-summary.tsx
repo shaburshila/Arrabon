@@ -61,12 +61,6 @@ export function LinkSummary({ link }: LinkSummaryProps) {
           value={formatDate(link.scheduled_at, link.timezone)}
         />
         <Detail label="Duration" value={formatDuration(link.duration_minutes)} />
-        {link.grace_period_minutes > 0 && (
-          <Detail
-            label="Grace period"
-            value={formatDuration(link.grace_period_minutes)}
-          />
-        )}
         <Detail
           label="Expires"
           value={formatDate(link.expires_at, link.timezone)}

@@ -21,7 +21,6 @@ create table if not exists public.consultation_links (
   timezone text not null,
   expires_at timestamptz not null,
   duration_minutes integer not null check (duration_minutes > 0),
-  grace_period_minutes integer not null check (grace_period_minutes >= 0),
   meeting_url_encrypted text not null,
   link_hash text not null unique,
   status text not null check (status in ('Draft', 'Open', 'Expired', 'Cancelled', 'Consumed')),

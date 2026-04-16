@@ -80,10 +80,10 @@
 | От | К | Кто | Условие |
 |---|---|---|---|
 | — | Funded | Buyer (`createAndFundDeal`) | `link_hash` не использован, `now < expires_at`, сумма в диапазоне $10–$1000 |
-| Funded | ConfirmPending | Seller (`markCompleted`) | `now ≥ scheduled_at + duration + grace_period` |
+| Funded | ConfirmPending | Seller (`markCompleted`) | Deal status is Funded |
 | Funded | Disputed | Buyer (`openDispute`) | Консультация не состоялась (no-show) |
 | ConfirmPending | Released | Buyer (`confirmRelease`) | Статус ConfirmPending, dispute не открыт |
-| ConfirmPending | Released | Anyone (`autoRelease`) | Статус ConfirmPending, нет dispute, `now > deadline+48h` |
+| ConfirmPending | Released | Anyone (`autoRelease`) | Статус ConfirmPending, нет dispute, `now > completed_at + 48h` |
 | ConfirmPending | Disputed | Buyer (`openDispute`) | Статус ConfirmPending, в пределах 48h окна |
 | Disputed | Released | Admin (`adminResolveRelease`) | Статус Disputed |
 | Disputed | Refunded | Admin (`adminResolveRefund`) | Статус Disputed |
@@ -214,15 +214,15 @@ Expert вызывает cancel (offchain):
 
 ---
 
-### 4.4 markCompleted раньше времени
+### 4.4 markCompleted сразу после funding
 
 ```
 Состояние: deal → Funded
-Условие: now < scheduled_at + duration_minutes + grace_period_minutes
 
 Seller вызывает markCompleted:
-  → Contract: revert ("too early")
-  → Deal остаётся Funded
+  → Contract: status = ConfirmPending
+  → completed_at = block.timestamp
+  → стартует 48h buyer response window
 ```
 
 ---
@@ -338,7 +338,7 @@ Deal остаётся в Funded навсегда (нет авто-эскалац
 
 ```
 Expert провёл консультацию, client не появился.
-Expert вызывает markCompleted после scheduled_at + duration + grace.
+Expert вызывает markCompleted.
 deal → ConfirmPending.
 
 Далее:
@@ -415,11 +415,11 @@ Expert/Client вызывают adminResolveRelease или adminResolveRefund:
 
 ## 7. Edge Cases
 
-### 7.1 Grace period backend default
+### 7.1 Нет grace period
 
 ```
-Для MVP продавец не задаёт grace_period_minutes в форме или API payload.
-Backend использует server-controlled значение 10 минут.
+grace_period_minutes отсутствует в контракте, API payload, backend model и DB schema.
+Seller может вызвать markCompleted в любой момент после funding.
 ```
 
 ### 7.2 Граница expires_at

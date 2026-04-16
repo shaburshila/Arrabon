@@ -14,7 +14,6 @@ interface DealActionsCardProps {
   dealStatus: DealStatus;
   isSeller: boolean;
   isBuyer: boolean;
-  markCompletedAfter: string;
   session: WalletSessionState;
   complete: DealAction;
   release: DealAction;
@@ -30,7 +29,6 @@ export function DealActionsCard({
   isAnyActionInFlight,
   isBuyer,
   isSeller,
-  markCompletedAfter,
   release,
   session,
 }: DealActionsCardProps & { buyerDisputable: boolean }) {
@@ -47,11 +45,6 @@ export function DealActionsCard({
   const showComplete = isSeller && dealStatus === "Funded";
   const showRelease = isBuyer && dealStatus === "ConfirmPending";
   const showDispute = isBuyer && buyerDisputable;
-  const markCompletedAfterMs = new Date(markCompletedAfter).getTime();
-  const completeDisabled =
-    showComplete &&
-    !Number.isNaN(markCompletedAfterMs) &&
-    Date.now() < markCompletedAfterMs;
 
   if (!showComplete && !showRelease && !showDispute) return null;
 
@@ -113,9 +106,7 @@ export function DealActionsCard({
             <ActionGroup
               action={complete}
               disabledByOtherAction={isAnyActionInFlight}
-              description={getCompleteDescription(markCompletedAfter)}
-              disabled={completeDisabled}
-              disabledReason={`Available after ${formatLocalDateTime(markCompletedAfter)}.`}
+              description="Mark the consultation as completed so the buyer can confirm payment release or open a dispute."
               label="Mark completed"
               variant="primary"
             />
@@ -156,30 +147,6 @@ const errorStyle = {
   fontSize: 13,
   padding: "10px 14px",
 } as const;
-
-function formatLocalDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "short",
-      timeZoneName: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function getCompleteDescription(markCompletedAfter: string): string {
-  const markCompletedAfterMs = new Date(markCompletedAfter).getTime();
-
-  if (!Number.isNaN(markCompletedAfterMs) && Date.now() < markCompletedAfterMs) {
-    return `Available after ${formatLocalDateTime(markCompletedAfter)} (after slot + grace period).`;
-  }
-
-  return "Mark the consultation as completed. Only available after the scheduled slot + grace period.";
-}
 
 function getDisputeDescription(dealStatus: DealStatus): string {
   if (dealStatus === "Funded") {

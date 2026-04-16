@@ -9,7 +9,6 @@ export const createAndFundDealFunctionAbi = {
     { name: "price", type: "uint256" },
     { name: "scheduled_at", type: "uint256" },
     { name: "duration_minutes", type: "uint256" },
-    { name: "grace_period_minutes", type: "uint256" },
   ],
   outputs: [],
 } as const;

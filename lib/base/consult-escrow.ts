@@ -78,7 +78,6 @@ export const consultEscrowAbi = [
 export interface CreateAndFundDealInput {
   buyerAddress: string;
   durationMinutes: number;
-  gracePeriodMinutes: number;
   linkHash: string;
   priceUsdc: string;
   scheduledAt: Date;
@@ -92,7 +91,6 @@ export interface PreparedCreateAndFundDealCall {
   args: {
     buyer: Address;
     duration_minutes: string;
-    grace_period_minutes: string;
     link_hash: string;
     price: string;
     scheduled_at: string;
@@ -423,7 +421,6 @@ export function prepareCreateAndFundDealCall(
   const price = parseUnits(input.priceUsdc, 6);
   const scheduledAt = toUnixSeconds(input.scheduledAt);
   const durationMinutes = BigInt(input.durationMinutes);
-  const gracePeriodMinutes = BigInt(input.gracePeriodMinutes);
 
   return {
     chain_id: chainId,
@@ -432,7 +429,6 @@ export function prepareCreateAndFundDealCall(
     args: {
       buyer,
       duration_minutes: toUint256String(durationMinutes),
-      grace_period_minutes: toUint256String(gracePeriodMinutes),
       link_hash: linkHash,
       price: toUint256String(price),
       scheduled_at: toUint256String(scheduledAt),

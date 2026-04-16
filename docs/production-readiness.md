@@ -53,6 +53,11 @@ It is intentionally separate from testnet validation notes. Testnet/dev may allo
 
 ## Data / Security
 
+- [ ] Reset the Supabase database password before any public testnet or production deployment.
+  - The current test database password was exposed during local setup discussion and must be treated as compromised.
+  - After reset, update any local `SUPABASE_DB_URL` / database connection strings that depend on the password.
+  - Do not share the replacement password in chat, commits, issue comments, logs, or screenshots.
+
 - [ ] Confirm Supabase RLS and service-role usage boundaries.
 - [ ] Confirm meeting URL encryption key is generated securely and backed up.
 - [ ] Confirm session cookie settings are production-safe.

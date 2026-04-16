@@ -141,7 +141,7 @@ MVP должен гарантировать:
 
 Security assumptions опираются на неизменность следующих интерфейсов:
 
-- `createAndFundDeal(link_hash, seller, buyer, amount, scheduled_at, duration_minutes, grace_period_minutes)`
+- `createAndFundDeal(link_hash, seller, buyer, amount, scheduled_at, duration_minutes)`
 - `markCompleted(dealId)`
 - `confirmRelease(dealId)`
 - `openDispute(dealId)`

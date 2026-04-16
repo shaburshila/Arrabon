@@ -26,7 +26,6 @@ function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLin
     timezone: "UTC",
     expires_at: "2026-04-11T12:00:00.000Z",
     duration_minutes: 30,
-    grace_period_minutes: 0,
     meeting_url_encrypted: "encrypted",
     link_hash: "0x" + "1".repeat(64),
     status: "Open",

@@ -6,6 +6,7 @@ import type { DealActionContextRow } from "../../server/repositories/deals";
 import {
   DealCompletionServiceError,
   prepareConfirmReleaseForDeal,
+  prepareMarkCompletedForDeal,
   prepareOpenDisputeForDeal,
 } from "../../server/services/deals-completion";
 
@@ -34,8 +35,6 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
     buyer_address: BUYER,
     completed_at: COMPLETED_AT,
     consultation_link_id: "link-id-1",
-    duration_minutes: 30,
-    grace_period_minutes: 0,
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
@@ -48,6 +47,21 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
 
 beforeEach(() => {
   mocks.getDealActionContextById = async () => makeContext();
+});
+
+describe("prepareMarkCompletedForDeal availability", () => {
+  test("allows seller to mark a funded deal completed immediately", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    const result = await prepareMarkCompletedForDeal(
+      { ...currentUser, wallet_address: SELLER },
+      { dealId: "deal-id-1" },
+    );
+
+    assert.equal(result.deal_id, "deal-id-1");
+    assert.equal(result.contract_call.function_name, "markCompleted");
+    assert.equal(result.contract_call.args.deal_id, "42");
+  });
 });
 
 describe("prepareConfirmReleaseForDeal deadline boundary", () => {

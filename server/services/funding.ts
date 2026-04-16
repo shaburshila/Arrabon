@@ -29,7 +29,6 @@ export interface PrepareFundingResult {
   link_hash: string;
   schedule: {
     duration_minutes: number;
-    grace_period_minutes: number;
     scheduled_at: string;
   };
   seller_address: string;
@@ -165,7 +164,6 @@ export async function prepareFundingForLink(
       contract_call: prepareCreateAndFundDealCall({
         buyerAddress: currentUser.wallet_address,
         durationMinutes: link.duration_minutes,
-        gracePeriodMinutes: link.grace_period_minutes,
         linkHash: link.link_hash,
         priceUsdc: String(link.price_usdc),
         scheduledAt: new Date(link.scheduled_at),
@@ -174,7 +172,6 @@ export async function prepareFundingForLink(
       link_hash: link.link_hash,
       schedule: {
         duration_minutes: link.duration_minutes,
-        grace_period_minutes: link.grace_period_minutes,
         scheduled_at: link.scheduled_at,
       },
       seller_address: getAddress(link.expert_address),
