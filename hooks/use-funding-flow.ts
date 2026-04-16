@@ -157,7 +157,7 @@ export function useFundingFlow(
 
       startPolling((dealId) => {
         set({ error: null, step: "succeeded" });
-        onDealIndexed(dealId);
+        setTimeout(() => onDealIndexed(dealId), 500);
       }, handlePollingTimeout, handleSyncStatus, fundHash);
     } catch (err) {
       const message =

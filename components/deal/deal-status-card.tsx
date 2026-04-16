@@ -1,6 +1,7 @@
 "use client";
 
-import type { DealReadModel, DealStatus } from "@/lib/api/deals";
+import type { DealReadModel } from "@/lib/api/deals";
+import { DEAL_STATUS_CONFIG } from "@/lib/ui/deal-status";
 
 interface DealStatusCardProps {
   deal: DealReadModel;
@@ -42,36 +43,9 @@ function resolutionLabel(deal: DealReadModel): string | null {
   }
 }
 
-const statusConfig: Record<DealStatus, { bg: string; color: string; label: string }> = {
-  ConfirmPending: {
-    bg: "var(--warning-muted)",
-    color: "var(--warning)",
-    label: "Awaiting confirmation",
-  },
-  Disputed: {
-    bg: "var(--danger-muted)",
-    color: "var(--danger)",
-    label: "Disputed",
-  },
-  Funded: {
-    bg: "var(--accent-muted)",
-    color: "var(--accent)",
-    label: "Funded",
-  },
-  Refunded: {
-    bg: "var(--muted-bg)",
-    color: "var(--muted)",
-    label: "Refunded",
-  },
-  Released: {
-    bg: "var(--success-muted)",
-    color: "var(--success)",
-    label: "Released",
-  },
-};
 
 export function DealStatusCard({ deal, role }: DealStatusCardProps) {
-  const sc = statusConfig[deal.status];
+  const sc = DEAL_STATUS_CONFIG[deal.status];
   const resolution = resolutionLabel(deal);
 
   return (

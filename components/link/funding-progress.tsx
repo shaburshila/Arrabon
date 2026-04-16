@@ -82,7 +82,7 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
         {steps.map((s, i) => {
           const done = currentIndex > i;
           const active = isActive(step, s.key);
-          const showSpinner = active && step === "indexing";
+          const showSpinner = active && step !== "succeeded" && step !== "indexing_failed";
           return (
             <div key={i} style={{ alignItems: "center", display: "flex", gap: 10 }}>
               <span

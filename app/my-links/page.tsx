@@ -8,6 +8,7 @@ import Link from "next/link";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyLinks, type MyLink } from "@/lib/api/links";
+import { DEAL_STATUS_CONFIG } from "@/lib/ui/deal-status";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { Btn } from "@/components/shared/btn";
 
@@ -27,21 +28,6 @@ const LINK_STATUS_COLORS: Record<MyLink["status"], string> = {
   Open: "var(--success)",
 };
 
-const DEAL_STATUS_LABELS: Record<NonNullable<MyLink["deal_status"]>, string> = {
-  ConfirmPending: "Awaiting confirmation",
-  Disputed: "Disputed",
-  Funded: "Funded",
-  Refunded: "Refunded",
-  Released: "Released",
-};
-
-const DEAL_STATUS_COLORS: Record<NonNullable<MyLink["deal_status"]>, string> = {
-  ConfirmPending: "var(--accent)",
-  Disputed: "var(--danger)",
-  Funded: "var(--accent)",
-  Refunded: "var(--muted)",
-  Released: "var(--success)",
-};
 
 function formatDate(iso: string, tz: string) {
   try {
@@ -186,10 +172,8 @@ function LinkCard({ link }: { link: MyLink }) {
 
 function getMyLinkBadge(link: MyLink): { color: string; label: string } {
   if (link.deal_status) {
-    return {
-      color: DEAL_STATUS_COLORS[link.deal_status],
-      label: DEAL_STATUS_LABELS[link.deal_status],
-    };
+    const config = DEAL_STATUS_CONFIG[link.deal_status];
+    return { color: config.color, label: config.label };
   }
 
   return {
