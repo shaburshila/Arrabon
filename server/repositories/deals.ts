@@ -350,27 +350,35 @@ function toAdminDealReviewRow(
   deal: DealRow,
   linkedConsultationLink: ConsultationLinkRow,
 ): AdminDealReviewRow {
+  const linkSummary = toConsultationLinkDealSummary(linkedConsultationLink);
+
   return {
     buyer_address: deal.buyer_address,
     completed_at: deal.completed_at,
     consultation_link_id: deal.consultation_link_id,
     created_at: deal.created_at,
-    duration_minutes: linkedConsultationLink.duration_minutes,
     expires_at: linkedConsultationLink.expires_at,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
-    price_usdc: String(linkedConsultationLink.price_usdc),
     released_at: deal.released_at,
     resolution_type: deal.resolution_type,
     resolved_at: deal.resolved_at,
     resolved_by_wallet: deal.resolved_by_wallet,
     resolved_from_status: deal.resolved_from_status,
-    scheduled_at: linkedConsultationLink.scheduled_at,
     seller_address: deal.seller_address,
     status: deal.status,
+    tx_hash: deal.tx_hash,
+    ...linkSummary,
+  };
+}
+
+function toConsultationLinkDealSummary(linkedConsultationLink: ConsultationLinkRow) {
+  return {
+    duration_minutes: linkedConsultationLink.duration_minutes,
+    price_usdc: String(linkedConsultationLink.price_usdc),
+    scheduled_at: linkedConsultationLink.scheduled_at,
     timezone: linkedConsultationLink.timezone,
     title: linkedConsultationLink.title,
-    tx_hash: deal.tx_hash,
   };
 }
 
@@ -378,26 +386,24 @@ function toMyBuyerDealRow(
   deal: DealRow,
   linkedConsultationLink: ConsultationLinkRow,
 ): MyBuyerDealRow {
+  const linkSummary = toConsultationLinkDealSummary(linkedConsultationLink);
+
   return {
     buyer_address: deal.buyer_address,
     completed_at: deal.completed_at,
     consultation_link_id: deal.consultation_link_id,
     created_at: deal.created_at,
     description: linkedConsultationLink.description,
-    duration_minutes: linkedConsultationLink.duration_minutes,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
-    price_usdc: String(linkedConsultationLink.price_usdc),
     released_at: deal.released_at,
     resolution_type: deal.resolution_type,
     resolved_at: deal.resolved_at,
     resolved_from_status: deal.resolved_from_status,
-    scheduled_at: linkedConsultationLink.scheduled_at,
     seller_address: deal.seller_address,
     status: deal.status,
-    timezone: linkedConsultationLink.timezone,
-    title: linkedConsultationLink.title,
     tx_hash: deal.tx_hash,
+    ...linkSummary,
   };
 }
 
