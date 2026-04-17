@@ -14,14 +14,41 @@ import { DealStatusCard } from "@/components/deal/deal-status-card";
 import { MeetingUrlCard } from "@/components/deal/meeting-url-card";
 import { DealActionsCard } from "@/components/deal/deal-actions-card";
 import { DealGuidanceCard } from "@/components/deal/deal-guidance-card";
+import { DisputeThread } from "@/components/deal/dispute-thread";
 import { KeyTimes } from "@/components/deal/key-times";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { LiveBadge } from "@/components/shared/live-badge";
 import { isDealStatusPollable } from "@/lib/api/deals";
 
 // Buyer can dispute from Funded (no-show) or ConfirmPending (within window)
-function isBuyerDisputable(status: string): boolean {
-  return status === "Funded" || status === "ConfirmPending";
+function isDeadlinePassed(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const deadlineMs = new Date(value).getTime();
+
+  return !Number.isNaN(deadlineMs) && Date.now() > deadlineMs;
+}
+
+function isBuyerDisputable(status: string, releaseDeadlineAt: string | null): boolean {
+  if (status === "Funded") {
+    return true;
+  }
+
+  return status === "ConfirmPending" && !isDeadlinePassed(releaseDeadlineAt);
+}
+
+function isBuyerReleasable(status: string, releaseDeadlineAt: string | null): boolean {
+  return status === "ConfirmPending" && !isDeadlinePassed(releaseDeadlineAt);
+}
+
+function isAutoReleaseAvailable(status: string, releaseDeadlineAt: string | null): boolean {
+  return status === "ConfirmPending" && isDeadlinePassed(releaseDeadlineAt);
+}
+
+function shouldShowDisputeThread(status: string, resolvedFromStatus: string | null): boolean {
+  return status === "Disputed" || resolvedFromStatus === "Disputed";
 }
 
 export default function DealPage() {
@@ -115,7 +142,19 @@ export default function DealPage() {
             />
 
             <DealActionsCard
-              buyerDisputable={isBuyerDisputable(dealPage.deal.status)}
+              autoRelease={actions.autoRelease}
+              autoReleaseAvailable={isAutoReleaseAvailable(
+                dealPage.deal.status,
+                dealPage.deal.release_deadline_at,
+              )}
+              buyerDisputable={isBuyerDisputable(
+                dealPage.deal.status,
+                dealPage.deal.release_deadline_at,
+              )}
+              buyerReleasable={isBuyerReleasable(
+                dealPage.deal.status,
+                dealPage.deal.release_deadline_at,
+              )}
               complete={actions.complete}
               dealStatus={dealPage.deal.status}
               dispute={actions.dispute}
@@ -125,6 +164,26 @@ export default function DealPage() {
               release={actions.release}
               session={session}
             />
+
+            {shouldShowDisputeThread(
+              dealPage.deal.status,
+              dealPage.deal.resolved_from_status,
+            ) && (
+              <DisputeThread
+                canPost={
+                  dealPage.deal.status === "Disputed" &&
+                  session.siweStatus === "authenticated" &&
+                  (dealPage.isParticipant || session.session?.is_admin === true)
+                }
+                canView={
+                  session.siweStatus === "authenticated" &&
+                  (dealPage.isParticipant || session.session?.is_admin === true)
+                }
+                currentWallet={session.address}
+                dealId={dealId}
+                dealStatus={dealPage.deal.status}
+              />
+            )}
           </>
         )}
       </div>

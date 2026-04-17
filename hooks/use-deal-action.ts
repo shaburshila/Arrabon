@@ -11,6 +11,7 @@ import type { Hex } from "viem";
 import {
   type DealReadModel,
   type DealStatus,
+  prepareAutoRelease,
   prepareComplete,
   prepareDispute,
   prepareRelease,
@@ -180,7 +181,7 @@ function useSingleAction(
   return { execute, reset, state };
 }
 
-// Returns three separate action hooks for complete, release, dispute.
+// Returns separate action hooks for lifecycle calls.
 // Each has independent state — only one should be in flight at a time per UI gating.
 export function useDealActions(
   dealId: string,
@@ -218,6 +219,14 @@ export function useDealActions(
     refetchDeal,
     mutex,
   );
+  const autoRelease = useSingleAction(
+    dealId,
+    consultationLinkId,
+    prepareAutoRelease,
+    "Released",
+    refetchDeal,
+    mutex,
+  );
 
-  return { complete, dispute, isAnyActionInFlight, release };
+  return { autoRelease, complete, dispute, isAnyActionInFlight, release };
 }

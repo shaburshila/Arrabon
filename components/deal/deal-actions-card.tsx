@@ -11,6 +11,10 @@ import { Btn } from "@/components/shared/btn";
 import { AsyncActionState } from "@/components/shared/async-action-state";
 
 interface DealActionsCardProps {
+  autoRelease: DealAction;
+  autoReleaseAvailable: boolean;
+  buyerDisputable: boolean;
+  buyerReleasable: boolean;
   dealStatus: DealStatus;
   isSeller: boolean;
   isBuyer: boolean;
@@ -22,7 +26,10 @@ interface DealActionsCardProps {
 }
 
 export function DealActionsCard({
+  autoRelease,
+  autoReleaseAvailable,
   buyerDisputable,
+  buyerReleasable,
   complete,
   dealStatus,
   dispute,
@@ -31,22 +38,20 @@ export function DealActionsCard({
   isSeller,
   release,
   session,
-}: DealActionsCardProps & { buyerDisputable: boolean }) {
+}: DealActionsCardProps) {
   const { isConnected, isCorrectChain, siweStatus, signIn, isSigningIn, signInError } = session;
-
-  const noActions =
-    !isSeller && !isBuyer;
-
-  if (noActions) return null;
-
-  const needsAuth = !isConnected || !isCorrectChain || siweStatus !== "authenticated";
 
   // Determine what's visible to this user
   const showComplete = isSeller && dealStatus === "Funded";
-  const showRelease = isBuyer && dealStatus === "ConfirmPending";
+  const showRelease = isBuyer && buyerReleasable;
   const showDispute = isBuyer && buyerDisputable;
+  const showAutoRelease = autoReleaseAvailable;
+  const needsWallet = !isConnected || !isCorrectChain;
+  const needsParticipantAuth =
+    (showComplete || showRelease || showDispute) && siweStatus !== "authenticated";
+  const actionsBlocked = needsWallet || needsParticipantAuth;
 
-  if (!showComplete && !showRelease && !showDispute) return null;
+  if (!showComplete && !showRelease && !showDispute && !showAutoRelease) return null;
 
   return (
     <div
@@ -72,12 +77,14 @@ export function DealActionsCard({
       </p>
 
       {/* Auth gate */}
-      {needsAuth && (
+      {actionsBlocked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-            Sign in with your wallet to perform actions.
+            {needsWallet
+              ? "Connect your wallet on the correct network to perform actions."
+              : "Sign in with your wallet to perform participant actions."}
           </p>
-          {isConnected && isCorrectChain && (
+          {needsParticipantAuth && (
             <>
               <Btn
                 fullWidth
@@ -98,7 +105,7 @@ export function DealActionsCard({
       )}
 
       {/* Actions */}
-      {!needsAuth && (
+      {!actionsBlocked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Seller: complete */}
@@ -131,6 +138,17 @@ export function DealActionsCard({
               description={getDisputeDescription(dealStatus)}
               label="Open dispute"
               variant="danger"
+            />
+          )}
+
+          {/* Anyone: auto-release after buyer window closes */}
+          {showAutoRelease && (
+            <ActionGroup
+              action={autoRelease}
+              disabledByOtherAction={isAnyActionInFlight}
+              description="The buyer dispute window has closed. Anyone can finalize the escrow release to the seller."
+              label="Auto-release to seller"
+              variant="primary"
             />
           )}
         </div>

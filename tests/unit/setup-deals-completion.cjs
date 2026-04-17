@@ -39,6 +39,12 @@ const mocks = {
     contract_address: '0x0000000000000000000000000000000000000001',
     function_name: 'confirmRelease',
   }),
+  prepareAutoReleaseCall: (dealId) => ({
+    args: { deal_id: dealId },
+    chain_id: 8453,
+    contract_address: '0x0000000000000000000000000000000000000001',
+    function_name: 'autoRelease',
+  }),
   prepareMarkCompletedCall: (dealId) => ({
     args: { deal_id: dealId },
     chain_id: 8453,
@@ -68,6 +74,7 @@ require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
 const escrowPath = path.resolve(root, 'lib/base/consult-escrow.ts');
 require.cache[escrowPath] = makeEntry(escrowPath, {
   ConsultEscrowConfigError,
+  prepareAutoReleaseCall: (...args) => mocks.prepareAutoReleaseCall(...args),
   prepareConfirmReleaseCall: (...args) => mocks.prepareConfirmReleaseCall(...args),
   prepareMarkCompletedCall: (...args) => mocks.prepareMarkCompletedCall(...args),
   prepareOpenDisputeCall: (...args) => mocks.prepareOpenDisputeCall(...args),

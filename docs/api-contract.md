@@ -284,9 +284,9 @@ Errors:
 
 ## 6. Deal Completion Endpoints
 
-All three endpoints are **prepare-only**: they return structured contract call arguments for the caller's wallet to sign and submit. No deal state is written by the backend. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
+Lifecycle endpoints are **prepare-only**: they return structured contract call arguments for the caller's wallet to sign and submit. No deal state is written by the backend. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
 
-Request body: empty `{}` or omitted for all three endpoints.
+Request body: empty `{}` or omitted for all lifecycle endpoints.
 
 Response shape for all three (on success):
 
@@ -296,7 +296,7 @@ Response shape for all three (on success):
   "contract_call": {
     "chain_id": 8453,
     "contract_address": "0xcontract...",
-    "function_name": "<markCompleted|confirmRelease|openDispute>",
+    "function_name": "<markCompleted|confirmRelease|openDispute|autoRelease>",
     "args": {
       "deal_id": "17"
     }
@@ -353,6 +353,96 @@ Errors:
 - `409` deal is in a non-disputable state (`Released`, `Refunded`, `Disputed`)
 - `409` dispute window has closed (only applicable from `ConfirmPending`)
 - `500` contract config unavailable
+
+### `POST /api/deals/:id/auto-release`
+
+Prepares an `autoRelease` call. Callable after the buyer response window has closed.
+
+The endpoint does not require the caller to be the buyer or seller because the contract function is public. It only prepares calldata; the caller still signs the transaction in their own wallet.
+
+Allowed only when:
+
+- deal status is `ConfirmPending`
+- `now > completed_at + 48h`
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `409` deal not in `ConfirmPending` state
+- `409` auto-release is not available yet
+- `500` `completed_at` is missing (integrity error — indexer has not yet converged or data is corrupt)
+- `500` contract config unavailable
+
+### `GET /api/deals/:id/dispute-messages`
+
+Returns the offchain dispute discussion for a deal. The thread is shared: buyer, seller, and admin all see the same messages and evidence links.
+
+Behavior:
+
+- requires SIWE session
+- readable by deal buyer, deal seller, or admin
+- readable in any deal status
+- messages are sorted by `created_at` ascending
+- returns `[]` when no messages exist
+
+Response:
+
+```json
+[
+  {
+    "id": "message_uuid",
+    "deal_id": "deal_uuid",
+    "author_wallet": "0x...",
+    "author_role": "buyer",
+    "body": "The seller did not join the call.",
+    "evidence_url": "https://...",
+    "created_at": "2026-04-17T09:00:00.000Z"
+  }
+]
+```
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` not buyer, seller, or admin
+- `404` deal not found
+
+### `POST /api/deals/:id/dispute-messages`
+
+Adds a message to the offchain dispute discussion. MVP supports external evidence links only; files are not uploaded to Base Consult Link.
+
+Behavior:
+
+- requires SIWE session
+- callable by deal buyer, deal seller, or admin
+- allowed only while `deal.status == Disputed`
+- after `Released` or `Refunded`, the thread is read-only
+- audit logging is fail-open for this action
+
+Request:
+
+```json
+{
+  "body": "The seller did not join the call.",
+  "evidence_url": "https://..."
+}
+```
+
+Validation:
+
+- `body`: required, trimmed, 1-3000 chars
+- `evidence_url`: optional external URL, trimmed, max 2048 chars
+- empty `evidence_url` is normalized to `null`
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `400` invalid body or evidence URL
+- `401` no SIWE session
+- `403` not buyer, seller, or admin
+- `404` deal not found
+- `409` deal not in `Disputed`
 
 ---
 

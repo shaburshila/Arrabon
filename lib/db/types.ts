@@ -244,6 +244,37 @@ export interface AuditLogUpdate {
   created_at?: string;
 }
 
+export type DisputeMessageAuthorRole = "admin" | "buyer" | "seller";
+
+export interface DealDisputeMessageRow {
+  id: string;
+  deal_id: string;
+  author_wallet: string;
+  author_role: DisputeMessageAuthorRole;
+  body: string;
+  evidence_url: string | null;
+  created_at: string;
+}
+
+export interface DealDisputeMessageInsert {
+  id?: string;
+  deal_id: string;
+  author_wallet: string;
+  author_role: DisputeMessageAuthorRole;
+  body: string;
+  evidence_url?: string | null;
+  created_at?: string;
+}
+
+export interface DealDisputeMessageUpdate {
+  deal_id?: string;
+  author_wallet?: string;
+  author_role?: DisputeMessageAuthorRole;
+  body?: string;
+  evidence_url?: string | null;
+  created_at?: string;
+}
+
 export interface Database {
   __InternalSupabase: {
     PostgrestVersion: "12";
@@ -315,6 +346,20 @@ export interface Database {
         Insert: AuditLogInsert;
         Update: AuditLogUpdate;
         Relationships: [];
+      };
+      deal_dispute_messages: {
+        Row: DealDisputeMessageRow;
+        Insert: DealDisputeMessageInsert;
+        Update: DealDisputeMessageUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "deal_dispute_messages_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

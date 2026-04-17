@@ -6,6 +6,7 @@ import type { CurrentUserContext } from "@/lib/auth/guards";
 import type { DealCompletionRouteParams } from "@/lib/validators/deals-completion";
 import {
   ConsultEscrowConfigError,
+  prepareAutoReleaseCall,
   prepareConfirmReleaseCall,
   prepareMarkCompletedCall,
   prepareOpenDisputeCall,
@@ -262,6 +263,52 @@ export async function prepareOpenDisputeForDeal(
     return buildPreparedResult(
       context.id,
       prepareOpenDisputeCall(context.onchain_deal_id),
+    );
+  } catch (error) {
+    if (error instanceof ConsultEscrowConfigError) {
+      throw new DealCompletionServiceError(
+        error.message,
+        500,
+        "CONTRACT_CONFIG_UNAVAILABLE",
+      );
+    }
+
+    throw error;
+  }
+}
+
+export async function prepareAutoReleaseForDeal(
+  input: DealCompletionRouteParams,
+  now: Date = new Date(),
+): Promise<PreparedDealLifecycleResult> {
+  const context = await getActionContext(input);
+
+  if (!context) {
+    throw new DealCompletionServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
+  }
+
+  if (context.status !== "ConfirmPending") {
+    throw new DealCompletionServiceError(
+      "Deal cannot be auto-released in its current state.",
+      409,
+      "DEAL_NOT_CONFIRM_PENDING",
+    );
+  }
+
+  const releaseDeadline = computeReleaseDeadline(context.completed_at);
+
+  if (now.getTime() <= releaseDeadline.getTime()) {
+    throw new DealCompletionServiceError(
+      "Auto-release is available only after the dispute window closes.",
+      409,
+      "AUTO_RELEASE_NOT_AVAILABLE",
+    );
+  }
+
+  try {
+    return buildPreparedResult(
+      context.id,
+      prepareAutoReleaseCall(context.onchain_deal_id),
     );
   } catch (error) {
     if (error instanceof ConsultEscrowConfigError) {

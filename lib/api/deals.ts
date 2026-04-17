@@ -48,12 +48,12 @@ export interface DealReadModel {
   tx_hash: string | null;
 }
 
-// Contract call shape returned by POST /api/deals/:id/complete|release|dispute
+// Contract call shape returned by lifecycle prepare endpoints.
 export interface LifecycleContractCall {
   args: { deal_id: string }; // onchain deal id (uint256 as string)
   chain_id: number;
   contract_address: string;
-  function_name: "confirmRelease" | "markCompleted" | "openDispute";
+  function_name: "autoRelease" | "confirmRelease" | "markCompleted" | "openDispute";
 }
 
 export interface LifecyclePrepareResult {
@@ -97,6 +97,16 @@ export async function prepareRelease(dealId: string): Promise<LifecyclePrepareRe
 // POST /api/deals/:id/dispute — requires SIWE session (buyer)
 export async function prepareDispute(dealId: string): Promise<LifecyclePrepareResult> {
   const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/dispute`, {
+    body: "{}",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return parseResponse<LifecyclePrepareResult>(res);
+}
+
+// POST /api/deals/:id/auto-release — public prepare, contract call can be signed by any wallet
+export async function prepareAutoRelease(dealId: string): Promise<LifecyclePrepareResult> {
+  const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/auto-release`, {
     body: "{}",
     headers: { "Content-Type": "application/json" },
     method: "POST",

@@ -16,6 +16,7 @@ import {
 import { fetchDeal, type DealStatus } from "@/lib/api/deals";
 import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
+import { DisputeThread } from "@/components/deal/dispute-thread";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 type ResolveStep =
@@ -406,6 +407,14 @@ export default function AdminDisputesPage() {
                         </button>
                       </div>
                     )}
+
+                    <DisputeThread
+                      canPost={canLoadAdminDeals}
+                      canView={canLoadAdminDeals}
+                      currentWallet={session.address}
+                      dealId={deal.id}
+                      dealStatus={deal.status}
+                    />
                   </section>
                 );
               })}

@@ -9,6 +9,7 @@ import type { Config } from "wagmi";
 import {
   adminResolveRefundFunctionAbi,
   adminResolveReleaseFunctionAbi,
+  autoReleaseFunctionAbi,
   createAndFundDealFunctionAbi,
   markCompletedFunctionAbi,
   confirmReleaseFunctionAbi,
@@ -67,7 +68,7 @@ export async function executeFundingCall(
   });
 }
 
-// Execute a backend-prepared lifecycle call (markCompleted | confirmRelease | openDispute).
+// Execute a backend-prepared lifecycle call.
 // args.deal_id from backend is the onchain uint256 deal id as a decimal string.
 export async function executeLifecycleCall(
   config: Config,
@@ -89,6 +90,12 @@ export async function executeLifecycleCall(
       abi: [confirmReleaseFunctionAbi],
       args: [onchainDealId],
       functionName: "confirmRelease",
+    });
+  } else if (function_name === "autoRelease") {
+    encodedData = encodeFunctionData({
+      abi: [autoReleaseFunctionAbi],
+      args: [onchainDealId],
+      functionName: "autoRelease",
     });
   } else {
     encodedData = encodeFunctionData({

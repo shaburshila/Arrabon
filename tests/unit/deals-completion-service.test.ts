@@ -5,6 +5,7 @@ import type { CurrentUserContext } from "../../lib/auth/guards";
 import type { DealActionContextRow } from "../../server/repositories/deals";
 import {
   DealCompletionServiceError,
+  prepareAutoReleaseForDeal,
   prepareConfirmReleaseForDeal,
   prepareMarkCompletedForDeal,
   prepareOpenDisputeForDeal,
@@ -118,6 +119,51 @@ describe("prepareOpenDisputeForDeal deadline boundary", () => {
         assert.ok(error instanceof DealCompletionServiceError);
         assert.equal(error.status, 409);
         assert.equal(error.code, "DISPUTE_WINDOW_CLOSED");
+        return true;
+      },
+    );
+  });
+});
+
+describe("prepareAutoReleaseForDeal deadline boundary", () => {
+  test("rejects auto-release at the exact 48h deadline", async () => {
+    await assert.rejects(
+      () => prepareAutoReleaseForDeal(
+        { dealId: "deal-id-1" },
+        DEADLINE,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof DealCompletionServiceError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "AUTO_RELEASE_NOT_AVAILABLE");
+        return true;
+      },
+    );
+  });
+
+  test("allows auto-release strictly after the 48h deadline", async () => {
+    const result = await prepareAutoReleaseForDeal(
+      { dealId: "deal-id-1" },
+      new Date(DEADLINE.getTime() + 1),
+    );
+
+    assert.equal(result.deal_id, "deal-id-1");
+    assert.equal(result.contract_call.function_name, "autoRelease");
+    assert.equal(result.contract_call.args.deal_id, "42");
+  });
+
+  test("rejects auto-release for non-confirm-pending deals", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    await assert.rejects(
+      () => prepareAutoReleaseForDeal(
+        { dealId: "deal-id-1" },
+        new Date(DEADLINE.getTime() + 1),
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof DealCompletionServiceError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "DEAL_NOT_CONFIRM_PENDING");
         return true;
       },
     );
