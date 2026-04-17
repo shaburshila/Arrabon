@@ -51,6 +51,18 @@ function shouldShowDisputeThread(status: string, resolvedFromStatus: string | nu
   return status === "Disputed" || resolvedFromStatus === "Disputed";
 }
 
+function getBackLink(input: { isBuyer: boolean; isSeller: boolean }) {
+  if (input.isBuyer) {
+    return { href: "/my-deals", label: "← My deals" };
+  }
+
+  if (input.isSeller) {
+    return { href: "/my-links", label: "← My links" };
+  }
+
+  return { href: "/", label: "← Home" };
+}
+
 export default function DealPage() {
   const params = useParams();
   const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
@@ -62,6 +74,10 @@ export default function DealPage() {
     dealPage.deal?.consultation_link_id ?? "",
     dealPage.refetch,
   );
+  const backLink = getBackLink({
+    isBuyer: dealPage.isBuyer,
+    isSeller: dealPage.isSeller,
+  });
 
   return (
     <main style={mainStyle}>
@@ -75,8 +91,8 @@ export default function DealPage() {
           )}
         </div>
 
-        <Link href="/my-links" style={backLinkStyle}>
-          ← My links
+        <Link href={backLink.href} style={backLinkStyle}>
+          {backLink.label}
         </Link>
 
         {/* Loading */}

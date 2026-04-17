@@ -4,6 +4,7 @@
 
 import type { FundingStep } from "@/hooks/use-funding-flow";
 import type { Hex } from "viem";
+import Link from "next/link";
 
 interface FundingProgressProps {
   step: FundingStep;
@@ -144,6 +145,16 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
         </p>
       )}
 
+      {["fund_pending", "indexing", "indexing_failed", "succeeded"].includes(step) && (
+        <p style={recoveryHintStyle}>
+          You can always find paid consultations in{" "}
+          <Link href="/my-deals" style={recoveryLinkStyle}>
+            My deals
+          </Link>
+          .
+        </p>
+      )}
+
       {/* Tx hash */}
       {txHash && (
         <p style={{ fontSize: 12, margin: "8px 0 0", wordBreak: "break-all" }}>
@@ -173,6 +184,18 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
     </div>
   );
 }
+
+const recoveryHintStyle = {
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.5,
+  margin: "12px 0 0",
+};
+
+const recoveryLinkStyle = {
+  color: "var(--accent)",
+  fontWeight: 700,
+};
 
 function Spinner() {
   return (

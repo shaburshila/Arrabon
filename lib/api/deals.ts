@@ -48,6 +48,29 @@ export interface DealReadModel {
   tx_hash: string | null;
 }
 
+// Shape returned by GET /api/me/deals
+export interface MyDeal {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  created_at: string;
+  description: string;
+  duration_minutes: number;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  released_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_from_status: DealStatus | null;
+  scheduled_at: string;
+  seller_address: string;
+  status: DealStatus;
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
+}
+
 // Contract call shape returned by lifecycle prepare endpoints.
 export interface LifecycleContractCall {
   args: { deal_id: string }; // onchain deal id (uint256 as string)
@@ -65,6 +88,12 @@ export interface LifecyclePrepareResult {
 export async function fetchDeal(id: string): Promise<DealReadModel> {
   const res = await fetch(`/api/deals/${encodeURIComponent(id)}`);
   return parseResponse<DealReadModel>(res);
+}
+
+// GET /api/me/deals — requires SIWE session, returns deals where current wallet is buyer
+export async function fetchMyDeals(): Promise<MyDeal[]> {
+  const res = await fetch("/api/me/deals");
+  return parseResponse<MyDeal[]>(res);
 }
 
 // GET /api/deals/:id/meeting-url — requires SIWE session

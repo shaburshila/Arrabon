@@ -186,9 +186,14 @@ export default function HomePage() {
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={logoStyle}>Base Consult Link</span>
-            <Link href="/my-links" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 500 }}>
-              My links →
-            </Link>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Link href="/my-links" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 500 }}>
+                My links
+              </Link>
+              <Link href="/my-deals" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 500 }}>
+                My deals →
+              </Link>
+            </div>
           </div>
           <h1 style={h1Style}>Create consultation link</h1>
           <p style={subtitleStyle}>

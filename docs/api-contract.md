@@ -261,6 +261,51 @@ Notes:
 
 ## 5. Deal Private Endpoints
 
+### `GET /api/me/deals`
+
+Returns deals where the authenticated wallet is the buyer. This endpoint is the buyer recovery path after a paid consultation page is closed or the `/deal/:id` URL is lost.
+
+Behavior:
+
+- requires SIWE session
+- uses `currentUser.wallet_address` as `buyer_address`
+- returns newest deals first by `deals.created_at desc`
+- returns only buyer deals; seller recovery remains `/my-links`
+
+Response:
+
+```json
+[
+  {
+    "id": "deal_123",
+    "consultation_link_id": "link_123",
+    "onchain_deal_id": "17",
+    "title": "Consultation",
+    "description": "30-minute consult",
+    "price_usdc": "100.00",
+    "scheduled_at": "2026-03-28T12:00:00Z",
+    "timezone": "Europe/Berlin",
+    "duration_minutes": 30,
+    "buyer_address": "0xbuyer...",
+    "seller_address": "0xseller...",
+    "status": "Funded",
+    "resolution_type": null,
+    "resolved_at": null,
+    "resolved_from_status": null,
+    "completed_at": null,
+    "released_at": null,
+    "tx_hash": "0xhash",
+    "created_at": "2026-03-25T18:00:00Z"
+  }
+]
+```
+
+Errors:
+
+- `401` no SIWE session
+- `500` failed to load deals
+- `500` consultation link missing for a deal
+
 ### `GET /api/deals/:id/meeting-url`
 
 Returns decrypted meeting URL only to deal participants after funding.

@@ -94,6 +94,28 @@ export interface AdminDealReviewRow {
   tx_hash: string | null;
 }
 
+export interface MyBuyerDealRow {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  created_at: string;
+  description: string;
+  duration_minutes: number;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  released_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_from_status: DealRow["status"] | null;
+  scheduled_at: string;
+  seller_address: string;
+  status: DealRow["status"];
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
+}
+
 function toUtcIsoString(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -350,6 +372,66 @@ function toAdminDealReviewRow(
     title: linkedConsultationLink.title,
     tx_hash: deal.tx_hash,
   };
+}
+
+function toMyBuyerDealRow(
+  deal: DealRow,
+  linkedConsultationLink: ConsultationLinkRow,
+): MyBuyerDealRow {
+  return {
+    buyer_address: deal.buyer_address,
+    completed_at: deal.completed_at,
+    consultation_link_id: deal.consultation_link_id,
+    created_at: deal.created_at,
+    description: linkedConsultationLink.description,
+    duration_minutes: linkedConsultationLink.duration_minutes,
+    id: deal.id,
+    onchain_deal_id: deal.onchain_deal_id,
+    price_usdc: String(linkedConsultationLink.price_usdc),
+    released_at: deal.released_at,
+    resolution_type: deal.resolution_type,
+    resolved_at: deal.resolved_at,
+    resolved_from_status: deal.resolved_from_status,
+    scheduled_at: linkedConsultationLink.scheduled_at,
+    seller_address: deal.seller_address,
+    status: deal.status,
+    timezone: linkedConsultationLink.timezone,
+    title: linkedConsultationLink.title,
+    tx_hash: deal.tx_hash,
+  };
+}
+
+export async function listBuyerDealRows(
+  buyerAddress: string,
+): Promise<MyBuyerDealRow[]> {
+  const db = getServerDbClient().schema("public");
+  const { data: deals, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("buyer_address", buyerAddress)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to list buyer deals: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return Promise.all(
+    (deals ?? []).map(async (deal) => {
+      const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+
+      if (!linkedConsultationLink) {
+        throw new DealsRepositoryError(
+          `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+          "CONSULTATION_LINK_MISSING",
+        );
+      }
+
+      return toMyBuyerDealRow(deal, linkedConsultationLink);
+    }),
+  );
 }
 
 export async function listDisputedDealReviewRows(): Promise<AdminDealReviewRow[]> {
