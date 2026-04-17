@@ -417,6 +417,9 @@ describe('listMyConsultationLinks', () => {
     const deal = makeDeal({
       consultation_link_id: link.id,
       id: 'deal-uuid-999',
+      resolution_type: 'admin_release',
+      resolved_at: '2026-04-12T12:00:00.000Z',
+      resolved_from_status: 'Disputed',
       status: 'Released',
     });
 
@@ -427,6 +430,9 @@ describe('listMyConsultationLinks', () => {
 
     assert.equal(result.length, 1);
     assert.equal(result[0].deal_id, 'deal-uuid-999');
+    assert.equal(result[0].deal_resolution_type, 'admin_release');
+    assert.equal(result[0].deal_resolved_at, '2026-04-12T12:00:00.000Z');
+    assert.equal(result[0].deal_resolved_from_status, 'Disputed');
     assert.equal(result[0].deal_status, 'Released');
     assert.equal(result[0].status, 'Consumed');
     assert.equal(result[0].share_url, '/deal/deal-uuid-999');

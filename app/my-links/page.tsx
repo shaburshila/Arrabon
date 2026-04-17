@@ -8,26 +8,43 @@ import Link from "next/link";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyLinks, type MyLink } from "@/lib/api/links";
-import { DEAL_STATUS_CONFIG } from "@/lib/ui/deal-status";
+import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { Btn } from "@/components/shared/btn";
 
-const LINK_STATUS_LABELS: Record<MyLink["status"], string> = {
-  Cancelled: "Cancelled",
-  Consumed: "Funded",
-  Draft: "Draft",
-  Expired: "Expired",
-  Open: "Open",
+type MyLinkBadge = {
+  bg: string;
+  color: string;
+  label: string;
 };
 
-const LINK_STATUS_COLORS: Record<MyLink["status"], string> = {
-  Cancelled: "var(--muted)",
-  Consumed: "var(--accent)",
-  Draft: "var(--muted)",
-  Expired: "var(--muted)",
-  Open: "var(--success)",
+const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
+  Cancelled: {
+    bg: "var(--muted-bg)",
+    color: "var(--muted)",
+    label: "Cancelled",
+  },
+  Consumed: {
+    bg: "var(--accent-muted)",
+    color: "var(--accent)",
+    label: "Funded",
+  },
+  Draft: {
+    bg: "var(--muted-bg)",
+    color: "var(--muted)",
+    label: "Draft",
+  },
+  Expired: {
+    bg: "var(--muted-bg)",
+    color: "var(--muted)",
+    label: "Expired",
+  },
+  Open: {
+    bg: "var(--success-muted)",
+    color: "var(--success)",
+    label: "Open",
+  },
 };
-
 
 function formatDate(iso: string, tz: string) {
   try {
@@ -136,7 +153,7 @@ function LinkCard({ link }: { link: MyLink }) {
             {formatDate(link.scheduled_at, link.timezone)} · {link.duration_minutes} min · {link.price_usdc} USDC
           </p>
         </div>
-        <span style={statusBadge(badge.color)}>{badge.label}</span>
+        <span style={statusBadge(badge)}>{badge.label}</span>
       </div>
 
       {link.description && (
@@ -170,24 +187,23 @@ function LinkCard({ link }: { link: MyLink }) {
   );
 }
 
-function getMyLinkBadge(link: MyLink): { color: string; label: string } {
+function getMyLinkBadge(link: MyLink): MyLinkBadge {
   if (link.deal_status) {
-    const config = DEAL_STATUS_CONFIG[link.deal_status];
-    return { color: config.color, label: config.label };
+    return getDealDisplayConfig({
+      resolution_type: link.deal_resolution_type,
+      status: link.deal_status,
+    });
   }
 
-  return {
-    color: LINK_STATUS_COLORS[link.status],
-    label: LINK_STATUS_LABELS[link.status],
-  };
+  return LINK_STATUS_CONFIG[link.status];
 }
 
-function statusBadge(color: string) {
+function statusBadge(badge: MyLinkBadge) {
   return {
-    background: color + "1a",
-    border: `1px solid ${color}33`,
+    background: badge.bg,
+    border: "1px solid transparent",
     borderRadius: 99,
-    color,
+    color: badge.color,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: 600,

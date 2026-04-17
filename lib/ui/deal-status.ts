@@ -1,4 +1,4 @@
-import type { DealStatus } from "@/lib/api/deals";
+import type { DealResolutionType, DealStatus } from "@/lib/api/deals";
 
 export interface DealStatusConfig {
   bg: string;
@@ -13,8 +13,8 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
     label: "Awaiting confirmation",
   },
   Disputed: {
-    bg: "var(--warning-muted)",
-    color: "var(--warning)",
+    bg: "var(--danger-muted)",
+    color: "var(--danger)",
     label: "Disputed",
   },
   Funded: {
@@ -33,3 +33,26 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
     label: "Released",
   },
 };
+
+export const DEAL_RESOLUTION_LABELS: Record<DealResolutionType, string> = {
+  admin_refund: "Refunded after dispute",
+  admin_release: "Released after dispute",
+  auto_release: "Auto-released",
+  buyer_confirmed: "Released by buyer",
+};
+
+export function getDealDisplayConfig(input: {
+  resolution_type: DealResolutionType | null;
+  status: DealStatus;
+}): DealStatusConfig {
+  const baseConfig = DEAL_STATUS_CONFIG[input.status];
+
+  if (!input.resolution_type) {
+    return baseConfig;
+  }
+
+  return {
+    ...baseConfig,
+    label: DEAL_RESOLUTION_LABELS[input.resolution_type],
+  };
+}

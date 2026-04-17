@@ -7,6 +7,7 @@ import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consulta
 import type {
   ConsultationLinkRow,
   ConsultationLinkStatus,
+  DealResolutionType,
   DealStatus,
 } from "@/lib/db/types";
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
@@ -121,6 +122,9 @@ function createUnavailableLinkError(statusValue: PublicUnavailableStatus): Consu
 
 export interface MyLinkResult {
   deal_id: string | null;
+  deal_resolution_type: DealResolutionType | null;
+  deal_resolved_at: string | null;
+  deal_resolved_from_status: DealStatus | null;
   deal_status: DealStatus | null;
   description: string;
   duration_minutes: number;
@@ -176,6 +180,9 @@ export async function listMyConsultationLinks(
 
     return {
       deal_id: existingDeal?.id ?? null,
+      deal_resolution_type: existingDeal?.resolution_type ?? null,
+      deal_resolved_at: existingDeal?.resolved_at ?? null,
+      deal_resolved_from_status: existingDeal?.resolved_from_status ?? null,
       deal_status: existingDeal?.status ?? null,
       description: row.description,
       duration_minutes: row.duration_minutes,

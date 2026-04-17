@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/api/auth";
 import type { Hex } from "viem";
-import type { DealStatus } from "@/lib/api/deals";
+import type { DealResolutionType, DealStatus } from "@/lib/api/deals";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => null);
@@ -119,6 +119,9 @@ export async function createLink(input: CreateLinkInput): Promise<CreatedLink> {
 // Shape returned by GET /api/links (my links)
 export interface MyLink {
   deal_id: string | null;
+  deal_resolution_type: DealResolutionType | null;
+  deal_resolved_at: string | null;
+  deal_resolved_from_status: DealStatus | null;
   deal_status: DealStatus | null;
   description: string;
   duration_minutes: number;
