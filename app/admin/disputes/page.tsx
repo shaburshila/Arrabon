@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
@@ -16,6 +15,7 @@ import {
 import { fetchDeal, type DealStatus } from "@/lib/api/deals";
 import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
+import { AppShell } from "@/components/app/app-shell";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
@@ -277,152 +277,147 @@ export default function AdminDisputesPage() {
   );
 
   return (
-    <main style={mainStyle}>
-      <div style={pageStyle}>
-        <div style={headerStyle}>
-          <Link href="/" style={brandStyle}>
-            Base Consult Link
-          </Link>
-          <h1 style={h1Style}>Disputes</h1>
-          <p style={subtitleStyle}>
-            Review disputed escrow deals and prepare the admin resolution transaction.
-          </p>
+    <AppShell maxWidth={860}>
+      <div style={headerStyle}>
+        <h1 style={h1Style}>Disputes</h1>
+        <p style={subtitleStyle}>
+          Review disputed escrow deals and prepare the admin resolution transaction.
+        </p>
+      </div>
+
+      <WalletSessionCard session={session} />
+
+      {session.siweStatus === "authenticated" && session.session?.is_admin !== true && (
+        <div style={noticeStyle("danger")}>
+          This wallet is not on the admin allowlist.
         </div>
+      )}
 
-        <WalletSessionCard session={session} />
-
-        {session.siweStatus === "authenticated" && session.session?.is_admin !== true && (
-          <div style={noticeStyle("danger")}>
-            This wallet is not on the admin allowlist.
+      {canLoadAdminDeals && (
+        <>
+          <div style={toolbarStyle}>
+            <span style={countStyle}>{deals.length} open disputes</span>
+            <button
+              disabled={loading || isResolving}
+              onClick={loadDeals}
+              style={smallButtonStyle}
+              type="button"
+            >
+              Refresh
+            </button>
           </div>
-        )}
 
-        {canLoadAdminDeals && (
-          <>
-            <div style={toolbarStyle}>
-              <span style={countStyle}>{deals.length} open disputes</span>
-              <button
-                disabled={loading || isResolving}
-                onClick={loadDeals}
-                style={smallButtonStyle}
-                type="button"
-              >
-                Refresh
-              </button>
-            </div>
+          {loading && (
+            <div style={noticeStyle("muted")}>Loading disputes...</div>
+          )}
 
-            {loading && (
-              <div style={noticeStyle("muted")}>Loading disputes...</div>
-            )}
+          {loadError && (
+            <div style={noticeStyle("danger")}>{loadError}</div>
+          )}
 
-            {loadError && (
-              <div style={noticeStyle("danger")}>{loadError}</div>
-            )}
+          {!loading && !loadError && deals.length === 0 && (
+            <div style={noticeStyle("muted")}>No disputed deals.</div>
+          )}
 
-            {!loading && !loadError && deals.length === 0 && (
-              <div style={noticeStyle("muted")}>No disputed deals.</div>
-            )}
+          <div style={listStyle}>
+            {deals.map((deal) => {
+              const activeForDeal = resolveState.dealId === deal.id;
+              const activeText = activeForDeal ? statusText(resolveState) : null;
+              const confirmForDeal = confirming?.dealId === deal.id ? confirming : null;
 
-            <div style={listStyle}>
-              {deals.map((deal) => {
-                const activeForDeal = resolveState.dealId === deal.id;
-                const activeText = activeForDeal ? statusText(resolveState) : null;
-                const confirmForDeal = confirming?.dealId === deal.id ? confirming : null;
-
-                return (
-                  <section key={deal.id} style={dealCardStyle}>
-                    <div style={dealHeaderStyle}>
-                      <div>
-                        <h2 style={dealTitleStyle}>{deal.title}</h2>
-                        <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
-                      </div>
-                      <span style={badgeStyle}>Disputed</span>
+              return (
+                <section key={deal.id} style={dealCardStyle}>
+                  <div style={dealHeaderStyle}>
+                    <div>
+                      <h2 style={dealTitleStyle}>{deal.title}</h2>
+                      <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                     </div>
+                    <span style={badgeStyle}>Disputed</span>
+                  </div>
 
-                    <div style={gridStyle}>
-                      <Info label="Price" value={`${deal.price_usdc} USDC`} />
-                      <Info label="Scheduled" value={formatDate(deal.scheduled_at)} />
-                      <Info label="Completed" value={formatDate(deal.completed_at)} />
-                      <Info label="Release deadline" value={formatDate(deal.release_deadline_at)} />
-                      <Info label="Buyer" value={shortAddress(deal.buyer_address)} />
-                      <Info label="Seller" value={shortAddress(deal.seller_address)} />
+                  <div style={gridStyle}>
+                    <Info label="Price" value={`${deal.price_usdc} USDC`} />
+                    <Info label="Scheduled" value={formatDate(deal.scheduled_at)} />
+                    <Info label="Completed" value={formatDate(deal.completed_at)} />
+                    <Info label="Release deadline" value={formatDate(deal.release_deadline_at)} />
+                    <Info label="Buyer" value={shortAddress(deal.buyer_address)} />
+                    <Info label="Seller" value={shortAddress(deal.seller_address)} />
+                  </div>
+
+                  {activeText && (
+                    <div
+                      style={noticeStyle(
+                        resolveState.step === "failed" || resolveState.step === "sync_failed"
+                          ? "danger"
+                          : "muted",
+                      )}
+                    >
+                      {activeText}
+                      {resolveState.txHash && (
+                        <div style={txStyle}>Tx: {resolveState.txHash}</div>
+                      )}
                     </div>
+                  )}
 
-                    {activeText && (
-                      <div
-                        style={noticeStyle(
-                          resolveState.step === "failed" || resolveState.step === "sync_failed"
-                            ? "danger"
-                            : "muted",
-                        )}
-                      >
-                        {activeText}
-                        {resolveState.txHash && (
-                          <div style={txStyle}>Tx: {resolveState.txHash}</div>
-                        )}
-                      </div>
-                    )}
-
-                    {confirmForDeal ? (
-                      <div style={confirmStyle}>
-                        <p style={confirmTextStyle}>
-                          Confirm: {actionLabel(confirmForDeal.resolution)} for deal #{deal.onchain_deal_id}.
-                        </p>
-                        <div style={actionsStyle}>
-                          <button
-                            disabled={isResolving}
-                            onClick={() => resolveDeal(deal, confirmForDeal.resolution)}
-                            style={buttonStyle(confirmForDeal.resolution === "release" ? "primary" : "danger")}
-                            type="button"
-                          >
-                            Sign {confirmForDeal.resolution}
-                          </button>
-                          <button
-                            disabled={isResolving}
-                            onClick={() => setConfirming(null)}
-                            style={buttonStyle("ghost")}
-                            type="button"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
+                  {confirmForDeal ? (
+                    <div style={confirmStyle}>
+                      <p style={confirmTextStyle}>
+                        Confirm: {actionLabel(confirmForDeal.resolution)} for deal #{deal.onchain_deal_id}.
+                      </p>
                       <div style={actionsStyle}>
                         <button
                           disabled={isResolving}
-                          onClick={() => setConfirming({ dealId: deal.id, resolution: "release" })}
-                          style={buttonStyle("primary")}
+                          onClick={() => resolveDeal(deal, confirmForDeal.resolution)}
+                          style={buttonStyle(confirmForDeal.resolution === "release" ? "primary" : "danger")}
                           type="button"
                         >
-                          Release to seller
+                          Sign {confirmForDeal.resolution}
                         </button>
                         <button
                           disabled={isResolving}
-                          onClick={() => setConfirming({ dealId: deal.id, resolution: "refund" })}
-                          style={buttonStyle("danger")}
+                          onClick={() => setConfirming(null)}
+                          style={buttonStyle("ghost")}
                           type="button"
                         >
-                          Refund buyer
+                          Cancel
                         </button>
                       </div>
-                    )}
+                    </div>
+                  ) : (
+                    <div style={actionsStyle}>
+                      <button
+                        disabled={isResolving}
+                        onClick={() => setConfirming({ dealId: deal.id, resolution: "release" })}
+                        style={buttonStyle("primary")}
+                        type="button"
+                      >
+                        Release to seller
+                      </button>
+                      <button
+                        disabled={isResolving}
+                        onClick={() => setConfirming({ dealId: deal.id, resolution: "refund" })}
+                        style={buttonStyle("danger")}
+                        type="button"
+                      >
+                        Refund buyer
+                      </button>
+                    </div>
+                  )}
 
-                    <DisputeThread
-                      canPost={canLoadAdminDeals}
-                      canView={canLoadAdminDeals}
-                      currentWallet={session.address}
-                      dealId={deal.id}
-                      dealStatus={deal.status}
-                    />
-                  </section>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-    </main>
+                  <DisputeThread
+                    canPost={canLoadAdminDeals}
+                    canView={canLoadAdminDeals}
+                    currentWallet={session.address}
+                    dealId={deal.id}
+                    dealStatus={deal.status}
+                  />
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </AppShell>
   );
 }
 
@@ -435,34 +430,10 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-const mainStyle = {
-  display: "flex",
-  justifyContent: "center",
-  minHeight: "100vh",
-  padding: "24px 16px 48px",
-} as const;
-
-const pageStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 16,
-  maxWidth: 860,
-  width: "100%",
-};
-
 const headerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
-};
-
-const brandStyle = {
-  color: "var(--accent)",
-  fontSize: 12,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textDecoration: "none",
-  textTransform: "uppercase" as const,
 };
 
 const h1Style = {

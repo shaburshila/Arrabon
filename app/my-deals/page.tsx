@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
+import { AppShell } from "@/components/app/app-shell";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 function shortAddress(value: string) {
@@ -56,43 +57,38 @@ export default function MyDealsPage() {
   }, [isAuthenticated]);
 
   return (
-    <main style={mainStyle}>
-      <div style={pageStyle}>
-        <div style={headerStyle}>
-          <Link href="/" style={brandStyle}>
-            Base Consult Link
-          </Link>
-          <h1 style={h1Style}>My deals</h1>
-          <p style={subtitleStyle}>Consultations you have paid for.</p>
-        </div>
-
-        <WalletSessionCard session={session} />
-
-        {isAuthenticated && loading && (
-          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Loading...</p>
-        )}
-
-        {isAuthenticated && error && (
-          <div style={errorStyle}>{error}</div>
-        )}
-
-        {isAuthenticated && deals && deals.length === 0 && (
-          <div style={emptyStyle}>
-            <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-              No paid consultations yet.
-            </p>
-          </div>
-        )}
-
-        {isAuthenticated && deals && deals.length > 0 && (
-          <div style={listStyle}>
-            {deals.map((deal) => (
-              <DealCard deal={deal} key={deal.id} />
-            ))}
-          </div>
-        )}
+    <AppShell maxWidth={560}>
+      <div style={headerStyle}>
+        <h1 style={h1Style}>My deals</h1>
+        <p style={subtitleStyle}>Consultations you have paid for.</p>
       </div>
-    </main>
+
+      <WalletSessionCard session={session} />
+
+      {isAuthenticated && loading && (
+        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Loading...</p>
+      )}
+
+      {isAuthenticated && error && (
+        <div style={errorStyle}>{error}</div>
+      )}
+
+      {isAuthenticated && deals && deals.length === 0 && (
+        <div style={emptyStyle}>
+          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
+            No paid consultations yet.
+          </p>
+        </div>
+      )}
+
+      {isAuthenticated && deals && deals.length > 0 && (
+        <div style={listStyle}>
+          {deals.map((deal) => (
+            <DealCard deal={deal} key={deal.id} />
+          ))}
+        </div>
+      )}
+    </AppShell>
   );
 }
 
@@ -130,34 +126,10 @@ function DealCard({ deal }: { deal: MyDeal }) {
   );
 }
 
-const mainStyle = {
-  display: "flex",
-  justifyContent: "center",
-  minHeight: "100vh",
-  padding: "24px 16px 48px",
-} as const;
-
-const pageStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 16,
-  maxWidth: 560,
-  width: "100%",
-};
-
 const headerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
-};
-
-const brandStyle = {
-  color: "var(--accent)",
-  fontSize: 12,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textDecoration: "none",
-  textTransform: "uppercase" as const,
 };
 
 const h1Style = {

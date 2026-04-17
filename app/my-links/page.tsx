@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyLinks, type MyLink } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
+import { AppShell } from "@/components/app/app-shell";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { Btn } from "@/components/shared/btn";
 
@@ -87,53 +88,47 @@ export default function MyLinksPage() {
   }, [isAuthenticated]);
 
   return (
-    <main style={mainStyle}>
-      <div style={pageStyle}>
-        {/* Header */}
-        <div style={headerStyle}>
-          <Link href="/" style={{ color: "var(--accent)", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            Base Consult Link
-          </Link>
-          <h1 style={h1Style}>My consultation links</h1>
-          <p style={subtitleStyle}>All links you have created.</p>
-        </div>
-
-        <WalletSessionCard session={session} />
-
-        {isAuthenticated && (
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Link href="/">
-              <Btn variant="primary">+ New link</Btn>
-            </Link>
-          </div>
-        )}
-
-        {isAuthenticated && loading && (
-          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Loading…</p>
-        )}
-
-        {isAuthenticated && error && (
-          <div style={errorStyle}>{error}</div>
-        )}
-
-        {isAuthenticated && links && links.length === 0 && (
-          <div style={emptyStyle}>
-            <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-              No links yet.{" "}
-              <Link href="/" style={{ color: "var(--accent)" }}>Create your first one.</Link>
-            </p>
-          </div>
-        )}
-
-        {isAuthenticated && links && links.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {links.map((link) => (
-              <LinkCard key={link.id} link={link} />
-            ))}
-          </div>
-        )}
+    <AppShell maxWidth={560}>
+      <div style={headerStyle}>
+        <h1 style={h1Style}>My consultation links</h1>
+        <p style={subtitleStyle}>All links you have created.</p>
       </div>
-    </main>
+
+      <WalletSessionCard session={session} />
+
+      {isAuthenticated && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <Link href="/create">
+            <Btn variant="primary">+ New link</Btn>
+          </Link>
+        </div>
+      )}
+
+      {isAuthenticated && loading && (
+        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Loading…</p>
+      )}
+
+      {isAuthenticated && error && (
+        <div style={errorStyle}>{error}</div>
+      )}
+
+      {isAuthenticated && links && links.length === 0 && (
+        <div style={emptyStyle}>
+          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
+            No links yet.{" "}
+            <Link href="/create" style={{ color: "var(--accent)" }}>Create your first one.</Link>
+          </p>
+        </div>
+      )}
+
+      {isAuthenticated && links && links.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {links.map((link) => (
+            <LinkCard key={link.id} link={link} />
+          ))}
+        </div>
+      )}
+    </AppShell>
   );
 }
 
@@ -213,21 +208,6 @@ function statusBadge(badge: MyLinkBadge) {
     whiteSpace: "nowrap" as const,
   };
 }
-
-const mainStyle = {
-  display: "flex",
-  justifyContent: "center",
-  minHeight: "100vh",
-  padding: "24px 16px 48px",
-} as const;
-
-const pageStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 16,
-  maxWidth: 560,
-  width: "100%",
-};
 
 const headerStyle = { paddingBottom: 4 } as const;
 

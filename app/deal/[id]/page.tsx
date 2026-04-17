@@ -10,6 +10,7 @@ import { useWalletSession } from "@/hooks/use-wallet-session";
 import { useDealPage } from "@/hooks/use-deal-page";
 import { useDealActions } from "@/hooks/use-deal-action";
 
+import { AppShell } from "@/components/app/app-shell";
 import { DealStatusCard } from "@/components/deal/deal-status-card";
 import { MeetingUrlCard } from "@/components/deal/meeting-url-card";
 import { DealActionsCard } from "@/components/deal/deal-actions-card";
@@ -80,147 +81,127 @@ export default function DealPage() {
   });
 
   return (
-    <main style={mainStyle}>
-      <div style={pageStyle}>
+    <AppShell maxWidth={480}>
+      {dealPage.status === "ready" && dealPage.deal && isDealStatusPollable(dealPage.deal.status) && (
         <div style={pageHeaderStyle}>
-          <Link href="/" style={brandStyle}>
-            Base Consult Link
-          </Link>
-          {dealPage.status === "ready" && dealPage.deal && isDealStatusPollable(dealPage.deal.status) && (
-            <LiveBadge />
-          )}
+          <LiveBadge />
         </div>
+      )}
 
-        <Link href={backLink.href} style={backLinkStyle}>
-          {backLink.label}
-        </Link>
+      <Link href={backLink.href} style={backLinkStyle}>
+        {backLink.label}
+      </Link>
 
-        {/* Loading */}
-        {dealPage.status === "loading" && (
-          <div style={centerStyle}>
-            <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading deal…</p>
-          </div>
-        )}
+      {/* Loading */}
+      {dealPage.status === "loading" && (
+        <div style={centerStyle}>
+          <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading deal…</p>
+        </div>
+      )}
 
-        {/* Not found */}
-        {dealPage.status === "not_found" && (
-          <div
-            style={{
-              background: "var(--muted-bg)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius)",
-              color: "var(--muted)",
-              fontSize: 14,
-              padding: 20,
-            }}
-          >
-            Deal not found.
-          </div>
-        )}
+      {/* Not found */}
+      {dealPage.status === "not_found" && (
+        <div
+          style={{
+            background: "var(--muted-bg)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            color: "var(--muted)",
+            fontSize: 14,
+            padding: 20,
+          }}
+        >
+          Deal not found.
+        </div>
+      )}
 
-        {/* Error */}
-        {dealPage.status === "error" && (
-          <div
-            style={{
-              background: "var(--danger-muted)",
-              border: "1px solid var(--danger)",
-              borderRadius: "var(--radius)",
-              color: "var(--danger)",
-              fontSize: 14,
-              padding: 20,
-            }}
-          >
-            {dealPage.error ?? "Failed to load deal."}
-          </div>
-        )}
+      {/* Error */}
+      {dealPage.status === "error" && (
+        <div
+          style={{
+            background: "var(--danger-muted)",
+            border: "1px solid var(--danger)",
+            borderRadius: "var(--radius)",
+            color: "var(--danger)",
+            fontSize: 14,
+            padding: 20,
+          }}
+        >
+          {dealPage.error ?? "Failed to load deal."}
+        </div>
+      )}
 
-        {/* Main content */}
-        {dealPage.status === "ready" && dealPage.deal && (
-          <>
-            <DealStatusCard deal={dealPage.deal} role={dealPage.role} />
-            <DealGuidanceCard
-              dealStatus={dealPage.deal.status}
-              isBuyer={dealPage.isBuyer}
-              isSeller={dealPage.isSeller}
-              isViewer={!dealPage.isParticipant}
-              priceUsdc={dealPage.deal.price_usdc}
-              releaseDeadlineAt={dealPage.deal.release_deadline_at}
-              scheduledAt={dealPage.deal.scheduled_at}
-            />
-            <WalletSessionCard session={session} />
-            <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
+      {/* Main content */}
+      {dealPage.status === "ready" && dealPage.deal && (
+        <>
+          <DealStatusCard deal={dealPage.deal} role={dealPage.role} />
+          <DealGuidanceCard
+            dealStatus={dealPage.deal.status}
+            isBuyer={dealPage.isBuyer}
+            isSeller={dealPage.isSeller}
+            isViewer={!dealPage.isParticipant}
+            priceUsdc={dealPage.deal.price_usdc}
+            releaseDeadlineAt={dealPage.deal.release_deadline_at}
+            scheduledAt={dealPage.deal.scheduled_at}
+          />
+          <WalletSessionCard session={session} />
+          <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
 
-            <MeetingUrlCard
+          <MeetingUrlCard
+            dealId={dealId}
+            dealStatus={dealPage.deal.status}
+            isParticipant={dealPage.isParticipant}
+            session={session}
+          />
+
+          <DealActionsCard
+            autoRelease={actions.autoRelease}
+            autoReleaseAvailable={isAutoReleaseAvailable(
+              dealPage.deal.status,
+              dealPage.deal.release_deadline_at,
+            )}
+            buyerDisputable={isBuyerDisputable(
+              dealPage.deal.status,
+              dealPage.deal.release_deadline_at,
+            )}
+            buyerReleasable={isBuyerReleasable(
+              dealPage.deal.status,
+              dealPage.deal.release_deadline_at,
+            )}
+            complete={actions.complete}
+            dealStatus={dealPage.deal.status}
+            dispute={actions.dispute}
+            isAnyActionInFlight={actions.isAnyActionInFlight}
+            isBuyer={dealPage.isBuyer}
+            isSeller={dealPage.isSeller}
+            release={actions.release}
+            session={session}
+          />
+
+          {shouldShowDisputeThread(
+            dealPage.deal.status,
+            dealPage.deal.resolved_from_status,
+          ) && (
+            <DisputeThread
+              canPost={
+                dealPage.deal.status === "Disputed" &&
+                session.siweStatus === "authenticated" &&
+                (dealPage.isParticipant || session.session?.is_admin === true)
+              }
+              canView={
+                session.siweStatus === "authenticated" &&
+                (dealPage.isParticipant || session.session?.is_admin === true)
+              }
+              currentWallet={session.address}
               dealId={dealId}
               dealStatus={dealPage.deal.status}
-              isParticipant={dealPage.isParticipant}
-              session={session}
             />
-
-            <DealActionsCard
-              autoRelease={actions.autoRelease}
-              autoReleaseAvailable={isAutoReleaseAvailable(
-                dealPage.deal.status,
-                dealPage.deal.release_deadline_at,
-              )}
-              buyerDisputable={isBuyerDisputable(
-                dealPage.deal.status,
-                dealPage.deal.release_deadline_at,
-              )}
-              buyerReleasable={isBuyerReleasable(
-                dealPage.deal.status,
-                dealPage.deal.release_deadline_at,
-              )}
-              complete={actions.complete}
-              dealStatus={dealPage.deal.status}
-              dispute={actions.dispute}
-              isAnyActionInFlight={actions.isAnyActionInFlight}
-              isBuyer={dealPage.isBuyer}
-              isSeller={dealPage.isSeller}
-              release={actions.release}
-              session={session}
-            />
-
-            {shouldShowDisputeThread(
-              dealPage.deal.status,
-              dealPage.deal.resolved_from_status,
-            ) && (
-              <DisputeThread
-                canPost={
-                  dealPage.deal.status === "Disputed" &&
-                  session.siweStatus === "authenticated" &&
-                  (dealPage.isParticipant || session.session?.is_admin === true)
-                }
-                canView={
-                  session.siweStatus === "authenticated" &&
-                  (dealPage.isParticipant || session.session?.is_admin === true)
-                }
-                currentWallet={session.address}
-                dealId={dealId}
-                dealStatus={dealPage.deal.status}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </main>
+          )}
+        </>
+      )}
+    </AppShell>
   );
 }
-
-const mainStyle = {
-  display: "flex",
-  justifyContent: "center",
-  minHeight: "100vh",
-  padding: "24px 16px 48px",
-} as const;
-
-const pageStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 16,
-  maxWidth: 480,
-  width: "100%",
-};
 
 const centerStyle = {
   alignItems: "center",
@@ -232,16 +213,7 @@ const centerStyle = {
 const pageHeaderStyle = {
   alignItems: "center",
   display: "flex",
-  justifyContent: "space-between",
-} as const;
-
-const brandStyle = {
-  color: "var(--accent)",
-  fontSize: 12,
-  fontWeight: 700,
-  letterSpacing: "0.1em",
-  textDecoration: "none",
-  textTransform: "uppercase" as const,
+  justifyContent: "flex-end",
 } as const;
 
 const backLinkStyle = {
