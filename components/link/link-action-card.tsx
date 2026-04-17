@@ -4,11 +4,15 @@
 // Renders the right action based on wallet/session/role/link state.
 // Delegates to funding hook — does not contain funding logic itself.
 
+import Link from "next/link";
+
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import type { FundingFlow } from "@/hooks/use-funding-flow";
 import type { PublicLink } from "@/lib/api/links";
+import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
-import Link from "next/link";
+import { DetailRow } from "@/components/shared/detail-row";
+import { Notice } from "@/components/shared/notice";
 
 interface LinkActionCardProps {
   link: PublicLink;
@@ -27,33 +31,30 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
     fundingState.step !== "indexing_failed" &&
     fundingState.step !== "succeeded";
 
-  // Seller sees their own link — no fund CTA
   if (role === "seller") {
     return (
-      <div style={cardStyle}>
+      <ActionPanel style={{ padding: 20 }}>
         <p style={labelStyle}>Your link</p>
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
+        <p style={hintStyle}>
           This is your consultation link. Share it with your client.
         </p>
         <Link href="/my-links" style={myLinksLinkStyle}>
           View in My Links →
         </Link>
-      </div>
+      </ActionPanel>
     );
   }
 
-  // Link is not open — no fund CTA
   if (link.status !== "Open") {
     return null;
   }
 
   return (
-    <div style={cardStyle}>
+    <ActionPanel style={{ padding: 20 }}>
       <p style={labelStyle}>Book consultation</p>
 
-      {/* Step 1: Connect wallet */}
       {!isConnected && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={stackStyle}>
           <p style={hintStyle}>Connect your wallet to book this slot.</p>
           <Btn fullWidth onClick={() => connect()}>
             Connect Wallet
@@ -61,25 +62,15 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
         </div>
       )}
 
-      {/* Step 2: Wrong chain */}
       {isConnected && !isCorrectChain && (
-        <div
-          style={{
-            background: "var(--warning-muted)",
-            border: "1px solid var(--warning)",
-            borderRadius: "var(--radius-sm)",
-            color: "var(--warning)",
-            fontSize: 13,
-            padding: "10px 14px",
-          }}
-        >
-          Switch to the correct network to continue.
-        </div>
+        <Notice
+          message="Switch to the correct network to continue."
+          tone="warning"
+        />
       )}
 
-      {/* Step 3: Sign in */}
       {isConnected && isCorrectChain && siweStatus === "unauthenticated" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={stackStyle}>
           <p style={hintStyle}>Sign in to confirm your wallet before paying.</p>
           <Btn
             fullWidth
@@ -90,23 +81,18 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
             Sign in with Ethereum
           </Btn>
           {signInError && (
-            <div style={errorStyle}>
-              {signInError}
-            </div>
+            <Notice message={signInError} tone="danger" />
           )}
         </div>
       )}
 
       {siweStatus === "loading" && (
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-          Checking session…
-        </p>
+        <p style={hintStyle}>Checking session...</p>
       )}
 
-      {/* Step 4: Fund */}
       {isConnected && isCorrectChain && siweStatus === "authenticated" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <PricePreview priceUsdc={link.price_usdc} />
+        <div style={stackStyle}>
+          <PaymentSummary priceUsdc={link.price_usdc} />
 
           {fundingState.step === "failed" && (
             <Btn fullWidth onClick={reset} variant="secondary">
@@ -115,9 +101,10 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
           )}
 
           {fundingState.step === "indexing_failed" && (
-            <div style={infoStyle}>
-              Your payment is confirmed on-chain. Do not retry the payment — check the status below.
-            </div>
+            <Notice
+              message="Your payment is confirmed on-chain. Do not retry the payment — check the status below."
+              tone="info"
+            />
           )}
 
           {fundingState.step === "idle" && (
@@ -127,89 +114,77 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
               loading={false}
               onClick={execute}
             >
-              Fund Consultation · ${link.price_usdc} USDC
+              Pay into escrow · {link.price_usdc} USDC
             </Btn>
           )}
 
           {isFunding && (
-            <p style={{ color: "var(--muted)", fontSize: 13, margin: 0, textAlign: "center" }}>
+            <p style={inProgressStyle}>
               Transaction in progress — do not close this page.
             </p>
           )}
         </div>
       )}
-    </div>
+    </ActionPanel>
   );
 }
 
-function PricePreview({ priceUsdc }: { priceUsdc: string }) {
+function PaymentSummary({ priceUsdc }: { priceUsdc: string }) {
   return (
-    <div
-      style={{
-        alignItems: "center",
-        background: "var(--accent-muted)",
-        borderRadius: "var(--radius-sm)",
-        display: "flex",
-        gap: 8,
-        justifyContent: "space-between",
-        marginBottom: 4,
-        padding: "10px 14px",
-      }}
-    >
-      <span style={{ color: "var(--muted)", fontSize: 13 }}>You pay</span>
-      <span style={{ color: "var(--accent)", fontSize: 18, fontWeight: 700 }}>
-        ${priceUsdc} USDC
-      </span>
+    <div style={paymentSummaryStyle}>
+      <DetailRow label="Consultation price" value={`${priceUsdc} USDC`} />
+      <DetailRow label="Network" value="Base" accent />
+      <DetailRow
+        bordered={false}
+        label="Total"
+        style={{ paddingBottom: 0 }}
+        value={`${priceUsdc} USDC`}
+      />
     </div>
   );
 }
-
-const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
-  boxShadow: "var(--shadow-card)",
-  padding: 20,
-} as const;
 
 const labelStyle = {
   color: "var(--muted)",
   fontSize: 11,
-  fontWeight: 600,
+  fontWeight: 700,
   letterSpacing: "0.08em",
   margin: "0 0 12px",
   textTransform: "uppercase" as const,
 };
 
+const stackStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+};
+
 const hintStyle = {
   color: "var(--muted)",
   fontSize: 14,
+  lineHeight: 1.45,
   margin: 0,
-} as const;
+};
 
-const errorStyle = {
-  background: "var(--danger-muted)",
-  border: "1px solid var(--danger)",
+const paymentSummaryStyle = {
+  background: "var(--panel-muted)",
   borderRadius: "var(--radius-sm)",
-  color: "var(--danger)",
-  fontSize: 13,
-  padding: "10px 14px",
-} as const;
+  padding: "4px 14px 12px",
+};
 
-const infoStyle = {
-  background: "var(--accent-muted)",
-  border: "1px solid var(--accent)",
-  borderRadius: "var(--radius-sm)",
-  color: "var(--accent)",
+const inProgressStyle = {
+  color: "var(--muted)",
   fontSize: 13,
-  padding: "10px 14px",
-} as const;
+  lineHeight: 1.45,
+  margin: 0,
+  textAlign: "center" as const,
+};
 
 const myLinksLinkStyle = {
   color: "var(--accent)",
   display: "inline-block",
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 700,
   marginTop: 12,
   textDecoration: "none",
-} as const;
+};

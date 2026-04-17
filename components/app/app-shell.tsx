@@ -13,12 +13,14 @@ export function AppShell({
   const session = useWalletSession();
 
   return (
-    <main style={mainStyle}>
-      <div style={{ ...contentStyle, maxWidth }}>
-        <TopNav session={session} />
-        {children}
-      </div>
-    </main>
+    <>
+      <TopNav session={session} />
+      <main style={mainStyle}>
+        <div style={{ ...contentStyle, maxWidth }}>
+          {children}
+        </div>
+      </main>
+    </>
   );
 }
 
@@ -26,7 +28,7 @@ const mainStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: "100vh",
-  padding: "24px 16px 48px",
+  padding: "88px 16px 48px",
 } as const;
 
 const contentStyle = {

@@ -19,6 +19,7 @@ import { DisputeThread } from "@/components/deal/dispute-thread";
 import { KeyTimes } from "@/components/deal/key-times";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { LiveBadge } from "@/components/shared/live-badge";
+import { Notice } from "@/components/shared/notice";
 import { isDealStatusPollable } from "@/lib/api/deals";
 
 // Buyer can dispute from Funded (no-show) or ConfirmPending (within window)
@@ -101,40 +102,22 @@ export default function DealPage() {
 
       {/* Not found */}
       {dealPage.status === "not_found" && (
-        <div
-          style={{
-            background: "var(--muted-bg)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius)",
-            color: "var(--muted)",
-            fontSize: 14,
-            padding: 20,
-          }}
-        >
-          Deal not found.
-        </div>
+        <Notice message="Deal not found." tone="muted" />
       )}
 
       {/* Error */}
       {dealPage.status === "error" && (
-        <div
-          style={{
-            background: "var(--danger-muted)",
-            border: "1px solid var(--danger)",
-            borderRadius: "var(--radius)",
-            color: "var(--danger)",
-            fontSize: 14,
-            padding: 20,
-          }}
-        >
-          {dealPage.error ?? "Failed to load deal."}
-        </div>
+        <Notice message={dealPage.error ?? "Failed to load deal."} tone="danger" />
       )}
 
       {/* Main content */}
       {dealPage.status === "ready" && dealPage.deal && (
         <>
-          <DealStatusCard deal={dealPage.deal} role={dealPage.role} />
+          <DealStatusCard
+            deal={dealPage.deal}
+            isAdmin={session.session?.is_admin === true}
+            role={dealPage.role}
+          />
           <DealGuidanceCard
             dealStatus={dealPage.deal.status}
             isBuyer={dealPage.isBuyer}

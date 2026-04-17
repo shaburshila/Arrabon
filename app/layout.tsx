@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { Providers } from "@/components/providers";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 import "./globals.css";
 
@@ -19,7 +18,6 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
-          <ThemeToggle />
           {children}
         </Providers>
       </body>

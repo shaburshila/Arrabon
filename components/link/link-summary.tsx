@@ -3,6 +3,9 @@
 // Displays public consultation link metadata.
 
 import type { PublicLink } from "@/lib/api/links";
+import { ActionPanel } from "@/components/shared/action-panel";
+import { DetailRow } from "@/components/shared/detail-row";
+import { StatusPill } from "@/components/shared/status-pill";
 
 interface LinkSummaryProps {
   link: PublicLink;
@@ -36,121 +39,135 @@ function truncateAddress(addr: string) {
 }
 
 export function LinkSummary({ link }: LinkSummaryProps) {
+  const status = getStatusPill(link.status);
+
   return (
-    <div style={cardStyle}>
-      {/* Status badge */}
-      <div style={{ marginBottom: 16 }}>
-        <StatusBadge status={link.status} />
+    <ActionPanel style={{ overflow: "hidden" }}>
+      <div style={headerStyle}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <StatusPill label={status.label} tone={status.tone} />
+          <h1 style={titleStyle}>{link.title}</h1>
+          <p style={sellerStyle}>Seller {truncateAddress(link.seller_address)}</p>
+        </div>
+        <div style={pricePillStyle}>
+          <span style={priceValueStyle}>{link.price_usdc}</span>
+          <span style={priceTokenStyle}>USDC</span>
+        </div>
       </div>
 
-      {/* Title + description */}
-      <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>
-        {link.title}
-      </h2>
       {link.description && (
-        <p style={{ color: "var(--muted)", fontSize: 15, margin: "0 0 20px", lineHeight: 1.5 }}>
-          {link.description}
-        </p>
+        <p style={descriptionStyle}>{link.description}</p>
       )}
 
-      {/* Key details grid */}
-      <div style={gridStyle}>
-        <Detail label="Price" value={`$${link.price_usdc} USDC`} accent />
-        <Detail
+      <div style={detailsStyle}>
+        <DetailRow
           label="Scheduled"
           value={formatDate(link.scheduled_at, link.timezone)}
         />
-        <Detail label="Duration" value={formatDuration(link.duration_minutes)} />
-        <Detail
+        <DetailRow
+          label="Duration"
+          value={`${formatDuration(link.duration_minutes)} · ${link.timezone}`}
+        />
+        <DetailRow
           label="Expires"
           value={formatDate(link.expires_at, link.timezone)}
         />
-        <Detail
+        <DetailRow
+          bordered={false}
           label="Seller"
           value={truncateAddress(link.seller_address)}
-          mono
         />
       </div>
-    </div>
+
+      <div style={escrowLineStyle}>
+        Funds are held in escrow on Base until the consultation is confirmed or disputed.
+      </div>
+    </ActionPanel>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, { bg: string; color: string }> = {
-    Consumed: { bg: "var(--accent-muted)", color: "var(--accent)" },
-    Open: { bg: "var(--success-muted)", color: "var(--success)" },
-  };
-  const style = colors[status] ?? { bg: "var(--muted-bg)", color: "var(--muted)" };
-
-  return (
-    <span
-      style={{
-        background: style.bg,
-        borderRadius: 20,
-        color: style.color,
-        display: "inline-block",
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: "0.04em",
-        padding: "3px 10px",
-        textTransform: "uppercase",
-      }}
-    >
-      {status}
-    </span>
-  );
-}
-
-function Detail({
-  accent,
-  label,
-  mono,
-  value,
-}: {
-  accent?: boolean;
+function getStatusPill(status: string): {
   label: string;
-  mono?: boolean;
-  value: string;
-}) {
-  return (
-    <div>
-      <p
-        style={{
-          color: "var(--muted)",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.07em",
-          margin: "0 0 2px",
-          textTransform: "uppercase",
-        }}
-      >
-        {label}
-      </p>
-      <p
-        style={{
-          color: accent ? "var(--accent)" : "var(--foreground)",
-          fontFamily: mono ? "monospace" : "inherit",
-          fontSize: accent ? 18 : 14,
-          fontWeight: accent ? 700 : 500,
-          margin: 0,
-          wordBreak: "break-all",
-        }}
-      >
-        {value}
-      </p>
-    </div>
-  );
+  tone: "accent" | "muted" | "success";
+} {
+  if (status === "Open") {
+    return { label: "Open", tone: "success" };
+  }
+
+  if (status === "Consumed") {
+    return { label: "Funded", tone: "accent" };
+  }
+
+  return { label: status, tone: "muted" };
 }
 
-const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
-  boxShadow: "var(--shadow-card)",
+const headerStyle = {
+  alignItems: "flex-start",
+  borderBottom: "1px solid var(--border)",
+  display: "flex",
+  gap: 14,
+  justifyContent: "space-between",
   padding: 20,
 } as const;
 
-const gridStyle = {
-  display: "grid",
-  gap: "14px 0",
-} as const;
+const titleStyle = {
+  color: "var(--foreground)",
+  fontSize: 22,
+  fontWeight: 800,
+  lineHeight: 1.15,
+  margin: "12px 0 6px",
+  overflowWrap: "anywhere" as const,
+};
+
+const sellerStyle = {
+  color: "var(--muted)",
+  fontSize: 13,
+  margin: 0,
+};
+
+const pricePillStyle = {
+  background: "var(--accent-muted)",
+  borderRadius: "var(--radius)",
+  color: "var(--accent)",
+  flexShrink: 0,
+  padding: "10px 12px",
+  textAlign: "right" as const,
+};
+
+const priceValueStyle = {
+  display: "block",
+  fontSize: 17,
+  fontWeight: 850,
+  lineHeight: 1.1,
+};
+
+const priceTokenStyle = {
+  display: "block",
+  fontSize: 11,
+  fontWeight: 700,
+  lineHeight: 1.2,
+  marginTop: 2,
+  opacity: 0.75,
+};
+
+const descriptionStyle = {
+  borderBottom: "1px solid var(--border)",
+  color: "var(--muted)",
+  fontSize: 14,
+  lineHeight: 1.5,
+  margin: 0,
+  padding: "0 20px 18px",
+};
+
+const detailsStyle = {
+  padding: "8px 20px",
+};
+
+const escrowLineStyle = {
+  background: "var(--panel-muted)",
+  borderTop: "1px solid var(--border)",
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.45,
+  padding: "14px 20px",
+};

@@ -1,6 +1,7 @@
 "use client";
 
 import type { DealStatus } from "@/lib/api/deals";
+import { ActionPanel } from "@/components/shared/action-panel";
 
 interface DealGuidanceCardProps {
   dealStatus: DealStatus;
@@ -134,18 +135,14 @@ function getGuidanceMessage({
 
 export function DealGuidanceCard(props: DealGuidanceCardProps) {
   return (
-    <div style={cardStyle}>
+    <ActionPanel style={cardStyle}>
       <p style={labelStyle}>What happens next</p>
       <p style={messageStyle}>{getGuidanceMessage(props)}</p>
-    </div>
+    </ActionPanel>
   );
 }
 
 const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
-  boxShadow: "var(--shadow-card)",
   padding: 20,
 } as const;
 

@@ -10,14 +10,19 @@ import {
   type DisputeMessageAuthorRole,
 } from "@/lib/api/dispute-messages";
 import { ApiError } from "@/lib/api/auth";
+import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
+import { Notice } from "@/components/shared/notice";
+import { StatusPill } from "@/components/shared/status-pill";
 
 interface DisputeThreadProps {
   canPost: boolean;
   canView: boolean;
+  compact?: boolean;
   currentWallet: string | null;
   dealId: string;
   dealStatus: DealStatus;
+  embedded?: boolean;
 }
 
 const ROLE_LABELS: Record<DisputeMessageAuthorRole, string> = {
@@ -48,9 +53,11 @@ function getErrorMessage(error: unknown, fallback: string) {
 export function DisputeThread({
   canPost,
   canView,
+  compact = false,
   currentWallet,
   dealId,
   dealStatus,
+  embedded = false,
 }: DisputeThreadProps) {
   const [messages, setMessages] = useState<DisputeMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,12 +127,12 @@ export function DisputeThread({
     return null;
   }
 
-  return (
-    <section style={cardStyle}>
-      <div style={headerStyle}>
+  const content = (
+    <>
+      <div style={headerStyle(compact)}>
         <div>
           <p style={eyebrowStyle}>Dispute discussion</p>
-          <h2 style={titleStyle}>Messages and evidence</h2>
+          <h2 style={titleStyle(compact)}>Messages and evidence</h2>
         </div>
         <button
           disabled={loading}
@@ -137,24 +144,25 @@ export function DisputeThread({
         </button>
       </div>
 
-      <p style={noticeStyle}>{notice}</p>
+      <Notice message={notice} tone={readOnly ? "muted" : "info"} />
 
       {loading && (
-        <div style={mutedBoxStyle}>Loading messages...</div>
+        <Notice message="Loading messages..." tone="muted" />
       )}
 
       {loadError && (
-        <div style={errorBoxStyle}>{loadError}</div>
+        <Notice message={loadError} tone="danger" />
       )}
 
       {!loading && !loadError && messages.length === 0 && (
-        <div style={mutedBoxStyle}>No dispute messages yet.</div>
+        <Notice message="No dispute messages yet." tone="muted" />
       )}
 
       {messages.length > 0 && (
-        <div style={messagesStyle}>
+        <div style={messagesStyle(compact)}>
           {messages.map((message) => (
             <MessageCard
+              compact={compact}
               currentWallet={currentWallet}
               key={message.id}
               message={message}
@@ -164,7 +172,7 @@ export function DisputeThread({
       )}
 
       {showForm && (
-        <div style={formStyle}>
+        <div style={formStyle(compact)}>
           <label style={labelStyle}>
             Message
             <textarea
@@ -188,7 +196,7 @@ export function DisputeThread({
           </label>
 
           {submitError && (
-            <div style={errorBoxStyle}>{submitError}</div>
+            <Notice message={submitError} tone="danger" />
           )}
 
           <Btn
@@ -201,14 +209,26 @@ export function DisputeThread({
           </Btn>
         </div>
       )}
-    </section>
+    </>
+  );
+
+  if (embedded) {
+    return <div style={cardStyle(compact, embedded)}>{content}</div>;
+  }
+
+  return (
+    <ActionPanel as="section" style={cardStyle(compact, embedded)}>
+      {content}
+    </ActionPanel>
   );
 }
 
 function MessageCard({
+  compact,
   currentWallet,
   message,
 }: {
+  compact: boolean;
   currentWallet: string | null;
   message: DisputeMessage;
 }) {
@@ -216,11 +236,12 @@ function MessageCard({
     currentWallet?.toLowerCase() === message.author_wallet.toLowerCase();
 
   return (
-    <article style={messageStyle(isCurrentWallet)}>
+    <article style={messageStyle(isCurrentWallet, compact)}>
       <div style={messageMetaStyle}>
-        <span style={roleBadgeStyle(message.author_role)}>
-          {ROLE_LABELS[message.author_role]}
-        </span>
+        <StatusPill
+          label={ROLE_LABELS[message.author_role]}
+          tone={roleTone(message.author_role)}
+        />
         <span>{shortAddress(message.author_wallet)}</span>
         <span>{formatDate(message.created_at)}</span>
       </div>
@@ -239,23 +260,24 @@ function MessageCard({
   );
 }
 
-const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  boxShadow: "var(--shadow-card)",
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 14,
-  padding: 20,
-};
+function cardStyle(compact: boolean, embedded: boolean) {
+  return {
+    borderTop: embedded ? "1px solid var(--border)" : undefined,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: compact ? 10 : 14,
+    padding: embedded ? "14px 0 0" : compact ? 14 : 20,
+  };
+}
 
-const headerStyle = {
-  alignItems: "flex-start",
-  display: "flex",
-  gap: 12,
-  justifyContent: "space-between",
-};
+function headerStyle(compact: boolean) {
+  return {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: compact ? 8 : 12,
+    justifyContent: "space-between",
+  };
+}
 
 const eyebrowStyle = {
   color: "var(--muted)",
@@ -266,11 +288,13 @@ const eyebrowStyle = {
   textTransform: "uppercase" as const,
 };
 
-const titleStyle = {
-  fontSize: 18,
-  lineHeight: 1.3,
-  margin: 0,
-};
+function titleStyle(compact: boolean) {
+  return {
+    fontSize: compact ? 16 : 18,
+    lineHeight: 1.3,
+    margin: 0,
+  };
+}
 
 const refreshButtonStyle = {
   background: "transparent",
@@ -283,46 +307,23 @@ const refreshButtonStyle = {
   padding: "0 10px",
 };
 
-const noticeStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.5,
-  margin: 0,
-};
+function messagesStyle(compact: boolean) {
+  return {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: compact ? 8 : 10,
+  };
+}
 
-const mutedBoxStyle = {
-  background: "var(--muted-bg)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  color: "var(--muted)",
-  fontSize: 14,
-  padding: 12,
-};
-
-const errorBoxStyle = {
-  background: "var(--danger-muted)",
-  border: "1px solid var(--danger)",
-  borderRadius: 8,
-  color: "var(--danger)",
-  fontSize: 13,
-  padding: 12,
-};
-
-const messagesStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 10,
-};
-
-function messageStyle(isCurrentWallet: boolean) {
+function messageStyle(isCurrentWallet: boolean, compact: boolean) {
   return {
     background: isCurrentWallet ? "var(--accent-muted)" : "var(--surface-raised)",
     border: "1px solid var(--border)",
     borderRadius: 8,
     display: "flex",
     flexDirection: "column" as const,
-    gap: 8,
-    padding: 12,
+    gap: compact ? 6 : 8,
+    padding: compact ? 10 : 12,
   } as const;
 }
 
@@ -335,19 +336,10 @@ const messageMetaStyle = {
   gap: 8,
 };
 
-function roleBadgeStyle(role: DisputeMessageAuthorRole) {
-  const color =
-    role === "admin"
-      ? "var(--danger)"
-      : role === "buyer"
-        ? "var(--accent)"
-        : "var(--success)";
-
-  return {
-    color,
-    fontWeight: 800,
-    textTransform: "uppercase" as const,
-  };
+function roleTone(role: DisputeMessageAuthorRole): "accent" | "danger" | "success" {
+  if (role === "admin") return "danger";
+  if (role === "buyer") return "accent";
+  return "success";
 }
 
 const bodyStyle = {
@@ -365,13 +357,15 @@ const evidenceLinkStyle = {
   fontWeight: 700,
 };
 
-const formStyle = {
-  borderTop: "1px solid var(--border)",
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 12,
-  paddingTop: 14,
-};
+function formStyle(compact: boolean) {
+  return {
+    borderTop: "1px solid var(--border)",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: compact ? 10 : 12,
+    paddingTop: compact ? 12 : 14,
+  };
+}
 
 const labelStyle = {
   color: "var(--foreground)",

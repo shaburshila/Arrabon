@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 
 type BtnVariant = "danger" | "ghost" | "primary" | "secondary";
+type BtnSize = "lg" | "md" | "sm";
 
 interface BtnProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface BtnProps {
   fullWidth?: boolean;
   loading?: boolean;
   onClick?: () => void;
+  size?: BtnSize;
   type?: "button" | "reset" | "submit";
   variant?: BtnVariant;
 }
@@ -18,18 +20,33 @@ interface BtnProps {
 const baseStyle: CSSProperties = {
   alignItems: "center",
   border: "none",
-  borderRadius: 12,
+  borderRadius: "var(--radius)",
   display: "inline-flex",
-  fontSize: 15,
-  fontWeight: 600,
+  fontWeight: 500,
   gap: 8,
   justifyContent: "center",
-  letterSpacing: "-0.01em",
   minHeight: 48, // touch target ≥ 44px per product spec
   outline: "none",
-  padding: "0 20px",
   transition: "opacity 0.15s, background 0.15s",
   userSelect: "none",
+};
+
+const sizeStyles: Record<BtnSize, CSSProperties> = {
+  lg: {
+    fontSize: 15,
+    minHeight: 48,
+    padding: "0 24px",
+  },
+  md: {
+    fontSize: 14,
+    minHeight: 42,
+    padding: "0 20px",
+  },
+  sm: {
+    fontSize: 14,
+    minHeight: 36,
+    padding: "0 16px",
+  },
 };
 
 const variantStyles: Record<BtnVariant, CSSProperties> = {
@@ -60,6 +77,7 @@ export function Btn({
   fullWidth = false,
   loading = false,
   onClick,
+  size = "lg",
   type = "button",
   variant = "primary",
 }: BtnProps) {
@@ -72,6 +90,7 @@ export function Btn({
         onClick={onClick}
         style={{
           ...baseStyle,
+          ...sizeStyles[size],
           ...variantStyles[variant],
           ...(fullWidth ? { width: "100%" } : {}),
           ...(isDisabled ? { cursor: "not-allowed", opacity: 0.5 } : {}),
@@ -110,8 +129,6 @@ function Spinner() {
         height: 14,
         width: 14,
       }}
-    >
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </span>
+    />
   );
 }

@@ -2,6 +2,8 @@
 
 // Shows a clear notice for terminal / unavailable link states.
 
+import { Notice } from "@/components/shared/notice";
+
 type NoticeType = "cancelled" | "consumed_indexing" | "error" | "expired" | "not_found";
 
 interface StatusNoticeProps {
@@ -9,46 +11,31 @@ interface StatusNoticeProps {
   message?: string;
 }
 
-const config: Record<NoticeType, { bg: string; border: string; color: string; icon: string; title: string; body: string }> = {
+const config: Record<NoticeType, { body: string; title: string; tone: "danger" | "info" | "muted" | "warning" }> = {
   cancelled: {
-    bg: "var(--warning-muted)",
-    border: "var(--warning)",
-    color: "var(--warning)",
-    icon: "✕",
-    title: "Link cancelled",
     body: "This consultation link has been cancelled by the seller.",
+    title: "Link cancelled",
+    tone: "warning",
   },
   consumed_indexing: {
-    bg: "var(--accent-muted)",
-    border: "var(--accent)",
-    color: "var(--accent)",
-    icon: "⏳",
-    title: "Deal indexing…",
     body: "Funding was confirmed on chain. Waiting for the deal to be indexed.",
+    title: "Deal indexing...",
+    tone: "info",
   },
   error: {
-    bg: "var(--danger-muted)",
-    border: "var(--danger)",
-    color: "var(--danger)",
-    icon: "!",
-    title: "Something went wrong",
     body: "Failed to load this link. Please refresh and try again.",
+    title: "Something went wrong",
+    tone: "danger",
   },
   expired: {
-    bg: "var(--warning-muted)",
-    border: "var(--warning)",
-    color: "var(--warning)",
-    icon: "⏰",
-    title: "Link expired",
     body: "This consultation link has passed its booking deadline.",
+    title: "Link expired",
+    tone: "warning",
   },
   not_found: {
-    bg: "var(--muted-bg)",
-    border: "var(--border)",
-    color: "var(--muted)",
-    icon: "?",
-    title: "Link not found",
     body: "This consultation link does not exist or has been removed.",
+    title: "Link not found",
+    tone: "muted",
   },
 };
 
@@ -56,37 +43,10 @@ export function StatusNotice({ type, message }: StatusNoticeProps) {
   const c = config[type];
 
   return (
-    <div
-      style={{
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-        borderRadius: "var(--radius)",
-        padding: 20,
-      }}
-    >
-      <div style={{ alignItems: "center", display: "flex", gap: 10, marginBottom: 8 }}>
-        <span
-          style={{
-            background: c.color,
-            borderRadius: "50%",
-            color: "#fff",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 13,
-            fontWeight: 700,
-            height: 24,
-            width: 24,
-            flexShrink: 0,
-          }}
-        >
-          {c.icon}
-        </span>
-        <strong style={{ color: c.color, fontSize: 15 }}>{c.title}</strong>
-      </div>
-      <p style={{ color: c.color, fontSize: 14, margin: 0, opacity: 0.85 }}>
-        {message || c.body}
-      </p>
-    </div>
+    <Notice
+      message={message || c.body}
+      title={c.title}
+      tone={c.tone}
+    />
   );
 }

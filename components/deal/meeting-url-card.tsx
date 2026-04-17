@@ -14,8 +14,10 @@ import type { DealStatus } from "@/lib/api/deals";
 import { fetchMeetingUrl } from "@/lib/api/deals";
 import { ApiError } from "@/lib/api/auth";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
+import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { CopyBtn } from "@/components/shared/copy-btn";
+import { Notice } from "@/components/shared/notice";
 
 interface MeetingUrlCardProps {
   dealId: string;
@@ -41,68 +43,49 @@ export function MeetingUrlCard({
   // Refunded: explicitly unavailable per architecture rule
   if (dealStatus === "Refunded") {
     return (
-      <div style={cardStyle}>
+      <ActionPanel style={cardStyle}>
         <p style={labelStyle}>Meeting link</p>
-        <div
-          style={{
-            background: "var(--muted-bg)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            color: "var(--muted)",
-            fontSize: 14,
-            padding: "12px 14px",
-          }}
-        >
-          Meeting link is unavailable — this deal was refunded.
-        </div>
-      </div>
+        <Notice message="Meeting link is unavailable — this deal was refunded." tone="muted" />
+      </ActionPanel>
     );
   }
 
   // Not connected
   if (!isConnected) {
     return (
-      <div style={cardStyle}>
+      <ActionPanel style={cardStyle}>
         <p style={labelStyle}>Meeting link</p>
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 12px" }}>
-          Connect your wallet to reveal the meeting link.
-        </p>
-      </div>
+        <Notice message="Connect your wallet to reveal the meeting link." tone="muted" />
+      </ActionPanel>
     );
   }
 
   // Wrong chain
   if (!isCorrectChain) {
     return (
-      <div style={cardStyle}>
+      <ActionPanel style={cardStyle}>
         <p style={labelStyle}>Meeting link</p>
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 12px" }}>
-          Switch to the correct network to reveal the meeting link.
-        </p>
-      </div>
+        <Notice message="Switch to the correct network to reveal the meeting link." tone="warning" />
+      </ActionPanel>
     );
   }
 
   // Non-participant: unavailable
   if (!isParticipant) {
     return (
-      <div style={cardStyle}>
+      <ActionPanel style={cardStyle}>
         <p style={labelStyle}>Meeting link</p>
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-          Only the buyer and seller can access the meeting link.
-        </p>
-      </div>
+        <Notice message="Only the buyer and seller can access the meeting link." tone="muted" />
+      </ActionPanel>
     );
   }
 
   // No SIWE session
   if (siweStatus !== "authenticated") {
     return (
-      <div style={cardStyle}>
+      <ActionPanel style={cardStyle}>
         <p style={labelStyle}>Meeting link</p>
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 12px" }}>
-          Sign in to reveal the meeting link.
-        </p>
+        <Notice message="Sign in to reveal the meeting link." style={{ marginBottom: 12 }} tone="muted" />
         <Btn
           fullWidth
           loading={isSigningIn}
@@ -112,21 +95,9 @@ export function MeetingUrlCard({
           Sign in with Ethereum
         </Btn>
         {signInError && (
-          <div
-            style={{
-              background: "var(--danger-muted)",
-              border: "1px solid var(--danger)",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--danger)",
-              fontSize: 13,
-              marginTop: 10,
-              padding: "10px 14px",
-            }}
-          >
-            {signInError}
-          </div>
+          <Notice message={signInError} style={{ marginTop: 10 }} tone="danger" />
         )}
-      </div>
+      </ActionPanel>
     );
   }
 
@@ -146,7 +117,7 @@ export function MeetingUrlCard({
   };
 
   return (
-    <div style={cardStyle}>
+    <ActionPanel style={cardStyle}>
       <p style={labelStyle}>Meeting link</p>
 
       {revealState === "idle" && (
@@ -197,32 +168,17 @@ export function MeetingUrlCard({
 
       {revealState === "error" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div
-            style={{
-              background: "var(--danger-muted)",
-              border: "1px solid var(--danger)",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--danger)",
-              fontSize: 13,
-              padding: "10px 14px",
-            }}
-          >
-            {error}
-          </div>
+          <Notice message={error} tone="danger" />
           <Btn fullWidth onClick={handleReveal} variant="secondary">
             Try again
           </Btn>
         </div>
       )}
-    </div>
+    </ActionPanel>
   );
 }
 
 const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
-  boxShadow: "var(--shadow-card)",
   padding: 20,
 } as const;
 

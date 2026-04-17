@@ -9,6 +9,8 @@ import type { DealAction } from "@/hooks/use-deal-action";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { Btn } from "@/components/shared/btn";
 import { AsyncActionState } from "@/components/shared/async-action-state";
+import { ActionPanel } from "@/components/shared/action-panel";
+import { Notice } from "@/components/shared/notice";
 
 interface DealActionsCardProps {
   autoRelease: DealAction;
@@ -54,15 +56,7 @@ export function DealActionsCard({
   if (!showComplete && !showRelease && !showDispute && !showAutoRelease) return null;
 
   return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        boxShadow: "var(--shadow-card)",
-        padding: 20,
-      }}
-    >
+    <ActionPanel style={{ padding: 20 }}>
       <p
         style={{
           color: "var(--muted)",
@@ -79,11 +73,14 @@ export function DealActionsCard({
       {/* Auth gate */}
       {actionsBlocked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-            {needsWallet
-              ? "Connect your wallet on the correct network to perform actions."
-              : "Sign in with your wallet to perform participant actions."}
-          </p>
+          <Notice
+            message={
+              needsWallet
+                ? "Connect your wallet on the correct network to perform actions."
+                : "Sign in with your wallet to perform participant actions."
+            }
+            tone="muted"
+          />
           {needsParticipantAuth && (
             <>
               <Btn
@@ -95,9 +92,7 @@ export function DealActionsCard({
                 Sign in with Ethereum
               </Btn>
               {signInError && (
-                <div style={errorStyle}>
-                  {signInError}
-                </div>
+                <Notice message={signInError} tone="danger" />
               )}
             </>
           )}
@@ -125,7 +120,7 @@ export function DealActionsCard({
               action={release}
               disabledByOtherAction={isAnyActionInFlight}
               description="Release payment to the seller. Confirm the consultation went well."
-              label="Release payment"
+              label="Release to seller"
               variant="primary"
             />
           )}
@@ -153,18 +148,9 @@ export function DealActionsCard({
           )}
         </div>
       )}
-    </div>
+    </ActionPanel>
   );
 }
-
-const errorStyle = {
-  background: "var(--danger-muted)",
-  border: "1px solid var(--danger)",
-  borderRadius: "var(--radius-sm)",
-  color: "var(--danger)",
-  fontSize: 13,
-  padding: "10px 14px",
-} as const;
 
 function getDisputeDescription(dealStatus: DealStatus): string {
   if (dealStatus === "Funded") {

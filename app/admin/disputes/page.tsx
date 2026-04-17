@@ -17,6 +17,10 @@ import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 import { AppShell } from "@/components/app/app-shell";
 import { DisputeThread } from "@/components/deal/dispute-thread";
+import { ActionPanel } from "@/components/shared/action-panel";
+import { Btn } from "@/components/shared/btn";
+import { Notice } from "@/components/shared/notice";
+import { StatusPill } from "@/components/shared/status-pill";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 type ResolveStep =
@@ -50,7 +54,7 @@ function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
 }
 
 function actionLabel(resolution: AdminResolution) {
-  return resolution === "release" ? "Release to seller" : "Refund buyer";
+  return resolution === "release" ? "Release to seller" : "Refund to buyer";
 }
 
 function shortAddress(value: string) {
@@ -87,6 +91,20 @@ function statusText(state: ResolveState) {
     default:
       return null;
   }
+}
+
+function resolveNoticeTone(
+  step: ResolveStep,
+): "danger" | "info" | "muted" | "success" {
+  if (step === "failed" || step === "sync_failed") {
+    return "danger";
+  }
+
+  if (step === "succeeded") {
+    return "success";
+  }
+
+  return "info";
 }
 
 export default function AdminDisputesPage() {
@@ -288,9 +306,7 @@ export default function AdminDisputesPage() {
       <WalletSessionCard session={session} />
 
       {session.siweStatus === "authenticated" && session.session?.is_admin !== true && (
-        <div style={noticeStyle("danger")}>
-          This wallet is not on the admin allowlist.
-        </div>
+        <Notice message="This wallet is not on the admin allowlist." tone="danger" />
       )}
 
       {canLoadAdminDeals && (
@@ -308,15 +324,15 @@ export default function AdminDisputesPage() {
           </div>
 
           {loading && (
-            <div style={noticeStyle("muted")}>Loading disputes...</div>
+            <Notice message="Loading disputes..." tone="muted" />
           )}
 
           {loadError && (
-            <div style={noticeStyle("danger")}>{loadError}</div>
+            <Notice message={loadError} tone="danger" />
           )}
 
           {!loading && !loadError && deals.length === 0 && (
-            <div style={noticeStyle("muted")}>No disputed deals.</div>
+            <Notice message="No open disputes." tone="muted" />
           )}
 
           <div style={listStyle}>
@@ -326,13 +342,13 @@ export default function AdminDisputesPage() {
               const confirmForDeal = confirming?.dealId === deal.id ? confirming : null;
 
               return (
-                <section key={deal.id} style={dealCardStyle}>
+                <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
                   <div style={dealHeaderStyle}>
                     <div>
                       <h2 style={dealTitleStyle}>{deal.title}</h2>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                     </div>
-                    <span style={badgeStyle}>Disputed</span>
+                    <StatusPill label="Disputed" size="md" tone="danger" />
                   </div>
 
                   <div style={gridStyle}>
@@ -345,73 +361,72 @@ export default function AdminDisputesPage() {
                   </div>
 
                   {activeText && (
-                    <div
-                      style={noticeStyle(
-                        resolveState.step === "failed" || resolveState.step === "sync_failed"
-                          ? "danger"
-                          : "muted",
-                      )}
-                    >
-                      {activeText}
-                      {resolveState.txHash && (
-                        <div style={txStyle}>Tx: {resolveState.txHash}</div>
-                      )}
-                    </div>
+                    <Notice
+                      message={
+                        <>
+                          {activeText}
+                          {resolveState.txHash && (
+                            <div style={txStyle}>Tx: {resolveState.txHash}</div>
+                          )}
+                        </>
+                      }
+                      tone={resolveNoticeTone(resolveState.step)}
+                    />
                   )}
 
                   {confirmForDeal ? (
                     <div style={confirmStyle}>
                       <p style={confirmTextStyle}>
-                        Confirm: {actionLabel(confirmForDeal.resolution)} for deal #{deal.onchain_deal_id}.
+                        {confirmForDeal.resolution === "release"
+                          ? `Release ${deal.price_usdc} USDC to seller?`
+                          : `Refund ${deal.price_usdc} USDC to buyer?`}
                       </p>
                       <div style={actionsStyle}>
-                        <button
+                        <Btn
                           disabled={isResolving}
                           onClick={() => resolveDeal(deal, confirmForDeal.resolution)}
-                          style={buttonStyle(confirmForDeal.resolution === "release" ? "primary" : "danger")}
-                          type="button"
+                          variant={confirmForDeal.resolution === "release" ? "primary" : "danger"}
                         >
-                          Sign {confirmForDeal.resolution}
-                        </button>
-                        <button
+                          {actionLabel(confirmForDeal.resolution)}
+                        </Btn>
+                        <Btn
                           disabled={isResolving}
                           onClick={() => setConfirming(null)}
-                          style={buttonStyle("ghost")}
-                          type="button"
+                          variant="ghost"
                         >
                           Cancel
-                        </button>
+                        </Btn>
                       </div>
                     </div>
                   ) : (
                     <div style={actionsStyle}>
-                      <button
+                      <Btn
                         disabled={isResolving}
                         onClick={() => setConfirming({ dealId: deal.id, resolution: "release" })}
-                        style={buttonStyle("primary")}
-                        type="button"
+                        variant="primary"
                       >
                         Release to seller
-                      </button>
-                      <button
+                      </Btn>
+                      <Btn
                         disabled={isResolving}
                         onClick={() => setConfirming({ dealId: deal.id, resolution: "refund" })}
-                        style={buttonStyle("danger")}
-                        type="button"
+                        variant="danger"
                       >
-                        Refund buyer
-                      </button>
+                        Refund to buyer
+                      </Btn>
                     </div>
                   )}
 
                   <DisputeThread
                     canPost={canLoadAdminDeals}
                     canView={canLoadAdminDeals}
+                    compact
                     currentWallet={session.address}
                     dealId={deal.id}
                     dealStatus={deal.status}
+                    embedded
                   />
-                </section>
+                </ActionPanel>
               );
             })}
           </div>
@@ -469,10 +484,6 @@ const listStyle = {
 };
 
 const dealCardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  boxShadow: "var(--shadow-card)",
   display: "flex",
   flexDirection: "column" as const,
   gap: 16,
@@ -499,16 +510,6 @@ const metaStyle = {
   margin: 0,
 };
 
-const badgeStyle = {
-  background: "var(--warning-muted)",
-  border: "1px solid var(--warning)",
-  borderRadius: 8,
-  color: "var(--warning)",
-  fontSize: 12,
-  fontWeight: 700,
-  padding: "4px 8px",
-};
-
 const gridStyle = {
   display: "grid",
   gap: 10,
@@ -516,7 +517,7 @@ const gridStyle = {
 };
 
 const infoStyle = {
-  background: "var(--surface-raised)",
+  background: "var(--panel-muted)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   display: "flex",
@@ -546,6 +547,7 @@ const actionsStyle = {
 };
 
 const confirmStyle = {
+  background: "var(--panel-muted)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   display: "flex",
@@ -576,43 +578,3 @@ const smallButtonStyle = {
   minHeight: 36,
   padding: "0 12px",
 };
-
-function buttonStyle(variant: "danger" | "ghost" | "primary") {
-  const colors = {
-    danger: {
-      background: "var(--danger)",
-      border: "1px solid var(--danger)",
-      color: "#fff",
-    },
-    ghost: {
-      background: "transparent",
-      border: "1px solid var(--border)",
-      color: "var(--muted)",
-    },
-    primary: {
-      background: "var(--accent)",
-      border: "1px solid var(--accent)",
-      color: "#fff",
-    },
-  }[variant];
-
-  return {
-    ...colors,
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 700,
-    minHeight: 42,
-    padding: "0 14px",
-  } as const;
-}
-
-function noticeStyle(variant: "danger" | "muted") {
-  return {
-    background: variant === "danger" ? "var(--danger-muted)" : "var(--muted-bg)",
-    border: `1px solid ${variant === "danger" ? "var(--danger)" : "var(--border)"}`,
-    borderRadius: 8,
-    color: variant === "danger" ? "var(--danger)" : "var(--muted)",
-    fontSize: 14,
-    padding: 14,
-  } as const;
-}

@@ -68,7 +68,7 @@ export function AsyncActionState({ error, step, stepLabel, txHash }: AsyncAction
           style={{
             background: "var(--danger-muted)",
             border: "1px solid var(--danger)",
-            borderRadius: 10,
+            borderRadius: "var(--radius-sm)",
             color: "var(--danger)",
             fontSize: 13,
             padding: "10px 14px",

@@ -15,6 +15,7 @@ import { LinkSummary } from "@/components/link/link-summary";
 import { LinkActionCard } from "@/components/link/link-action-card";
 import { FundingProgress } from "@/components/link/funding-progress";
 import { StatusNotice } from "@/components/link/status-notice";
+import { Notice } from "@/components/shared/notice";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 export default function LinkPage() {
@@ -95,6 +96,9 @@ export default function LinkPage() {
           <Link href="/" style={brandStyle}>
             Base Consult Link
           </Link>
+          <Link href="/" style={backLinkStyle}>
+            ← Back
+          </Link>
         </div>
 
         {/* Loading */}
@@ -128,9 +132,10 @@ export default function LinkPage() {
             <>
               <StatusNotice type="consumed_indexing" />
               <div style={indexingRetryCardStyle}>
-                <p style={{ color: "var(--accent)", fontSize: 13, margin: 0 }}>
-                  We are checking automatically. You can retry the check manually if it takes too long.
-                </p>
+                <Notice
+                  message="We are checking automatically. You can retry the check manually if it takes too long."
+                  tone="info"
+                />
                 <button
                   onClick={handleRetryPolling}
                   style={indexingRetryButtonStyle}
@@ -165,9 +170,10 @@ export default function LinkPage() {
                 />
                 {(linkPage.dealIdPollingTimedOut || funding.state.step === "indexing_failed") && (
                   <div style={timeoutCardStyle}>
-                    <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>
-                      Deal creation is taking longer than expected. Retry polling or refresh this page.
-                    </p>
+                    <Notice
+                      message="Deal creation is taking longer than expected. Retry polling or refresh this page."
+                      tone="danger"
+                    />
                     <button
                       onClick={handleRetryPolling}
                       style={retryButtonStyle}
@@ -187,17 +193,18 @@ export default function LinkPage() {
 }
 
 const mainStyle = {
+  background: "var(--background)",
   display: "flex",
   justifyContent: "center",
   minHeight: "100vh",
-  padding: "24px 16px 48px",
+  padding: "20px 16px 48px",
 } as const;
 
 const pageStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 16,
-  maxWidth: 480,
+  maxWidth: 520,
   width: "100%",
 };
 
@@ -212,35 +219,34 @@ const pageHeaderStyle = {
   alignItems: "center",
   display: "flex",
   justifyContent: "space-between",
+  minHeight: 36,
 } as const;
 
 const brandStyle = {
-  color: "var(--accent)",
-  fontSize: 12,
-  fontWeight: 700,
-  letterSpacing: "0.1em",
+  color: "var(--foreground)",
+  fontSize: 14,
+  fontWeight: 800,
+  letterSpacing: "-0.01em",
   textDecoration: "none",
-  textTransform: "uppercase" as const,
+} as const;
+
+const backLinkStyle = {
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 700,
+  textDecoration: "none",
 } as const;
 
 const timeoutCardStyle = {
-  background: "var(--danger-muted)",
-  border: "1px solid var(--danger)",
-  borderRadius: "var(--radius-sm)",
   display: "flex",
   flexDirection: "column" as const,
   gap: 10,
-  padding: "12px 14px",
 } as const;
 
 const indexingRetryCardStyle = {
-  background: "var(--accent-muted)",
-  border: "1px solid var(--accent)",
-  borderRadius: "var(--radius-sm)",
   display: "flex",
   flexDirection: "column" as const,
   gap: 10,
-  padding: "12px 14px",
 } as const;
 
 const retryButtonStyle = {

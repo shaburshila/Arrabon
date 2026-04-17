@@ -1,6 +1,8 @@
 "use client";
 
 import type { DealReadModel } from "@/lib/api/deals";
+import { ActionPanel } from "@/components/shared/action-panel";
+import { DetailRow } from "@/components/shared/detail-row";
 
 interface KeyTimesProps {
   deal: DealReadModel;
@@ -74,24 +76,15 @@ export function KeyTimes({ deal, isSeller }: KeyTimesProps) {
       value: formatRelativeAndAbsolute(deal.completed_at, "past-absolute"),
     },
     {
-      label: "Release / dispute deadline",
-      value: !isSeller
-        ? formatRelativeAndAbsolute(deal.release_deadline_at, "left")
-        : null,
+      label: isSeller ? "Auto-release available after" : "Release / dispute deadline",
+      value: formatRelativeAndAbsolute(deal.release_deadline_at, "left"),
     },
   ].filter((item) => item.value !== null);
 
   if (items.length === 0) return null;
 
   return (
-    <div
-      style={{
-        background: "var(--surface-raised)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        padding: 20,
-      }}
-    >
+    <ActionPanel style={{ padding: 20 }}>
       <p
         style={{
           color: "var(--muted)",
@@ -104,39 +97,16 @@ export function KeyTimes({ deal, isSeller }: KeyTimesProps) {
       >
         Timeline
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {items.map((item) => (
-          <div
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {items.map((item, index) => (
+          <DetailRow
+            bordered={index < items.length - 1}
             key={item.label}
-            style={{ alignItems: "center", display: "flex", gap: 8 }}
-          >
-            <span
-              style={{
-                background: "var(--border)",
-                borderRadius: "50%",
-                display: "inline-block",
-                flexShrink: 0,
-                height: 8,
-                width: 8,
-              }}
-            />
-            <span style={{ color: "var(--muted)", fontSize: 13, flexShrink: 0 }}>
-              {item.label}
-            </span>
-            <span
-              style={{
-                color: "var(--foreground)",
-                fontSize: 13,
-                fontWeight: 500,
-                marginLeft: "auto",
-                textAlign: "right",
-              }}
-            >
-              {item.value}
-            </span>
-          </div>
+            label={item.label}
+            value={item.value}
+          />
         ))}
       </div>
-    </div>
+    </ActionPanel>
   );
 }

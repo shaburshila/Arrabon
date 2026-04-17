@@ -6,27 +6,26 @@ import type { FundingStep } from "@/hooks/use-funding-flow";
 import type { Hex } from "viem";
 import Link from "next/link";
 
+import { ActionPanel } from "@/components/shared/action-panel";
+import { Notice } from "@/components/shared/notice";
+import { ProgressSteps, type ProgressStepItem } from "@/components/shared/progress-steps";
+
 interface FundingProgressProps {
   step: FundingStep;
   txHash: Hex | null;
   error: string | null;
 }
 
-const steps: { key: FundingStep | FundingStep[]; label: string }[] = [
-  { key: "preparing", label: "Preparing transaction" },
-  { key: ["approve_signature", "approve_pending"], label: "Approve USDC" },
-  { key: ["fund_signature", "fund_pending"], label: "Fund consultation" },
-  { key: ["indexing", "indexing_failed"], label: "Confirming deal" },
-  { key: "succeeded", label: "Funded!" },
+const progressOrder: Array<{
+  key: "approve" | "confirming" | "fund" | "funded" | "review";
+  label: string;
+}> = [
+  { key: "review", label: "Review" },
+  { key: "approve", label: "Approve USDC" },
+  { key: "fund", label: "Pay into escrow" },
+  { key: "confirming", label: "Confirming deal" },
+  { key: "funded", label: "Funded" },
 ];
-
-function isActive(step: FundingStep, key: FundingStep | FundingStep[]): boolean {
-  return Array.isArray(key) ? key.includes(step) : key === step;
-}
-
-function getStepIndex(step: FundingStep): number {
-  return steps.findIndex((s) => isActive(step, s.key));
-}
 
 const activeSteps: FundingStep[] = [
   "preparing",
@@ -39,110 +38,39 @@ const activeSteps: FundingStep[] = [
   "succeeded",
 ];
 
-const stepLabels: Partial<Record<FundingStep, string>> = {
-  approve_pending: "Approve tx confirming…",
-  approve_signature: "Approve USDC in wallet…",
-  fund_pending: "Funding tx confirming…",
-  fund_signature: "Confirm funding in wallet…",
-  indexing: "Waiting for deal to appear…",
-  indexing_failed: "Deal indexing needs attention.",
-  preparing: "Checking state…",
-  succeeded: "Deal funded!",
+const activeStepLabels: Partial<Record<FundingStep, string>> = {
+  approve_pending: "Approve transaction confirming...",
+  approve_signature: "Approve USDC in your wallet...",
+  fund_pending: "Payment transaction confirming...",
+  fund_signature: "Confirm payment in your wallet...",
+  indexing: "Waiting for the deal to appear...",
+  preparing: "Checking payment state...",
 };
 
 export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
   if (!activeSteps.includes(step) && step !== "failed") return null;
 
-  const currentIndex = getStepIndex(step);
+  if (step === "failed") {
+    return (
+      <ActionPanel style={{ padding: 20 }}>
+        <p style={sectionLabelStyle}>Payment progress</p>
+        <Notice
+          message={error ?? "Payment failed. Please try again."}
+          title="Payment failed"
+          tone="danger"
+        />
+      </ActionPanel>
+    );
+  }
 
   return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        boxShadow: "var(--shadow-card)",
-        padding: 20,
-      }}
-    >
-      <p
-        style={{
-          color: "var(--muted)",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          margin: "0 0 16px",
-          textTransform: "uppercase",
-        }}
-      >
-        Funding progress
-      </p>
+    <ActionPanel style={{ padding: 20 }}>
+      <p style={sectionLabelStyle}>Payment progress</p>
 
-      {/* Step list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {steps.map((s, i) => {
-          const done = currentIndex > i;
-          const active = isActive(step, s.key);
-          const showSpinner = active && step !== "succeeded" && step !== "indexing_failed";
-          return (
-            <div key={i} style={{ alignItems: "center", display: "flex", gap: 10 }}>
-              <span
-                style={{
-                  alignItems: "center",
-                  background: done
-                    ? "var(--success)"
-                    : active
-                      ? "var(--accent)"
-                      : "var(--border)",
-                  borderRadius: "50%",
-                  color: done || active ? "#fff" : "var(--muted)",
-                  display: "inline-flex",
-                  flexShrink: 0,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  height: 22,
-                  justifyContent: "center",
-                  width: 22,
-                }}
-              >
-                {done ? "✓" : i + 1}
-              </span>
-              <span
-                style={{
-                  alignItems: "center",
-                  color: active
-                    ? "var(--foreground)"
-                    : done
-                      ? "var(--muted)"
-                      : "var(--border)",
-                  display: "inline-flex",
-                  fontSize: 14,
-                  gap: 8,
-                  fontWeight: active ? 600 : 400,
-                }}
-              >
-                {s.label}
-                {showSpinner && <Spinner />}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      <ProgressSteps steps={getProgressSteps(step)} />
 
-      {/* Active step label */}
-      {step !== "succeeded" &&
-        step !== "failed" &&
-        step !== "indexing_failed" &&
-        stepLabels[step] && (
-        <p
-          style={{
-            color: "var(--muted)",
-            fontSize: 13,
-            margin: "16px 0 0",
-          }}
-        >
-          {stepLabels[step]}
-        </p>
+      {activeStepLabels[step] && (
+        <p style={activeHelperStyle}>{activeStepLabels[step]}</p>
       )}
 
       {["fund_pending", "indexing", "indexing_failed", "succeeded"].includes(step) && (
@@ -155,35 +83,85 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
         </p>
       )}
 
-      {/* Tx hash */}
       {txHash && (
-        <p style={{ fontSize: 12, margin: "8px 0 0", wordBreak: "break-all" }}>
+        <p style={txStyle}>
           <span style={{ color: "var(--muted)" }}>Tx: </span>
           <code style={{ fontFamily: "monospace" }}>
-            {txHash.slice(0, 10)}…{txHash.slice(-6)}
+            {txHash.slice(0, 10)}...{txHash.slice(-6)}
           </code>
         </p>
       )}
 
-      {/* Error */}
       {error && (
-        <div
-          style={{
-            background: "var(--danger-muted)",
-            border: "1px solid var(--danger)",
-            borderRadius: "var(--radius-sm)",
-            color: "var(--danger)",
-            fontSize: 13,
-            marginTop: 12,
-            padding: "10px 14px",
-          }}
-        >
-          {error}
-        </div>
+        <Notice
+          message={error}
+          style={{ marginTop: 12 }}
+          tone={step === "indexing_failed" ? "warning" : "danger"}
+        />
       )}
-    </div>
+    </ActionPanel>
   );
 }
+
+function getProgressSteps(step: FundingStep): ProgressStepItem[] {
+  const activeKey = getActiveProgressKey(step);
+  const activeIndex = progressOrder.findIndex((item) => item.key === activeKey);
+
+  return progressOrder.map((item, index) => {
+    if (step === "succeeded") {
+      return { key: item.key, label: item.label, state: "done" };
+    }
+
+    if (step === "indexing_failed" && item.key === "confirming") {
+      return { key: item.key, label: item.label, state: "error" };
+    }
+
+    if (activeIndex > index) {
+      return { key: item.key, label: item.label, state: "done" };
+    }
+
+    if (activeIndex === index) {
+      return { key: item.key, label: item.label, state: "active" };
+    }
+
+    return { key: item.key, label: item.label, state: "pending" };
+  });
+}
+
+function getActiveProgressKey(step: FundingStep) {
+  switch (step) {
+    case "preparing":
+      return "review";
+    case "approve_pending":
+    case "approve_signature":
+      return "approve";
+    case "fund_pending":
+    case "fund_signature":
+      return "fund";
+    case "indexing":
+    case "indexing_failed":
+      return "confirming";
+    case "succeeded":
+      return "funded";
+    default:
+      return "review";
+  }
+}
+
+const sectionLabelStyle = {
+  color: "var(--muted)",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  margin: "0 0 16px",
+  textTransform: "uppercase" as const,
+};
+
+const activeHelperStyle = {
+  color: "var(--muted)",
+  fontSize: 13,
+  margin: "16px 0 0",
+};
 
 const recoveryHintStyle = {
   color: "var(--muted)",
@@ -197,21 +175,9 @@ const recoveryLinkStyle = {
   fontWeight: 700,
 };
 
-function Spinner() {
-  return (
-    <span
-      aria-hidden
-      style={{
-        animation: "funding-progress-spin 0.8s linear infinite",
-        border: "2px solid var(--accent)",
-        borderRadius: "50%",
-        borderTopColor: "transparent",
-        display: "inline-block",
-        height: 14,
-        width: 14,
-      }}
-    >
-      <style>{`@keyframes funding-progress-spin { to { transform: rotate(360deg); } }`}</style>
-    </span>
-  );
-}
+const txStyle = {
+  color: "var(--foreground)",
+  fontSize: 12,
+  margin: "8px 0 0",
+  wordBreak: "break-all" as const,
+};
