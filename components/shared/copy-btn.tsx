@@ -3,11 +3,12 @@
 import { useState } from "react";
 
 interface CopyBtnProps {
+  fullWidth?: boolean;
   text: string;
   label?: string;
 }
 
-export function CopyBtn({ text, label = "Copy" }: CopyBtnProps) {
+export function CopyBtn({ fullWidth = false, text, label = "Copy" }: CopyBtnProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -37,6 +38,7 @@ export function CopyBtn({ text, label = "Copy" }: CopyBtnProps) {
         minHeight: 44,
         padding: "0 12px",
         transition: "background 0.2s, color 0.2s",
+        width: fullWidth ? "100%" : undefined,
       }}
       type="button"
     >

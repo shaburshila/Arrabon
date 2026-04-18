@@ -8,6 +8,7 @@ import { baseRuntimeConfig } from "@/lib/base/config";
 import { Btn } from "@/components/shared/btn";
 
 interface WalletSessionCardProps {
+  hideActions?: boolean;
   session: WalletSessionState;
 }
 
@@ -15,7 +16,7 @@ function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export function WalletSessionCard({ session }: WalletSessionCardProps) {
+export function WalletSessionCard({ hideActions = false, session }: WalletSessionCardProps) {
   const {
     address,
     isConnected,
@@ -37,11 +38,13 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
       {!isConnected ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-            Connect your wallet to continue.
+            {hideActions ? "Wallet not connected." : "Connect your wallet to continue."}
           </p>
-          <Btn fullWidth onClick={() => connect()} variant="primary">
-            Connect Wallet
-          </Btn>
+          {!hideActions && (
+            <Btn fullWidth onClick={() => connect()} variant="primary">
+              Connect Wallet
+            </Btn>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -51,13 +54,15 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
             <span style={{ fontSize: 14, fontWeight: 500 }}>
               {address ? truncateAddress(address) : "—"}
             </span>
-            <button
-              onClick={disconnect}
-              style={textBtnStyle}
-              type="button"
-            >
-              Disconnect
-            </button>
+            {!hideActions && (
+              <button
+                onClick={disconnect}
+                style={textBtnStyle}
+                type="button"
+              >
+                Disconnect
+              </button>
+            )}
           </div>
 
           {/* Chain check */}
@@ -66,23 +71,31 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
               <div style={warningStyle}>
                 Wrong network — switch to {baseRuntimeConfig.chain.name}.
               </div>
-              <Btn fullWidth onClick={switchToCorrectChain} variant="primary">
-                Switch to {baseRuntimeConfig.chain.name}
-              </Btn>
+              {!hideActions && (
+                <Btn fullWidth onClick={switchToCorrectChain} variant="primary">
+                  Switch to {baseRuntimeConfig.chain.name}
+                </Btn>
+              )}
             </div>
           )}
 
           {/* SIWE session */}
           {isCorrectChain && siweStatus === "unauthenticated" && (
             <>
-              <Btn
-                fullWidth
-                loading={isSigningIn}
-                onClick={signIn}
-                variant="secondary"
-              >
-                Sign in with Ethereum
-              </Btn>
+              {hideActions ? (
+                <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
+                  Signature required.
+                </p>
+              ) : (
+                <Btn
+                  fullWidth
+                  loading={isSigningIn}
+                  onClick={signIn}
+                  variant="secondary"
+                >
+                  Sign in with Ethereum
+                </Btn>
+              )}
               {signInError && (
                 <div style={errorStyle}>
                   {signInError}
@@ -97,13 +110,15 @@ export function WalletSessionCard({ session }: WalletSessionCardProps) {
               <span style={{ color: "var(--muted)", fontSize: 13 }}>
                 Signed in
               </span>
-              <button
-                onClick={signOut}
-                style={textBtnStyle}
-                type="button"
-              >
-                Sign out
-              </button>
+              {!hideActions && (
+                <button
+                  onClick={signOut}
+                  style={textBtnStyle}
+                  type="button"
+                >
+                  Sign out
+                </button>
+              )}
             </div>
           )}
 

@@ -3,13 +3,23 @@
 // Create consultation link form.
 // POST /api/links is a private SIWE endpoint, so wallet connect + SIWE are required.
 
-import { useState } from "react";
+import Link from "next/link";
+import { useState, type FormEvent } from "react";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
+import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { CopyBtn } from "@/components/shared/copy-btn";
+import { DetailRow } from "@/components/shared/detail-row";
+import { FormField } from "@/components/shared/form-field";
+import { InnerSection } from "@/components/shared/inner-section";
+import { Notice } from "@/components/shared/notice";
+import { SectionLabel } from "@/components/shared/section-label";
+import { TextArea } from "@/components/shared/text-area";
+import { TextInput } from "@/components/shared/text-input";
+import { TokenAmountRow } from "@/components/shared/token-amount-row";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 const DEFAULT_EXPIRATION_OFFSET_MS = 5 * 60 * 1000;
@@ -26,6 +36,14 @@ interface FormState {
   duration_minutes: string;
   meeting_url: string;
 }
+
+type PrimaryAction = {
+  disabled?: boolean;
+  label: string;
+  loading?: boolean;
+  onClick?: () => void;
+  type: "button" | "submit";
+};
 
 const emptyForm: FormState = {
   description: "",
@@ -49,6 +67,7 @@ export function CreateLinkForm() {
   const [expirationAutoFilled, setExpirationAutoFilled] = useState(true);
 
   const canCreate = session.isConnected && session.isCorrectChain && session.siweStatus === "authenticated";
+  const sellerAddress = session.address ? truncateAddress(session.address) : "Connect wallet";
 
   function splitLocalDateTime(value: Date): { date: string; time: string } {
     const year = value.getFullYear();
@@ -107,7 +126,57 @@ export function CreateLinkForm() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function getPrimaryAction(): PrimaryAction {
+    if (!session.isConnected) {
+      return {
+        label: "Connect wallet",
+        onClick: () => session.connect(),
+        type: "button",
+      };
+    }
+
+    if (!session.isCorrectChain) {
+      return {
+        label: "Switch to Base",
+        onClick: () => session.switchToCorrectChain(),
+        type: "button",
+      };
+    }
+
+    if (session.siweStatus === "loading") {
+      return {
+        disabled: true,
+        label: "Checking session...",
+        loading: true,
+        type: "button",
+      };
+    }
+
+    if (session.isSigningIn) {
+      return {
+        disabled: true,
+        label: "Signing in...",
+        loading: true,
+        type: "button",
+      };
+    }
+
+    if (session.siweStatus !== "authenticated") {
+      return {
+        label: "Sign in with Ethereum",
+        onClick: () => session.signIn(),
+        type: "button",
+      };
+    }
+
+    return {
+      label: submitting ? "Creating link..." : "Create consultation link",
+      loading: submitting,
+      type: "submit",
+    };
+  }
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canCreate || submitting) return;
 
@@ -176,352 +245,370 @@ export function CreateLinkForm() {
     }
   }
 
-  return (
-    <>
-      <div style={headerStyle}>
-        <h1 style={h1Style}>Create consultation link</h1>
-        <p style={subtitleStyle}>
-          Set up a single-use consultation slot. Your client pays USDC into escrow when they book.
-        </p>
-      </div>
+  if (shareUrl) {
+    return (
+      <>
+        <PageHeader />
+        <ActionPanel style={successPanelStyle}>
+          <div style={successIconStyle} aria-hidden>
+            ✓
+          </div>
+          <div style={successHeaderStyle}>
+            <h2 style={panelTitleStyle}>Link created</h2>
+            <p style={panelSubtitleStyle}>
+              Your consultation link is live and ready to share.
+            </p>
+          </div>
 
-      <WalletSessionCard session={session} />
+          <InnerSection style={shareSectionStyle}>
+            <p style={shareLabelStyle}>Share link</p>
+            <p style={shareUrlStyle}>{shareUrl}</p>
+          </InnerSection>
 
-      {shareUrl && (
-        <div
-          style={{
-            background: "var(--success-muted)",
-            border: "1px solid var(--success)",
-            borderRadius: "var(--radius)",
-            padding: 20,
-          }}
-        >
-          <p
-            style={{
-              color: "var(--success)",
-              fontSize: 13,
-              fontWeight: 600,
-              margin: "0 0 10px",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            Link created
-          </p>
-          <p
-            style={{
-              color: "var(--foreground)",
-              fontSize: 14,
-              margin: "0 0 12px",
-              wordBreak: "break-all",
-            }}
-          >
-            {shareUrl}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <CopyBtn text={shareUrl} label="Copy link" />
+          <div style={successActionsStyle}>
+            <CopyBtn fullWidth text={shareUrl} label="Copy link" />
             <Btn
+              fullWidth
               onClick={() => setShareUrl(null)}
               variant="ghost"
             >
               Create another
             </Btn>
+            <Link
+              href="/my-links"
+              style={{ display: "block", textDecoration: "none", width: "100%" }}
+            >
+              <Btn fullWidth variant="secondary">
+                View my links
+              </Btn>
+            </Link>
           </div>
-        </div>
-      )}
+        </ActionPanel>
+      </>
+    );
+  }
 
-      {!shareUrl && (
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius)",
-            boxShadow: "var(--shadow-card)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            padding: 20,
-          }}
-        >
-          <Field
-            id="title"
-            label="Title"
-            required
-            type="text"
-            value={form.title}
-            onChange={(v) => setField("title", v)}
-            placeholder="e.g. 30-min Strategy Call"
-          />
+  const primaryAction = getPrimaryAction();
 
-          <Field
-            id="description"
-            label="Description"
-            type="textarea"
-            value={form.description}
-            onChange={(v) => setField("description", v)}
-            placeholder="What will you cover in this consultation?"
-          />
+  return (
+    <>
+      <PageHeader />
 
-          <Field
-            id="price_usdc"
-            label="Price (USDC)"
-            required
-            type="number"
-            value={form.price_usdc}
-            onChange={(v) => setField("price_usdc", v)}
-            placeholder="100"
-            min="10"
-            max="1000"
-          />
+      <WalletSessionCard session={session} hideActions />
 
-          <ScheduledDateTimeField
-            idPrefix="scheduled"
-            label="Scheduled date & time"
-            dateValue={form.scheduled_date}
-            timeValue={form.scheduled_time}
-            onDateChange={(v) => setField("scheduled_date", v)}
-            onTimeChange={(v) => setField("scheduled_time", v)}
-          />
+      <form onSubmit={handleSubmit}>
+        <ActionPanel style={formPanelStyle}>
+          <div style={panelHeaderStyle}>
+            <h2 style={panelTitleStyle}>Create link</h2>
+            <p style={panelSubtitleStyle}>
+              Define the consultation, payment, and access details for this booking.
+            </p>
+          </div>
 
-          <ScheduledDateTimeField
-            idPrefix="expires"
-            label="Link expires at"
-            dateValue={form.expires_date}
-            timeValue={form.expires_time}
-            onDateChange={(v) => setExpirationField("expires_date", v)}
-            onTimeChange={(v) => setExpirationField("expires_time", v)}
-          />
+          <SectionLabel>Consultation</SectionLabel>
+          <InnerSection style={sectionStackStyle}>
+            <FormField label="Title">
+              <TextInput
+                id="title"
+                onChange={(e) => setField("title", e.target.value)}
+                placeholder="e.g. 30-min Strategy Call"
+                required
+                type="text"
+                value={form.title}
+              />
+            </FormField>
+            <Divider />
+            <FormField label="Description">
+              <TextArea
+                id="description"
+                onChange={(e) => setField("description", e.target.value)}
+                placeholder="What will you cover in this consultation?"
+                rows={4}
+                value={form.description}
+              />
+            </FormField>
+          </InnerSection>
 
-          <Field
-            id="timezone"
-            label="Timezone (display only)"
-            required
-            type="text"
-            value={form.timezone}
-            onChange={(v) => setField("timezone", v)}
-            placeholder="Europe/Berlin"
-          />
+          <SectionLabel>Payment</SectionLabel>
+          <InnerSection style={sectionStackStyle}>
+            <TokenAmountRow
+              amount={form.price_usdc}
+              label="Price"
+              onChange={(value) => setField("price_usdc", value)}
+              required
+              sublabel="Buyer pays USDC into escrow."
+              token="USDC"
+            />
+            <Divider />
+            <DetailRow
+              bordered={false}
+              label="Seller"
+              value={sellerAddress}
+            />
+          </InnerSection>
 
-          <Field
-            id="duration_minutes"
-            label="Duration (min)"
-            required
-            type="number"
-            value={form.duration_minutes}
-            onChange={(v) => setField("duration_minutes", v)}
-            min="1"
-          />
+          <SectionLabel>Schedule</SectionLabel>
+          <InnerSection style={sectionStackStyle}>
+            <div style={twoColumnRowStyle}>
+              <FormField label="Date">
+                <TextInput
+                  id="scheduled_date"
+                  onChange={(e) => setField("scheduled_date", e.target.value)}
+                  required
+                  type="date"
+                  value={form.scheduled_date}
+                />
+              </FormField>
+              <FormField label="Time">
+                <TextInput
+                  id="scheduled_time"
+                  onChange={(e) => setField("scheduled_time", e.target.value)}
+                  required
+                  type="time"
+                  value={form.scheduled_time}
+                />
+              </FormField>
+            </div>
+            <Divider />
 
-          <Field
-            id="meeting_url"
-            label="Meeting URL (kept secret until funded)"
-            required
-            type="url"
-            value={form.meeting_url}
-            onChange={(v) => setField("meeting_url", v)}
-            placeholder="https://meet.example.com/your-room"
-          />
+            <FormField label="Duration (min)">
+              <TextInput
+                id="duration_minutes"
+                min="1"
+                onChange={(e) => setField("duration_minutes", e.target.value)}
+                required
+                type="number"
+                value={form.duration_minutes}
+              />
+            </FormField>
 
-          <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>
-            Link is single-use and expires at the selected date and time.
-          </p>
+            <div>
+              <DetailRow
+                bordered={false}
+                label="Timezone"
+                value={form.timezone}
+              />
+              <p style={helperTextStyle}>
+                Times are saved from your current browser timezone.
+              </p>
+            </div>
+          </InnerSection>
+
+          <SectionLabel>Link expiration</SectionLabel>
+          <InnerSection style={sectionStackStyle}>
+            <div style={twoColumnRowStyle}>
+              <FormField label="Expiration date">
+                <TextInput
+                  id="expires_date"
+                  onChange={(e) => setExpirationField("expires_date", e.target.value)}
+                  required
+                  type="date"
+                  value={form.expires_date}
+                />
+              </FormField>
+              <FormField label="Expiration time">
+                <TextInput
+                  id="expires_time"
+                  onChange={(e) => setExpirationField("expires_time", e.target.value)}
+                  required
+                  type="time"
+                  value={form.expires_time}
+                />
+              </FormField>
+            </div>
+            <p style={helperTextStyle}>
+              Can be at or before the scheduled time.
+            </p>
+          </InnerSection>
+
+          <SectionLabel>Private meeting</SectionLabel>
+          <InnerSection style={sectionStackStyle}>
+            <FormField
+              helper="Revealed only after funding."
+              label="Meeting URL"
+            >
+              <TextInput
+                id="meeting_url"
+                onChange={(e) => setField("meeting_url", e.target.value)}
+                placeholder="https://meet.example.com/your-room"
+                required
+                type="url"
+                value={form.meeting_url}
+              />
+            </FormField>
+          </InnerSection>
 
           {error && (
-            <div
-              style={{
-                background: "var(--danger-muted)",
-                border: "1px solid var(--danger)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--danger)",
-                fontSize: 13,
-                padding: "10px 14px",
-              }}
-            >
-              {error}
-            </div>
+            <Notice
+              message={error}
+              title="Could not create link"
+              tone="danger"
+            />
           )}
 
+          <Notice
+            message="Funds are held in escrow on Base until the consultation is confirmed or disputed."
+            tone="info"
+          />
+
           <Btn
-            disabled={!canCreate}
-            disabledReason={
-              !session.isConnected
-                ? "Connect wallet first"
-                : !session.isCorrectChain
-                  ? "Switch to the correct network"
-                  : session.siweStatus !== "authenticated"
-                    ? "Sign in with Ethereum first"
-                    : undefined
-            }
+            disabled={primaryAction.disabled}
             fullWidth
-            loading={submitting}
-            type="submit"
+            loading={primaryAction.loading}
+            onClick={primaryAction.onClick}
+            type={primaryAction.type}
           >
-            Create consultation link
+            {primaryAction.label}
           </Btn>
-        </form>
-      )}
+        </ActionPanel>
+      </form>
     </>
   );
 }
 
-function Field({
-  id,
-  label,
-  max,
-  min,
-  onChange,
-  placeholder,
-  required,
-  type,
-  value,
-}: {
-  id: string;
-  label: string;
-  max?: string;
-  min?: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  type: "number" | "text" | "textarea" | "url";
-  value: string;
-}) {
+function PageHeader() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label
-        htmlFor={id}
-        style={fieldLabelStyle}
-      >
-        {label}
-        {required && <span style={{ color: "var(--danger)", marginLeft: 2 }}>*</span>}
-      </label>
-      {type === "textarea" ? (
-        <textarea
-          id={id}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          required={required}
-          rows={3}
-          style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
-          value={value}
-        />
-      ) : (
-        <input
-          id={id}
-          max={max}
-          min={min}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          required={required}
-          style={inputStyle}
-          type={type}
-          value={value}
-        />
-      )}
+    <div style={headerStyle}>
+      <h1 style={h1Style}>Create consultation link</h1>
+      <p style={subtitleStyle}>
+        Set the terms, share the link, and let the buyer fund escrow on Base.
+      </p>
     </div>
   );
 }
 
-function ScheduledDateTimeField({
-  dateValue,
-  idPrefix,
-  label,
-  onDateChange,
-  onTimeChange,
-  timeValue,
-}: {
-  dateValue: string;
-  idPrefix: string;
-  label: string;
-  onDateChange: (value: string) => void;
-  onTimeChange: (value: string) => void;
-  timeValue: string;
-}) {
-  const dateId = `${idPrefix}_date`;
-  const timeId = `${idPrefix}_time`;
+function truncateAddress(addr: string) {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label htmlFor={dateId} style={fieldLabelStyle}>
-        {label}
-        <span style={{ color: "var(--danger)", marginLeft: 2 }}>*</span>
-      </label>
-      <div style={scheduledDateTimeRowStyle}>
-        <input
-          id={dateId}
-          onChange={(e) => onDateChange(e.target.value)}
-          required
-          style={scheduledDateInputStyle}
-          type="date"
-          value={dateValue}
-        />
-        <input
-          id={timeId}
-          onChange={(e) => onTimeChange(e.target.value)}
-          required
-          style={scheduledTimeInputStyle}
-          type="time"
-          value={timeValue}
-        />
-      </div>
-    </div>
-  );
+function Divider() {
+  return <div style={dividerStyle} />;
 }
 
 const headerStyle = {
   paddingBottom: 4,
-} as const;
+};
 
 const h1Style = {
   fontSize: 24,
   fontWeight: 800,
-  letterSpacing: "-0.02em",
+  letterSpacing: "0",
   margin: "0 0 8px",
-} as const;
+};
 
 const subtitleStyle = {
   color: "var(--muted)",
   fontSize: 15,
   lineHeight: 1.5,
   margin: 0,
-} as const;
+};
 
-const fieldLabelStyle = {
+const formPanelStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 14,
+  padding: 18,
+};
+
+const panelHeaderStyle = {
+  borderBottom: "1px solid var(--subtle-border)",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 6,
+  padding: "2px 4px 14px",
+};
+
+const panelTitleStyle = {
+  color: "var(--foreground)",
+  fontSize: 18,
+  fontWeight: 600,
+  margin: 0,
+};
+
+const panelSubtitleStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
+  lineHeight: 1.45,
+  margin: 0,
+};
+
+const sectionStackStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 14,
+};
+
+const twoColumnRowStyle = {
+  display: "grid",
+  gap: 10,
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+};
+
+const helperTextStyle = {
   color: "var(--muted)",
   fontSize: 12,
-  fontWeight: 600,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase" as const,
-} as const;
+  lineHeight: 1.45,
+  margin: "4px 0 0",
+};
 
-const inputStyle = {
-  background: "var(--surface-raised)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
-  color: "var(--foreground)",
-  fontSize: 15,
-  minHeight: 44,
-  outline: "none",
-  padding: "10px 14px",
-  width: "100%",
-} as const;
+const dividerStyle = {
+  borderTop: "1px solid var(--subtle-border)",
+  height: 0,
+};
 
-const scheduledDateTimeRowStyle = {
+const successPanelStyle = {
   display: "flex",
-  flexWrap: "wrap" as const,
-  gap: 8,
-} as const;
+  flexDirection: "column" as const,
+  gap: 16,
+  padding: 20,
+  textAlign: "center" as const,
+};
 
-const scheduledDateInputStyle = {
-  ...inputStyle,
-  flex: "2 1 170px",
-  minWidth: 0,
-  width: 0,
-} as const;
+const successIconStyle = {
+  alignItems: "center",
+  alignSelf: "center",
+  background: "var(--success-muted)",
+  border: "1px solid var(--success)",
+  borderRadius: "50%",
+  color: "var(--success)",
+  display: "inline-flex",
+  fontSize: 18,
+  fontWeight: 600,
+  height: 44,
+  justifyContent: "center",
+  width: 44,
+};
 
-const scheduledTimeInputStyle = {
-  ...inputStyle,
-  flex: "1 1 110px",
-  minWidth: 0,
-  width: 0,
-} as const;
+const successHeaderStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 6,
+};
+
+const shareSectionStyle = {
+  textAlign: "left" as const,
+};
+
+const shareLabelStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+  fontWeight: 500,
+  letterSpacing: "0.08em",
+  margin: "0 0 8px",
+  textTransform: "uppercase" as const,
+};
+
+const shareUrlStyle = {
+  color: "var(--foreground)",
+  fontSize: 14,
+  lineHeight: 1.45,
+  margin: 0,
+  fontFamily: "var(--font-mono, monospace)",
+  wordBreak: "break-all" as const,
+};
+
+const successActionsStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+};

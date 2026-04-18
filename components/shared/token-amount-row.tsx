@@ -5,6 +5,7 @@ export function TokenAmountRow({
   label,
   onChange,
   readonly = false,
+  required = false,
   sublabel,
   token = "USDC",
 }: {
@@ -12,6 +13,7 @@ export function TokenAmountRow({
   label?: string;
   onChange?: (value: string) => void;
   readonly?: boolean;
+  required?: boolean;
   sublabel?: string;
   token?: string;
 }) {
@@ -30,6 +32,7 @@ export function TokenAmountRow({
             inputMode="decimal"
             onChange={handleChange}
             placeholder="0"
+            required={required}
             style={amountInputStyle}
             type="number"
             value={amount}
