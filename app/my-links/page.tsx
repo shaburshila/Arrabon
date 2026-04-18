@@ -3,21 +3,44 @@
 // /my-links — Seller's view of their consultation links.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
+import {
+  Check,
+  Clock,
+  Copy,
+  ExternalLink,
+  Eye,
+  Link2,
+  Plus,
+} from "lucide-react";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyLinks, type MyLink } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { AppShell } from "@/components/app/app-shell";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
+import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Notice } from "@/components/shared/notice";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
+import { StatusPill } from "@/components/shared/status-pill";
+
+type LinkFilter = "all" | MyLink["status"];
 
 type MyLinkBadge = {
   bg: string;
   color: string;
   label: string;
 };
+
+const FILTERS: { value: LinkFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "Open", label: "Open" },
+  { value: "Consumed", label: "Funded" },
+  { value: "Expired", label: "Expired" },
+  { value: "Cancelled", label: "Cancelled" },
+];
 
 const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
   Cancelled: {
@@ -69,9 +92,25 @@ export default function MyLinksPage() {
     session.isCorrectChain &&
     session.siweStatus === "authenticated";
 
+  const [filter, setFilter] = useState<LinkFilter>("all");
   const [links, setLinks] = useState<MyLink[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const filteredLinks = links
+    ? filter === "all"
+      ? links
+      : links.filter((link) => link.status === filter)
+    : [];
+
+  const createLinkAction = (
+    <Link href="/create" style={{ textDecoration: "none" }}>
+      <Btn size="sm">
+        <Plus size={14} />
+        Create link
+      </Btn>
+    </Link>
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -87,98 +126,339 @@ export default function MyLinksPage() {
       .finally(() => setLoading(false));
   }, [isAuthenticated]);
 
+  function renderAuthState() {
+    if (!session.isConnected) {
+      return (
+        <AuthStatePanel
+          action={
+            <Btn onClick={() => session.connect()} size="md">
+              Connect wallet
+            </Btn>
+          }
+          description="Connect to view and manage your consultation links."
+          title="Connect your wallet"
+        />
+      );
+    }
+
+    if (!session.isCorrectChain) {
+      return (
+        <AuthStatePanel
+          action={
+            <Btn onClick={() => session.switchToCorrectChain()} size="md">
+              Switch to Base
+            </Btn>
+          }
+          description="Switch networks to view your consultation links."
+          title="Switch to Base"
+        />
+      );
+    }
+
+    if (session.siweStatus === "loading") {
+      return (
+        <AuthStatePanel
+          description="Restoring your wallet session."
+          title="Checking session"
+        />
+      );
+    }
+
+    return (
+      <AuthStatePanel
+        action={
+          <Btn
+            loading={session.isSigningIn}
+            onClick={() => session.signIn()}
+            size="md"
+          >
+            Sign in with Ethereum
+          </Btn>
+        }
+        description="Sign in with Ethereum to view your consultation links."
+        error={session.signInError}
+        title="Sign in required"
+      />
+    );
+  }
+
+  function renderListContent() {
+    if (!links || links.length === 0) {
+      return (
+        <EmptyState
+          action={createLinkAction}
+          description="Create a consultation link to get started."
+          icon={<Link2 size={36} />}
+          title="No links"
+        />
+      );
+    }
+
+    if (filteredLinks.length === 0) {
+      return (
+        <EmptyState
+          description="Try another filter."
+          icon={<Link2 size={36} />}
+          title="No matching links"
+        />
+      );
+    }
+
+    return filteredLinks.map((link, index) => (
+      <LinkRow
+        isLast={index === filteredLinks.length - 1}
+        key={link.id}
+        link={link}
+      />
+    ));
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AppShell maxWidth={672}>
+        {renderAuthState()}
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell maxWidth={560}>
-      <div style={headerStyle}>
-        <h1 style={h1Style}>My consultation links</h1>
-        <p style={subtitleStyle}>All links you have created.</p>
+    <AppShell maxWidth={672}>
+      <div style={pageHeaderStyle}>
+        <h1 style={h1Style}>My links</h1>
+        {createLinkAction}
       </div>
 
-      <WalletSessionCard session={session} />
+      <SegmentedTabs
+        onChange={(value) => setFilter(value as LinkFilter)}
+        options={FILTERS}
+        value={filter}
+      />
 
-      {isAuthenticated && (
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Link href="/create">
-            <Btn variant="primary">+ New link</Btn>
-          </Link>
-        </div>
+      {loading && (
+        <ActionPanel style={statePanelStyle}>
+          <p style={mutedTextStyle}>Loading links...</p>
+        </ActionPanel>
       )}
 
-      {isAuthenticated && loading && (
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Loading…</p>
+      {error && (
+        <Notice
+          message={error}
+          title="Could not load links"
+          tone="danger"
+        />
       )}
 
-      {isAuthenticated && error && (
-        <div style={errorStyle}>{error}</div>
-      )}
+      {!loading && !error && (
+        <>
+          <ActionPanel style={listPanelStyle}>
+            {renderListContent()}
+          </ActionPanel>
 
-      {isAuthenticated && links && links.length === 0 && (
-        <div style={emptyStyle}>
-          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-            No links yet.{" "}
-            <Link href="/create" style={{ color: "var(--accent)" }}>Create your first one.</Link>
-          </p>
-        </div>
-      )}
-
-      {isAuthenticated && links && links.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {links.map((link) => (
-            <LinkCard key={link.id} link={link} />
-          ))}
-        </div>
+          {filteredLinks.length > 0 && (
+            <p style={footerCountStyle}>
+              {filteredLinks.length} link{filteredLinks.length === 1 ? "" : "s"}
+            </p>
+          )}
+        </>
       )}
     </AppShell>
   );
 }
 
-function LinkCard({ link }: { link: MyLink }) {
+function AuthStatePanel({
+  action,
+  description,
+  error,
+  title,
+}: {
+  action?: ReactNode;
+  description: string;
+  error?: string | null;
+  title: string;
+}) {
+  return (
+    <ActionPanel style={authPanelStyle}>
+      <EmptyState
+        action={action}
+        description={description}
+        icon={<Link2 size={40} />}
+        title={title}
+      />
+      {error && (
+        <Notice
+          message={error}
+          tone="danger"
+        />
+      )}
+    </ActionPanel>
+  );
+}
+
+function LinkRow({
+  isLast,
+  link,
+}: {
+  isLast: boolean;
+  link: MyLink;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = `${origin}${link.share_url}`;
   const badge = getMyLinkBadge(link);
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 15, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {link.title}
-          </p>
-          <p style={{ color: "var(--muted)", fontSize: 12, margin: "2px 0 0" }}>
-            {formatDate(link.scheduled_at, link.timezone)} · {link.duration_minutes} min · {link.price_usdc} USDC
-          </p>
-        </div>
-        <span style={statusBadge(badge)}>{badge.label}</span>
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        ...rowStyle,
+        background: isHovered ? "var(--panel-hover)" : "transparent",
+        borderBottom: isLast ? "none" : "1px solid var(--subtle-border)",
+      }}
+    >
+      <div style={rowIconStyle}>
+        <Link2 size={15} />
       </div>
 
-      {link.description && (
-        <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 10px", lineHeight: 1.5 }}>
-          {link.description}
-        </p>
-      )}
+      <div style={rowInfoStyle}>
+        <p style={rowTitleStyle}>{link.title}</p>
+        <div style={rowMetaStyle}>
+          <Clock size={11} />
+          <span>{formatDate(link.scheduled_at, link.timezone)}</span>
+        </div>
+      </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+      <p style={priceStyle}>{link.price_usdc} USDC</p>
+
+      <StatusPill
+        bg={badge.bg}
+        color={badge.color}
+        label={badge.label}
+      />
+
+      <div style={actionsStyle}>
+        <CopyIconButton text={shareUrl} />
+
         {link.status === "Open" && (
-          <>
-            <a href={shareUrl} style={linkStyle} target="_blank" rel="noreferrer">
-              Open link ↗
-            </a>
-            <button
-              onClick={() => navigator.clipboard.writeText(shareUrl)}
-              style={textBtnStyle}
-              type="button"
-            >
-              Copy link
-            </button>
-          </>
+          <IconAnchor
+            href={shareUrl}
+            label="Open checkout"
+          >
+            <ExternalLink size={13} />
+          </IconAnchor>
         )}
+
         {link.deal_id && (
-          <Link href={`/deal/${link.deal_id}`} style={linkStyle}>
-            View deal
-          </Link>
+          <IconNextLink
+            href={`/deal/${link.deal_id}`}
+            label="View deal"
+          >
+            <Eye size={13} />
+          </IconNextLink>
         )}
       </div>
     </div>
+  );
+}
+
+function CopyIconButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // The browser can deny clipboard access. The action is non-critical.
+    }
+  }
+
+  return (
+    <IconButton
+      label="Copy link"
+      onClick={handleCopy}
+    >
+      {copied ? <Check size={13} style={{ color: "var(--success)" }} /> : <Copy size={13} />}
+    </IconButton>
+  );
+}
+
+function IconButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <button
+      aria-label={label}
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={iconActionStyle(isHovered)}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function IconAnchor({
+  children,
+  href,
+  label,
+}: {
+  children: ReactNode;
+  href: string;
+  label: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <a
+      aria-label={label}
+      href={href}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      rel="noreferrer"
+      style={iconActionStyle(isHovered)}
+      target="_blank"
+      title={label}
+    >
+      {children}
+    </a>
+  );
+}
+
+function IconNextLink({
+  children,
+  href,
+  label,
+}: {
+  children: ReactNode;
+  href: string;
+  label: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <Link
+      aria-label={label}
+      href={href}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={iconActionStyle(isHovered)}
+      title={label}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -193,74 +473,122 @@ function getMyLinkBadge(link: MyLink): MyLinkBadge {
   return LINK_STATUS_CONFIG[link.status];
 }
 
-function statusBadge(badge: MyLinkBadge) {
+function iconActionStyle(isHovered: boolean): CSSProperties {
   return {
-    background: badge.bg,
-    border: "1px solid transparent",
-    borderRadius: 99,
-    color: badge.color,
-    flexShrink: 0,
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "0.06em",
-    padding: "3px 10px",
-    textTransform: "uppercase" as const,
-    whiteSpace: "nowrap" as const,
+    alignItems: "center",
+    background: isHovered ? "var(--muted-bg)" : "transparent",
+    border: "none",
+    borderRadius: "var(--radius-sm)",
+    color: "var(--muted)",
+    cursor: "pointer",
+    display: "inline-flex",
+    height: 32,
+    justifyContent: "center",
+    padding: 6,
+    textDecoration: "none",
+    transition: "background 0.15s, color 0.15s",
+    width: 32,
   };
 }
 
-const headerStyle = { paddingBottom: 4 } as const;
+const authPanelStyle = {
+  overflow: "hidden",
+  padding: "0 16px 16px",
+} as const;
+
+const pageHeaderStyle = {
+  alignItems: "center",
+  display: "flex",
+  gap: 16,
+  justifyContent: "space-between",
+} as const;
 
 const h1Style = {
+  color: "var(--foreground)",
   fontSize: 24,
   fontWeight: 800,
   letterSpacing: "-0.02em",
-  margin: "8px 0 8px",
-} as const;
-
-const subtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 15,
-  lineHeight: 1.5,
   margin: 0,
 } as const;
 
-const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
-  boxShadow: "var(--shadow-card)",
-  padding: 16,
-} as const;
-
-const emptyStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
+const statePanelStyle = {
   padding: 20,
 } as const;
 
-const errorStyle = {
-  background: "var(--danger-muted)",
-  border: "1px solid var(--danger)",
-  borderRadius: "var(--radius-sm)",
-  color: "var(--danger)",
-  fontSize: 13,
-  padding: "10px 14px",
-} as const;
-
-const linkStyle = {
-  color: "var(--accent)",
-  fontSize: 13,
-  fontWeight: 500,
-} as const;
-
-const textBtnStyle = {
-  background: "none",
-  border: "none",
+const mutedTextStyle = {
   color: "var(--muted)",
-  cursor: "pointer",
-  fontSize: 13,
-  padding: 0,
-  textDecoration: "underline",
+  fontSize: 14,
+  margin: 0,
+  textAlign: "center" as const,
+} as const;
+
+const listPanelStyle = {
+  overflow: "hidden",
+} as const;
+
+const rowStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: 12,
+  padding: "16px 20px",
+  transition: "background 0.15s",
+} as const;
+
+const rowIconStyle = {
+  alignItems: "center",
+  background: "var(--muted-bg)",
+  borderRadius: "var(--radius)",
+  color: "var(--muted)",
+  display: "inline-flex",
+  flexShrink: 0,
+  height: 36,
+  justifyContent: "center",
+  width: 36,
+} as const;
+
+const rowInfoStyle = {
+  flex: "1 1 220px",
+  minWidth: 0,
+} as const;
+
+const rowTitleStyle = {
+  color: "var(--foreground)",
+  fontSize: 14,
+  fontWeight: 500,
+  margin: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+} as const;
+
+const rowMetaStyle = {
+  alignItems: "center",
+  color: "var(--muted)",
+  display: "flex",
+  fontSize: 12,
+  gap: 6,
+  marginTop: 4,
+} as const;
+
+const priceStyle = {
+  color: "var(--foreground)",
+  flexShrink: 0,
+  fontSize: 14,
+  fontWeight: 600,
+  margin: 0,
+} as const;
+
+const actionsStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexShrink: 0,
+  gap: 2,
+} as const;
+
+const footerCountStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+  margin: "12px 0 0",
+  textAlign: "center" as const,
 } as const;
