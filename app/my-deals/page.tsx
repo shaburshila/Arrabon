@@ -3,14 +3,35 @@
 // /my-deals — Buyer recovery surface for paid consultations.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
+import {
+  Briefcase,
+  Clock,
+  Eye,
+  User,
+} from "lucide-react";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { AppShell } from "@/components/app/app-shell";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
+import { ActionPanel } from "@/components/shared/action-panel";
+import { Btn } from "@/components/shared/btn";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Notice } from "@/components/shared/notice";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
+import { StatusPill } from "@/components/shared/status-pill";
+
+type DealFilter = "all" | "upcoming" | "pending" | "disputed" | "resolved";
+
+const FILTERS: { value: DealFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "pending", label: "Pending" },
+  { value: "disputed", label: "Disputed" },
+  { value: "resolved", label: "Resolved" },
+];
 
 function shortAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
@@ -31,6 +52,18 @@ function formatDate(iso: string, tz: string) {
   }
 }
 
+function matchDealFilter(deal: MyDeal, filter: DealFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "upcoming") return deal.status === "Funded";
+  if (filter === "pending") return deal.status === "ConfirmPending";
+  if (filter === "disputed") return deal.status === "Disputed";
+  if (filter === "resolved") {
+    return deal.status === "Released" || deal.status === "Refunded";
+  }
+
+  return false;
+}
+
 export default function MyDealsPage() {
   const session = useWalletSession();
   const isAuthenticated =
@@ -39,8 +72,13 @@ export default function MyDealsPage() {
     session.siweStatus === "authenticated";
 
   const [deals, setDeals] = useState<MyDeal[] | null>(null);
+  const [filter, setFilter] = useState<DealFilter>("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const filteredDeals = deals
+    ? deals.filter((deal) => matchDealFilter(deal, filter))
+    : [];
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -56,184 +94,381 @@ export default function MyDealsPage() {
       .finally(() => setLoading(false));
   }, [isAuthenticated]);
 
+  function renderAuthState() {
+    if (!session.isConnected) {
+      return (
+        <AuthStatePanel
+          action={
+            <Btn onClick={() => session.connect()} size="md">
+              Connect wallet
+            </Btn>
+          }
+          description="Connect to view your paid consultations."
+          title="Connect your wallet"
+        />
+      );
+    }
+
+    if (!session.isCorrectChain) {
+      return (
+        <AuthStatePanel
+          action={
+            <Btn onClick={() => session.switchToCorrectChain()} size="md">
+              Switch to Base
+            </Btn>
+          }
+          description="Switch networks to view your paid consultations."
+          title="Switch to Base"
+        />
+      );
+    }
+
+    if (session.siweStatus === "loading") {
+      return (
+        <AuthStatePanel
+          description="Restoring your wallet session."
+          title="Checking session"
+        />
+      );
+    }
+
+    return (
+      <AuthStatePanel
+        action={
+          <Btn
+            loading={session.isSigningIn}
+            onClick={() => session.signIn()}
+            size="md"
+          >
+            Sign in with Ethereum
+          </Btn>
+        }
+        description="Sign in with Ethereum to view your paid consultations."
+        error={session.signInError}
+        title="Sign in required"
+      />
+    );
+  }
+
+  function renderListContent() {
+    if (!deals || deals.length === 0) {
+      return (
+        <EmptyState
+          description="Pay for a consultation link to see it here."
+          icon={<Briefcase size={36} />}
+          title="No paid consultations yet"
+        />
+      );
+    }
+
+    if (filteredDeals.length === 0) {
+      return (
+        <EmptyState
+          description="Try another filter."
+          icon={<Briefcase size={36} />}
+          title="No matching deals"
+        />
+      );
+    }
+
+    return filteredDeals.map((deal, index) => (
+      <DealRow
+        deal={deal}
+        isLast={index === filteredDeals.length - 1}
+        key={deal.id}
+      />
+    ));
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AppShell maxWidth={672}>
+        {renderAuthState()}
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell maxWidth={560}>
-      <div style={headerStyle}>
+    <AppShell maxWidth={672}>
+      <div style={pageHeaderStyle}>
         <h1 style={h1Style}>My deals</h1>
-        <p style={subtitleStyle}>Consultations you have paid for.</p>
+        {deals && deals.length > 0 && (
+          <span style={totalStyle}>{deals.length} total</span>
+        )}
       </div>
 
-      <WalletSessionCard session={session} />
+      <SegmentedTabs
+        onChange={(value) => setFilter(value as DealFilter)}
+        options={FILTERS}
+        value={filter}
+      />
 
-      {isAuthenticated && loading && (
-        <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Loading...</p>
+      {loading && (
+        <ActionPanel style={statePanelStyle}>
+          <p style={mutedTextStyle}>Loading deals...</p>
+        </ActionPanel>
       )}
 
-      {isAuthenticated && error && (
-        <div style={errorStyle}>{error}</div>
+      {error && (
+        <Notice
+          message={error}
+          title="Could not load deals"
+          tone="danger"
+        />
       )}
 
-      {isAuthenticated && deals && deals.length === 0 && (
-        <div style={emptyStyle}>
-          <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-            No paid consultations yet.
-          </p>
-        </div>
-      )}
+      {!loading && !error && (
+        <>
+          <ActionPanel style={listPanelStyle}>
+            {renderListContent()}
+          </ActionPanel>
 
-      {isAuthenticated && deals && deals.length > 0 && (
-        <div style={listStyle}>
-          {deals.map((deal) => (
-            <DealCard deal={deal} key={deal.id} />
-          ))}
-        </div>
+          {filteredDeals.length > 0 && (
+            <p style={footerCountStyle}>
+              {filteredDeals.length} deal{filteredDeals.length === 1 ? "" : "s"}
+            </p>
+          )}
+        </>
       )}
     </AppShell>
   );
 }
 
-function DealCard({ deal }: { deal: MyDeal }) {
+function AuthStatePanel({
+  action,
+  description,
+  error,
+  title,
+}: {
+  action?: ReactNode;
+  description: string;
+  error?: string | null;
+  title: string;
+}) {
+  return (
+    <ActionPanel style={authPanelStyle}>
+      <EmptyState
+        action={action}
+        description={description}
+        icon={<Briefcase size={40} />}
+        title={title}
+      />
+      {error && (
+        <Notice
+          message={error}
+          tone="danger"
+        />
+      )}
+    </ActionPanel>
+  );
+}
+
+function DealRow({
+  deal,
+  isLast,
+}: {
+  deal: MyDeal;
+  isLast: boolean;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
   const badge = getDealDisplayConfig({
     resolution_type: deal.resolution_type,
     status: deal.status,
   });
 
   return (
-    <div style={cardStyle}>
-      <div style={cardHeaderStyle}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={dealTitleStyle}>{deal.title}</h2>
-          <p style={metaStyle}>
-            {formatDate(deal.scheduled_at, deal.timezone)} · {deal.duration_minutes} min · {deal.price_usdc} USDC
-          </p>
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        ...rowStyle,
+        background: isHovered ? "var(--panel-hover)" : "transparent",
+        borderBottom: isLast ? "none" : "1px solid var(--subtle-border)",
+      }}
+    >
+      <div style={rowIconStyle}>
+        <Briefcase size={15} />
+      </div>
+
+      <div style={rowInfoStyle}>
+        <p style={rowTitleStyle}>{deal.title}</p>
+        <div style={rowMetaStyle}>
+          <span style={metaItemStyle}>
+            <User size={10} />
+            {shortAddress(deal.seller_address)}
+          </span>
+          <span style={metaItemStyle}>
+            <Clock size={10} />
+            {formatDate(deal.scheduled_at, deal.timezone)}
+          </span>
         </div>
-        <span style={statusBadgeStyle(badge)}>{badge.label}</span>
       </div>
 
-      {deal.description && (
-        <p style={descriptionStyle}>{deal.description}</p>
-      )}
+      <p style={priceStyle}>{deal.price_usdc} USDC</p>
 
-      <div style={detailsStyle}>
-        <span>Seller: {shortAddress(deal.seller_address)}</span>
-        <span>Deal #{deal.onchain_deal_id}</span>
-      </div>
+      <StatusPill
+        bg={badge.bg}
+        color={badge.color}
+        label={badge.label}
+      />
 
-      <Link href={`/deal/${deal.id}`} style={linkStyle}>
-        View deal
-      </Link>
+      <IconNextLink
+        href={`/deal/${deal.id}`}
+        label="View deal"
+      >
+        <Eye size={13} />
+      </IconNextLink>
     </div>
   );
 }
 
-const headerStyle = {
+function IconNextLink({
+  children,
+  href,
+  label,
+}: {
+  children: ReactNode;
+  href: string;
+  label: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <Link
+      aria-label={label}
+      href={href}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={iconActionStyle(isHovered)}
+      title={label}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function iconActionStyle(isHovered: boolean): CSSProperties {
+  return {
+    alignItems: "center",
+    background: isHovered ? "var(--muted-bg)" : "transparent",
+    border: "none",
+    borderRadius: "var(--radius-sm)",
+    color: "var(--muted)",
+    cursor: "pointer",
+    display: "inline-flex",
+    flexShrink: 0,
+    height: 32,
+    justifyContent: "center",
+    padding: 6,
+    textDecoration: "none",
+    transition: "background 0.15s, color 0.15s",
+    width: 32,
+  };
+}
+
+const authPanelStyle = {
+  overflow: "hidden",
+  padding: "0 16px 16px",
+} as const;
+
+const pageHeaderStyle = {
+  alignItems: "center",
   display: "flex",
-  flexDirection: "column" as const,
-  gap: 8,
-};
+  gap: 16,
+  justifyContent: "space-between",
+} as const;
 
 const h1Style = {
+  color: "var(--foreground)",
   fontSize: 24,
   fontWeight: 800,
   letterSpacing: "-0.02em",
   margin: 0,
-};
+} as const;
 
-const subtitleStyle = {
+const totalStyle = {
   color: "var(--muted)",
-  fontSize: 15,
-  lineHeight: 1.5,
-  margin: 0,
-};
+  fontSize: 14,
+} as const;
 
-const listStyle = {
+const statePanelStyle = {
+  padding: 20,
+} as const;
+
+const mutedTextStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
+  margin: 0,
+  textAlign: "center" as const,
+} as const;
+
+const listPanelStyle = {
+  overflow: "hidden",
+} as const;
+
+const rowStyle = {
+  alignItems: "center",
   display: "flex",
-  flexDirection: "column" as const,
+  flexWrap: "wrap" as const,
   gap: 12,
-};
+  padding: "16px 20px",
+  transition: "background 0.15s",
+} as const;
 
-const cardStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  boxShadow: "var(--shadow-card)",
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 12,
-  padding: 16,
-};
-
-const cardHeaderStyle = {
-  alignItems: "flex-start",
-  display: "flex",
-  gap: 10,
-};
-
-const dealTitleStyle = {
-  fontSize: 16,
-  lineHeight: 1.3,
-  margin: "0 0 4px",
-  overflowWrap: "anywhere" as const,
-};
-
-const metaStyle = {
+const rowIconStyle = {
+  alignItems: "center",
+  background: "var(--muted-bg)",
+  borderRadius: "var(--radius)",
   color: "var(--muted)",
-  fontSize: 12,
-  lineHeight: 1.4,
-  margin: 0,
-};
+  display: "inline-flex",
+  flexShrink: 0,
+  height: 36,
+  justifyContent: "center",
+  width: 36,
+} as const;
 
-const descriptionStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.5,
-  margin: 0,
-  overflowWrap: "anywhere" as const,
-};
+const rowInfoStyle = {
+  flex: "1 1 220px",
+  minWidth: 0,
+} as const;
 
-const detailsStyle = {
+const rowTitleStyle = {
+  color: "var(--foreground)",
+  fontSize: 14,
+  fontWeight: 500,
+  margin: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+} as const;
+
+const rowMetaStyle = {
+  alignItems: "center",
   color: "var(--muted)",
   display: "flex",
   flexWrap: "wrap" as const,
   fontSize: 12,
-  gap: 10,
-};
+  gap: 12,
+  marginTop: 4,
+} as const;
 
-function statusBadgeStyle(badge: { bg: string; color: string }) {
-  return {
-    background: badge.bg,
-    border: "1px solid transparent",
-    borderRadius: 8,
-    color: badge.color,
-    flexShrink: 0,
-    fontSize: 11,
-    fontWeight: 700,
-    padding: "4px 8px",
-    textTransform: "uppercase" as const,
-    whiteSpace: "nowrap" as const,
-  };
-}
+const metaItemStyle = {
+  alignItems: "center",
+  display: "inline-flex",
+  gap: 4,
+} as const;
 
-const linkStyle = {
-  alignSelf: "flex-start",
-  color: "var(--accent)",
-  fontSize: 13,
-  fontWeight: 700,
-  textDecoration: "none",
-};
+const priceStyle = {
+  color: "var(--foreground)",
+  flexShrink: 0,
+  fontSize: 14,
+  fontWeight: 600,
+  margin: 0,
+} as const;
 
-const emptyStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  padding: 20,
-};
-
-const errorStyle = {
-  background: "var(--danger-muted)",
-  border: "1px solid var(--danger)",
-  borderRadius: 8,
-  color: "var(--danger)",
-  fontSize: 13,
-  padding: "10px 14px",
+const footerCountStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+  margin: "12px 0 0",
+  textAlign: "center" as const,
 } as const;
