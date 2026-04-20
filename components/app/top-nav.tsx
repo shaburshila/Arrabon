@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -15,9 +16,22 @@ const navItems = [
 
 export function TopNav({ session }: { session: WalletSessionState }) {
   const pathname = usePathname();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    function handleScroll() {
+      setIsScrolled(window.scrollY > 24);
+    }
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const isAtTop = !isScrolled;
 
   return (
-    <header style={headerStyle}>
+    <header style={headerStyle(isAtTop)}>
       <div style={headerInnerStyle}>
         <Link href="/" style={brandStyle}>
           <span style={brandMarkStyle}>B</span>
@@ -47,19 +61,24 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-const headerStyle = {
-  backdropFilter: "blur(16px)",
-  background: "color-mix(in srgb, var(--background) 90%, transparent)",
-  borderBottom: "1px solid var(--border)",
-  display: "flex",
-  justifyContent: "center",
-  left: 0,
-  position: "fixed" as const,
-  right: 0,
-  top: 0,
-  width: "100%",
-  zIndex: 40,
-};
+function headerStyle(borderless: boolean) {
+  return {
+    backdropFilter: "blur(16px)",
+    background: borderless
+      ? "color-mix(in srgb, var(--background) 88%, transparent)"
+      : "var(--background)",
+    borderBottom: borderless ? "1px solid transparent" : "1px solid var(--border)",
+    display: "flex",
+    justifyContent: "center",
+    left: 0,
+    position: "fixed" as const,
+    right: 0,
+    top: 0,
+    transition: "background 0.18s, border-color 0.18s",
+    width: "100%",
+    zIndex: 40,
+  };
+}
 
 const headerInnerStyle = {
   alignItems: "center",

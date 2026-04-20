@@ -5,9 +5,11 @@ import { TopNav } from "@/components/app/top-nav";
 
 export function AppShell({
   children,
+  flushBottom = false,
   maxWidth = 640,
 }: {
   children: React.ReactNode;
+  flushBottom?: boolean;
   maxWidth?: number;
 }) {
   const session = useWalletSession();
@@ -15,7 +17,7 @@ export function AppShell({
   return (
     <>
       <TopNav session={session} />
-      <main style={mainStyle}>
+      <main style={{ ...mainStyle, paddingBottom: flushBottom ? 0 : 48 }}>
         <div style={{ ...contentStyle, maxWidth }}>
           {children}
         </div>

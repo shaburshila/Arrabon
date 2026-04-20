@@ -4,32 +4,24 @@ import {
   Children,
   cloneElement,
   isValidElement,
+  useEffect,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowRight,
-  Briefcase,
   Check,
-  ChevronRight,
+  ChevronDown,
   Link2,
   Lock,
-  MessageSquare,
   Plus,
   Shield,
   User,
-  Wallet,
-  Zap,
 } from "lucide-react";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
 import { AppShell } from "@/components/app/app-shell";
-import { Btn } from "@/components/shared/btn";
-import { ActionPanel } from "@/components/shared/action-panel";
-import { StatusPill } from "@/components/shared/status-pill";
 
 const howItWorksCards = [
   {
@@ -82,68 +74,6 @@ const benefitCards = [
   },
 ] as const;
 
-const disputeCards = [
-  {
-    description: "A buyer can open a dispute when the consultation outcome needs review.",
-    icon: AlertTriangle,
-    iconBg: "var(--warning-muted)",
-    iconColor: "var(--warning)",
-    title: "Buyer opens dispute",
-  },
-  {
-    description: "Both sides can add messages and evidence URLs for review.",
-    icon: MessageSquare,
-    iconBg: "var(--accent-soft)",
-    iconColor: "var(--accent)",
-    title: "Evidence stays visible",
-  },
-  {
-    description: "A neutral admin reviews the deal context before preparing a decision.",
-    icon: Shield,
-    iconBg: "var(--accent-muted)",
-    iconColor: "var(--accent)",
-    title: "Admin reviews context",
-  },
-  {
-    description: "The final release or refund is signed by an admin wallet.",
-    icon: Check,
-    iconBg: "rgba(34, 197, 94, 0.1)",
-    iconColor: "var(--success)",
-    title: "Wallet-signed resolution",
-  },
-] as const;
-
-const securityCards = [
-  {
-    description: "Payment is routed through the escrow contract instead of a direct upfront transfer.",
-    icon: Lock,
-    iconBg: "var(--accent-soft)",
-    iconColor: "var(--accent)",
-    title: "USDC escrow on Base",
-  },
-  {
-    description: "Funding, release, refund, and admin resolution require wallet signatures.",
-    icon: Wallet,
-    iconBg: "rgba(34, 197, 94, 0.1)",
-    iconColor: "var(--success)",
-    title: "Wallet-signed actions",
-  },
-  {
-    description: "Escrow behavior is covered by automated tests before launch.",
-    icon: Check,
-    iconBg: "var(--accent-muted)",
-    iconColor: "var(--accent)",
-    title: "Contract-tested flow",
-  },
-  {
-    description: "Admin resolution is prepared by the backend, but signed by an admin wallet.",
-    icon: Shield,
-    iconBg: "var(--warning-muted)",
-    iconColor: "var(--warning)",
-    title: "No backend admin key",
-  },
-] as const;
-
 const footerLinks = [
   "Docs",
   "Terms",
@@ -153,22 +83,26 @@ const footerLinks = [
   "Contract on Basescan",
 ] as const;
 
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
 export default function HomePage() {
-  const session = useWalletSession();
-  const isAdmin = session.session?.is_admin === true;
+  const [showScrollHint, setShowScrollHint] = useState(true);
+
+  useEffect(() => {
+    function handleScroll() {
+      setShowScrollHint(window.scrollY < 24);
+    }
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <AppShell maxWidth={1120}>
+    <AppShell flushBottom maxWidth={1120}>
       <div style={homeStackStyle}>
-        <HeroSection isAdmin={isAdmin} session={session} />
+        <HeroSection />
+        <ScrollHint visible={showScrollHint} />
         <HowItWorksSection />
         <BenefitsSection />
-        <DisputeReviewSection />
-        <SecuritySection />
         <FinalCtaSection />
         <HomeFooter />
       </div>
@@ -176,13 +110,26 @@ export default function HomePage() {
   );
 }
 
-function HeroSection({
-  isAdmin,
-  session,
-}: {
-  isAdmin: boolean;
-  session: ReturnType<typeof useWalletSession>;
-}) {
+function ScrollHint({ visible }: { visible: boolean }) {
+  return (
+    <Link
+      aria-hidden={!visible}
+      href="#how-it-works"
+      style={{
+        ...scrollHintStyle,
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? "auto" : "none",
+        transform: visible ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(8px)",
+      }}
+      tabIndex={visible ? 0 : -1}
+    >
+      <span>Scroll to learn more</span>
+      <ChevronDown size={14} />
+    </Link>
+  );
+}
+
+function HeroSection() {
   return (
     <section style={heroStyle}>
       <div style={heroCopyStyle}>
@@ -214,136 +161,7 @@ function HeroSection({
           <span>Funds held in escrow · Wallet-signed actions · Base L2</span>
         </div>
       </div>
-
-      <LaunchpadPanel isAdmin={isAdmin} session={session} />
     </section>
-  );
-}
-
-function LaunchpadPanel({
-  isAdmin,
-  session,
-}: {
-  isAdmin: boolean;
-  session: ReturnType<typeof useWalletSession>;
-}) {
-  const walletLabel = session.address ? shortAddress(session.address) : "Connected wallet";
-
-  return (
-    <ActionPanel style={launchpadPanelStyle}>
-      <div style={launchpadHeaderStyle}>
-        <div style={brandIconStyle}>
-          <Zap size={18} fill="currentColor" />
-        </div>
-        <div>
-          <p style={launchpadTitleStyle}>Base Consult Link</p>
-          <p style={launchpadSubtitleStyle}>Escrow-backed consultation protocol</p>
-        </div>
-      </div>
-
-      <nav aria-label="Home actions" style={launchpadRowsStyle}>
-        <LaunchpadRow
-          href="/create"
-          icon={<Plus size={18} />}
-          iconStyle="accent"
-          subtitle="New paid consultation"
-          title="Create link"
-        />
-        <LaunchpadRow
-          href="/my-links"
-          icon={<Link2 size={18} />}
-          iconStyle="success"
-          subtitle="Manage seller links"
-          title="My links"
-        />
-        <LaunchpadRow
-          href="/my-deals"
-          icon={<Briefcase size={18} />}
-          iconStyle="warning"
-          subtitle="Paid consultations"
-          title="My deals"
-        />
-        {isAdmin && (
-          <LaunchpadRow
-            href="/admin/disputes"
-            icon={<Shield size={18} />}
-            iconStyle="admin"
-            subtitle="Resolve open disputes"
-            title="Admin disputes"
-          />
-        )}
-      </nav>
-
-      <div style={walletAreaStyle}>
-        {session.isConnected ? (
-          <div style={walletConnectedStyle}>
-            <div style={walletIdentityStyle}>
-              <span style={walletAvatarStyle} />
-              <span style={walletAddressStyle}>{walletLabel}</span>
-            </div>
-            <StatusPill
-              label={isAdmin ? "Admin · Base" : "Connected · Base"}
-              tone={isAdmin ? "warning" : "success"}
-            />
-          </div>
-        ) : (
-          <Btn fullWidth onClick={() => session.connect()}>
-            Connect wallet to get started
-            <ArrowRight size={14} />
-          </Btn>
-        )}
-      </div>
-    </ActionPanel>
-  );
-}
-
-function LaunchpadRow({
-  href,
-  icon,
-  iconStyle,
-  subtitle,
-  title,
-}: {
-  href: string;
-  icon: ReactNode;
-  iconStyle: "accent" | "admin" | "success" | "warning";
-  subtitle: string;
-  title: string;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const colors = launchpadIconStyles[iconStyle];
-
-  return (
-    <Link
-      href={href}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        ...launchpadRowStyle,
-        background: hovered ? "var(--panel-hover)" : "transparent",
-      }}
-    >
-      <span
-        style={{
-          ...launchpadRowIconStyle,
-          background: colors.bg,
-          color: colors.color,
-        }}
-      >
-        {icon}
-      </span>
-      <span style={launchpadRowTextStyle}>
-        <span style={launchpadRowTitleStyle}>{title}</span>
-        <span style={launchpadRowSubtitleStyle}>{subtitle}</span>
-      </span>
-      <ChevronRight
-        size={16}
-        style={{
-          color: hovered ? "var(--muted)" : "var(--border)",
-          flexShrink: 0,
-        }}
-      />
-    </Link>
   );
 }
 
@@ -373,74 +191,24 @@ function HowItWorksSection() {
 
 function BenefitsSection() {
   return (
-    <section style={sectionStyle}>
-      <SectionHeader
-        eyebrow="Built for both sides"
-        title="A safer workflow for paid consultations"
-      />
-      <div style={threeCardGridStyle}>
-        {benefitCards.map((card) => (
-          <InfoCard
-            description={card.description}
-            icon={<card.icon size={22} />}
-            iconBg={card.iconBg}
-            iconColor={card.iconColor}
-            key={card.title}
-            title={card.title}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function DisputeReviewSection() {
-  return (
-    <section style={sectionStyle}>
-      <SectionHeader
-        eyebrow="Dispute review"
-        title="Disputes stay reviewable"
-        subtitle="Both sides can add context before an admin wallet signs the final release or refund."
-      />
-      <div style={fourCardGridStyle}>
-        {disputeCards.map((card) => (
-          <InfoCard
-            compact
-            description={card.description}
-            icon={<card.icon size={20} />}
-            iconBg={card.iconBg}
-            iconColor={card.iconColor}
-            key={card.title}
-            title={card.title}
-          />
-        ))}
-      </div>
-      <p style={sectionNoteStyle}>
-        Admin private keys are not stored on the backend.
-      </p>
-    </section>
-  );
-}
-
-function SecuritySection() {
-  return (
-    <section style={sectionStyle}>
-      <SectionHeader
-        eyebrow="Security model"
-        title="Wallet-first escrow controls"
-      />
-      <div style={fourCardGridStyle}>
-        {securityCards.map((card) => (
-          <InfoCard
-            compact
-            description={card.description}
-            icon={<card.icon size={20} />}
-            iconBg={card.iconBg}
-            iconColor={card.iconColor}
-            key={card.title}
-            title={card.title}
-          />
-        ))}
+    <section style={{ ...fullBleedSectionStyle, background: "var(--muted-bg)" }}>
+      <div style={fullBleedInnerStyle}>
+        <SectionHeader
+          eyebrow="Built for both sides"
+          title="A safer workflow for paid consultations"
+        />
+        <div style={threeCardGridStyle}>
+          {benefitCards.map((card) => (
+            <InfoCard
+              description={card.description}
+              icon={<card.icon size={22} />}
+              iconBg={card.iconBg}
+              iconColor={card.iconColor}
+              key={card.title}
+              title={card.title}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -449,18 +217,21 @@ function SecuritySection() {
 function FinalCtaSection() {
   return (
     <section style={finalCtaStyle}>
-      <h2 style={finalCtaTitleStyle}>Ready to create your first consultation link?</h2>
-      <p style={finalCtaSubtitleStyle}>
-        Set the terms, share the link, and let the buyer fund escrow on Base.
-      </p>
-      <CtaLink href="/create" variant="primary">
-        Create your first link
-        <ArrowRight size={16} />
-      </CtaLink>
-      <div style={trustIndicatorsStyle}>
-        <TrustIndicator label="Built on Base" />
-        <TrustIndicator label="Wallet-signed actions" />
-        <TrustIndicator label="Neutral dispute review" />
+      <div style={finalCtaGradientStyle} />
+      <div style={finalCtaInnerStyle}>
+        <h2 style={finalCtaTitleStyle}>Ready to create your first consultation link?</h2>
+        <p style={finalCtaSubtitleStyle}>
+          Set the terms, share the link, and let the buyer fund escrow on Base.
+        </p>
+        <CtaLink href="/create" variant="primary">
+          Create your first link
+          <ArrowRight size={16} />
+        </CtaLink>
+        <div style={trustIndicatorsStyle}>
+          <TrustIndicator label="Built on Base" />
+          <TrustIndicator label="Wallet-signed actions" />
+          <TrustIndicator label="Neutral dispute review" />
+        </div>
       </div>
     </section>
   );
@@ -469,20 +240,22 @@ function FinalCtaSection() {
 function HomeFooter() {
   return (
     <footer style={footerStyle}>
-      <nav aria-label="Footer links" style={footerLinksStyle}>
-        {footerLinks.map((label) => (
-          <FooterLink href="#" key={label}>
-            {label}
-          </FooterLink>
-        ))}
-      </nav>
-      <div style={footerBottomStyle}>
-        <p style={footerTextStyle}>
-          Base Consult Link · Built on Base · Consultation escrow workflow
-        </p>
-        <p style={footerDisclaimerStyle}>
-          Users are responsible for complying with applicable laws and platform terms.
-        </p>
+      <div style={footerInnerStyle}>
+        <nav aria-label="Footer links" style={footerLinksStyle}>
+          {footerLinks.map((label) => (
+            <FooterLink href="#" key={label}>
+              {label}
+            </FooterLink>
+          ))}
+        </nav>
+        <div style={footerBottomStyle}>
+          <p style={footerTextStyle}>
+            Base Consult Link · Built on Base · Consultation escrow workflow
+          </p>
+          <p style={footerDisclaimerStyle}>
+            Users are responsible for complying with applicable laws and platform terms.
+          </p>
+        </div>
       </div>
     </footer>
   );
@@ -644,24 +417,44 @@ const homeStackStyle = {
   gap: 0,
 };
 
+const scrollHintStyle = {
+  alignItems: "center",
+  bottom: 40,
+  color: "var(--muted)",
+  display: "inline-flex",
+  flexDirection: "column" as const,
+  fontSize: 12,
+  fontWeight: 500,
+  gap: 4,
+  left: "50%",
+  position: "fixed" as const,
+  textDecoration: "none",
+  transform: "translateX(-50%)",
+  transition: "opacity 0.18s, transform 0.18s",
+  zIndex: 20,
+};
+
 const heroStyle = {
   alignItems: "center",
-  display: "grid",
-  gap: 32,
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
-  padding: "56px 0 72px",
+  display: "flex",
+  justifyContent: "center",
+  minHeight: "calc(100vh - 136px)",
+  padding: "0 0 24px",
+  textAlign: "center" as const,
 };
 
 const heroCopyStyle = {
+  alignItems: "center",
   display: "flex",
   flexDirection: "column" as const,
   gap: 20,
-  maxWidth: 520,
+  maxWidth: 480,
+  transform: "translateY(-10vh)",
 };
 
 const badgeStyle = {
   alignItems: "center",
-  alignSelf: "flex-start",
+  alignSelf: "center",
   background: "var(--accent-muted)",
   borderRadius: 999,
   color: "var(--accent)",
@@ -674,10 +467,10 @@ const badgeStyle = {
 
 const heroTitleStyle = {
   color: "var(--foreground)",
-  fontSize: "clamp(34px, 7vw, 58px)",
+  fontSize: "clamp(32px, 5vw, 42px)",
   fontWeight: 800,
   letterSpacing: "-0.02em",
-  lineHeight: 1.08,
+  lineHeight: 1.2,
   margin: 0,
 };
 
@@ -693,13 +486,14 @@ const heroSubtitleStyle = {
   fontSize: 15,
   lineHeight: 1.6,
   margin: 0,
-  maxWidth: 470,
+  maxWidth: 380,
 };
 
 const heroActionsStyle = {
   display: "flex",
   flexWrap: "wrap" as const,
   gap: 12,
+  justifyContent: "center",
 };
 
 const trustLineStyle = {
@@ -709,152 +503,25 @@ const trustLineStyle = {
   flexWrap: "wrap" as const,
   fontSize: 12,
   gap: 8,
-};
-
-const launchpadPanelStyle = {
-  alignSelf: "center",
-  justifySelf: "center",
-  maxWidth: 448,
-  overflow: "hidden",
-  width: "100%",
-};
-
-const launchpadHeaderStyle = {
-  alignItems: "center",
-  borderBottom: "1px solid var(--subtle-border)",
-  display: "flex",
-  gap: 12,
-  padding: 20,
-};
-
-const brandIconStyle = {
-  alignItems: "center",
-  background: "var(--accent)",
-  borderRadius: "var(--radius)",
-  color: "#fff",
-  display: "inline-flex",
-  flexShrink: 0,
-  height: 40,
   justifyContent: "center",
-  width: 40,
-};
-
-const launchpadTitleStyle = {
-  color: "var(--foreground)",
-  fontSize: 16,
-  fontWeight: 600,
-  margin: 0,
-};
-
-const launchpadSubtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  margin: "2px 0 0",
-};
-
-const launchpadRowsStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 4,
-  padding: 12,
-};
-
-const launchpadRowStyle = {
-  alignItems: "center",
-  borderRadius: "var(--radius)",
-  color: "var(--foreground)",
-  display: "flex",
-  gap: 12,
-  justifyContent: "space-between",
-  padding: 16,
-  textDecoration: "none",
-  transition: "background 0.15s",
-};
-
-const launchpadRowIconStyle = {
-  alignItems: "center",
-  borderRadius: "var(--radius)",
-  display: "inline-flex",
-  flexShrink: 0,
-  height: 40,
-  justifyContent: "center",
-  width: 40,
-};
-
-const launchpadIconStyles = {
-  accent: {
-    bg: "var(--accent-soft)",
-    color: "var(--accent)",
-  },
-  admin: {
-    bg: "var(--warning-muted)",
-    color: "var(--warning)",
-  },
-  success: {
-    bg: "rgba(34, 197, 94, 0.1)",
-    color: "var(--success)",
-  },
-  warning: {
-    bg: "var(--warning-muted)",
-    color: "var(--warning)",
-  },
-} as const;
-
-const launchpadRowTextStyle = {
-  display: "flex",
-  flex: "1 1 auto",
-  flexDirection: "column" as const,
-  minWidth: 0,
-};
-
-const launchpadRowTitleStyle = {
-  color: "var(--foreground)",
-  fontSize: 15,
-  fontWeight: 500,
-};
-
-const launchpadRowSubtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  marginTop: 2,
-};
-
-const walletAreaStyle = {
-  borderTop: "1px solid var(--subtle-border)",
-  padding: 16,
-};
-
-const walletConnectedStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: 12,
-  justifyContent: "space-between",
-};
-
-const walletIdentityStyle = {
-  alignItems: "center",
-  display: "flex",
-  gap: 8,
-  minWidth: 0,
-};
-
-const walletAvatarStyle = {
-  background: "linear-gradient(135deg, var(--accent) 0%, var(--success) 100%)",
-  borderRadius: "50%",
-  display: "inline-block",
-  flexShrink: 0,
-  height: 24,
-  width: 24,
-};
-
-const walletAddressStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
 };
 
 const sectionStyle = {
   padding: "72px 0",
+};
+
+const fullBleedSectionStyle = {
+  display: "flex",
+  justifyContent: "center",
+  marginLeft: "calc(50% - 50vw)",
+  marginRight: "calc(50% - 50vw)",
+  padding: "96px 16px",
+  width: "100vw",
+};
+
+const fullBleedInnerStyle = {
+  maxWidth: 1120,
+  width: "100%",
 };
 
 const sectionHeaderStyle = {
@@ -895,12 +562,6 @@ const threeCardGridStyle = {
   display: "grid",
   gap: 24,
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
-};
-
-const fourCardGridStyle = {
-  display: "grid",
-  gap: 16,
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
 };
 
 const infoCardStyle = {
@@ -956,25 +617,36 @@ const cardDescriptionStyle = {
   margin: 0,
 };
 
-const sectionNoteStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.5,
-  margin: "20px 0 0",
-  textAlign: "center" as const,
-};
-
 const finalCtaStyle = {
   alignItems: "center",
-  background: "var(--accent-muted)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-lg)",
   display: "flex",
   flexDirection: "column" as const,
   gap: 18,
-  margin: "56px 0",
-  padding: "56px 24px",
+  justifyContent: "center",
+  marginLeft: "calc(50% - 50vw)",
+  marginRight: "calc(50% - 50vw)",
+  overflow: "hidden",
+  padding: "96px 16px",
+  position: "relative" as const,
   textAlign: "center" as const,
+  width: "100vw",
+};
+
+const finalCtaGradientStyle = {
+  background: "linear-gradient(135deg, var(--accent) 0%, var(--success) 100%)",
+  inset: 0,
+  opacity: 0.1,
+  position: "absolute" as const,
+};
+
+const finalCtaInnerStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 18,
+  maxWidth: 768,
+  position: "relative" as const,
+  width: "100%",
 };
 
 const finalCtaTitleStyle = {
@@ -1032,11 +704,21 @@ const trustIndicatorStyle = {
 };
 
 const footerStyle = {
+  background: "var(--surface)",
   borderTop: "1px solid var(--subtle-border)",
+  marginLeft: "calc(50% - 50vw)",
+  marginRight: "calc(50% - 50vw)",
+  padding: "32px 16px",
+  width: "100vw",
+};
+
+const footerInnerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 24,
-  padding: "32px 0",
+  margin: "0 auto",
+  maxWidth: 1120,
+  width: "100%",
 };
 
 const footerLinksStyle = {
