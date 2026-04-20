@@ -81,6 +81,7 @@ export function useWalletSession(): WalletSessionState {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const pingDone = useRef(false);
+  const autoSignAttempted = useRef(false);
 
   const isCorrectChain = chainId === baseRuntimeConfig.chainId;
 
@@ -91,6 +92,7 @@ export function useWalletSession(): WalletSessionState {
       setSession(null);
       setSignInError(null);
       pingDone.current = false;
+      autoSignAttempted.current = false;
       return;
     }
 
@@ -102,6 +104,7 @@ export function useWalletSession(): WalletSessionState {
         setSiweStatus("unauthenticated");
         setSignInError(null);
         pingDone.current = false;
+        autoSignAttempted.current = false;
       }
       return;
     }
@@ -182,6 +185,20 @@ export function useWalletSession(): WalletSessionState {
     setSignInError(null);
     pingDone.current = false;
   }, []);
+
+  useEffect(() => {
+    if (
+      isConnected &&
+      isCorrectChain &&
+      siweStatus === "unauthenticated" &&
+      !isSigningIn &&
+      pingDone.current &&
+      !autoSignAttempted.current
+    ) {
+      autoSignAttempted.current = true;
+      void signIn();
+    }
+  }, [isConnected, isCorrectChain, siweStatus, isSigningIn, signIn]);
 
   const switchToCorrectChain = useCallback(async () => {
     await switchChainAsync({ chainId: baseRuntimeConfig.chainId });

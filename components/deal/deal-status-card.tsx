@@ -53,7 +53,7 @@ export function DealStatusCard({ deal, isAdmin = false, role }: DealStatusCardPr
 
       <DetailRow
         label="Amount"
-        value={`$${deal.price_usdc} USDC`}
+        value={`${deal.price_usdc} USDC`}
       />
       <DetailRow
         label="Seller"

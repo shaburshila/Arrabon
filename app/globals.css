@@ -157,3 +157,16 @@ select {
     transform: rotate(360deg);
   }
 }
+
+@keyframes scrollHintFloat {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(7px);
+  }
+}

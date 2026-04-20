@@ -1,9 +1,6 @@
 "use client";
 
 import {
-  Children,
-  cloneElement,
-  isValidElement,
   useEffect,
   useState,
   type CSSProperties,
@@ -11,7 +8,6 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   Check,
   ChevronDown,
   Link2,
@@ -112,20 +108,24 @@ export default function HomePage() {
 
 function ScrollHint({ visible }: { visible: boolean }) {
   return (
-    <Link
+    <div
       aria-hidden={!visible}
-      href="#how-it-works"
       style={{
         ...scrollHintStyle,
         opacity: visible ? 1 : 0,
-        pointerEvents: visible ? "auto" : "none",
+        pointerEvents: "none",
         transform: visible ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(8px)",
       }}
-      tabIndex={visible ? 0 : -1}
     >
-      <span>Scroll to learn more</span>
-      <ChevronDown size={14} />
-    </Link>
+      <span style={scrollHintFloatStyle}>
+        <span>Scroll to learn more</span>
+        <span style={scrollHintIconStyle}>
+          <ChevronDown size={14} />
+          <ChevronDown size={14} />
+          <ChevronDown size={14} />
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -139,12 +139,12 @@ function HeroSection() {
         </div>
 
         <h1 style={heroTitleStyle}>
-          Get paid when the consultation is{" "}
-          <span style={heroTitleAccentStyle}>confirmed.</span>
+          Get paid for your{" "}
+          <span style={heroTitleAccentStyle}>expertise</span>
         </h1>
 
         <p style={heroSubtitleStyle}>
-          Create a secure payment link. Share it with a buyer. Funds are held in USDC escrow on Base until the consultation is confirmed or resolved.
+          Create a secure payment link. Share it. Get paid only when the consultation happens.
         </p>
 
         <div style={heroActionsStyle}>
@@ -158,7 +158,7 @@ function HeroSection() {
 
         <div style={trustLineStyle}>
           <Lock size={12} />
-          <span>Funds held in escrow · Wallet-signed actions · Base L2</span>
+          <span>Funds held on-chain · Wallet-signed actions · Base L2</span>
         </div>
       </div>
     </section>
@@ -225,7 +225,6 @@ function FinalCtaSection() {
         </p>
         <CtaLink href="/create" variant="primary">
           Create your first link
-          <ArrowRight size={16} />
         </CtaLink>
         <div style={trustIndicatorsStyle}>
           <TrustIndicator label="Built on Base" />
@@ -346,34 +345,13 @@ function CtaLink({
             : "transparent",
         border: isPrimary ? "1px solid transparent" : "1px solid var(--border)",
         color: isPrimary ? "#fff" : "var(--foreground)",
+        minWidth: 160,
         transform: hovered && isPrimary ? "translateY(-1px)" : "translateY(0)",
       }}
     >
-      <span style={ctaContentStyle}>
-        {typeof children === "string" ? children : renderCtaChildren(children, hovered)}
-      </span>
+      <span style={ctaContentStyle}>{children}</span>
     </Link>
   );
-}
-
-function renderCtaChildren(children: ReactNode, hovered: boolean) {
-  return Children.map(children, (child) => {
-    if (!isValidElement<{ style?: CSSProperties }>(child)) {
-      return child;
-    }
-
-    if (child.type !== ArrowRight) {
-      return child;
-    }
-
-    return cloneElement(child, {
-      style: {
-        ...child.props.style,
-        transform: hovered ? "translateX(4px)" : "translateX(0)",
-        transition: "transform 0.15s",
-      },
-    });
-  });
 }
 
 function TrustIndicator({ label }: { label: string }) {
@@ -419,19 +397,33 @@ const homeStackStyle = {
 
 const scrollHintStyle = {
   alignItems: "center",
-  bottom: 40,
+  bottom: 56,
   color: "var(--muted)",
   display: "inline-flex",
   flexDirection: "column" as const,
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: 500,
   gap: 4,
+  lineHeight: 1.2,
   left: "50%",
   position: "fixed" as const,
   textDecoration: "none",
   transform: "translateX(-50%)",
   transition: "opacity 0.18s, transform 0.18s",
   zIndex: 20,
+};
+
+const scrollHintFloatStyle = {
+  alignItems: "center",
+  animation: "scrollHintFloat 2.2s ease-in-out infinite",
+  display: "inline-flex",
+  flexDirection: "column" as const,
+  gap: 4,
+};
+
+const scrollHintIconStyle = {
+  display: "inline-flex",
+  gap: 2,
 };
 
 const heroStyle = {
@@ -448,8 +440,9 @@ const heroCopyStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 20,
-  maxWidth: 480,
+  maxWidth: 760,
   transform: "translateY(-10vh)",
+  width: "100%",
 };
 
 const badgeStyle = {
@@ -472,6 +465,7 @@ const heroTitleStyle = {
   letterSpacing: "-0.02em",
   lineHeight: 1.2,
   margin: 0,
+  whiteSpace: "nowrap" as const,
 };
 
 const heroTitleAccentStyle = {
@@ -508,18 +502,21 @@ const trustLineStyle = {
 
 const sectionStyle = {
   padding: "72px 0",
+  width: "100%",
 };
 
 const fullBleedSectionStyle = {
+  boxSizing: "border-box" as const,
   display: "flex",
   justifyContent: "center",
   marginLeft: "calc(50% - 50vw)",
   marginRight: "calc(50% - 50vw)",
   padding: "96px 16px",
-  width: "100vw",
+  width: "auto",
 };
 
 const fullBleedInnerStyle = {
+  margin: "0 auto",
   maxWidth: 1120,
   width: "100%",
 };
@@ -531,6 +528,7 @@ const sectionHeaderStyle = {
   gap: 10,
   marginBottom: 40,
   textAlign: "center" as const,
+  width: "100%",
 };
 
 const sectionEyebrowStyle = {
@@ -562,6 +560,7 @@ const threeCardGridStyle = {
   display: "grid",
   gap: 24,
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+  width: "100%",
 };
 
 const infoCardStyle = {
@@ -619,6 +618,7 @@ const cardDescriptionStyle = {
 
 const finalCtaStyle = {
   alignItems: "center",
+  boxSizing: "border-box" as const,
   display: "flex",
   flexDirection: "column" as const,
   gap: 18,
@@ -629,7 +629,7 @@ const finalCtaStyle = {
   padding: "96px 16px",
   position: "relative" as const,
   textAlign: "center" as const,
-  width: "100vw",
+  width: "auto",
 };
 
 const finalCtaGradientStyle = {
@@ -644,6 +644,7 @@ const finalCtaInnerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 18,
+  margin: "0 auto",
   maxWidth: 768,
   position: "relative" as const,
   width: "100%",
@@ -674,8 +675,8 @@ const ctaLinkBaseStyle: CSSProperties = {
   fontWeight: 500,
   justifyContent: "center",
   minHeight: 48,
-  minWidth: 160,
   padding: "0 24px",
+  position: "relative",
   textDecoration: "none",
   transition: "background 0.15s, transform 0.15s",
 };
@@ -684,6 +685,7 @@ const ctaContentStyle = {
   alignItems: "center",
   display: "inline-flex",
   gap: 8,
+  justifyContent: "center",
 };
 
 const trustIndicatorsStyle = {
@@ -706,10 +708,11 @@ const trustIndicatorStyle = {
 const footerStyle = {
   background: "var(--surface)",
   borderTop: "1px solid var(--subtle-border)",
+  boxSizing: "border-box" as const,
   marginLeft: "calc(50% - 50vw)",
   marginRight: "calc(50% - 50vw)",
   padding: "32px 16px",
-  width: "100vw",
+  width: "auto",
 };
 
 const footerInnerStyle = {

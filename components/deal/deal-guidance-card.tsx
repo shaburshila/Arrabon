@@ -109,7 +109,7 @@ function getGuidanceMessage({
 
     case "Released":
       if (isSeller && amount) {
-        return `Payment of ${amount} has been released to the seller wallet. This deal is complete.`;
+        return `Payment of ${amount} has been released to your wallet. This deal is complete.`;
       }
 
       return "Payment has been released to the seller. This deal is complete.";

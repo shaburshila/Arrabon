@@ -107,21 +107,6 @@ export function WalletStatusPill({ session }: { session: WalletSessionState }) {
             </button>
           )}
 
-          {session.siweStatus !== "authenticated" && (
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                void session.signIn();
-              }}
-              role="menuitem"
-              style={dropdownButtonStyle("accent")}
-              type="button"
-            >
-              <MenuIcon kind="key" tone="accent" />
-              Sign in with Ethereum
-            </button>
-          )}
-
           {session.session?.is_admin === true && (
             <Link
               href="/admin/disputes"
@@ -138,20 +123,18 @@ export function WalletStatusPill({ session }: { session: WalletSessionState }) {
             </Link>
           )}
 
-          {session.siweStatus === "authenticated" && (
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                void session.signOut();
-              }}
-              role="menuitem"
-              style={dropdownButtonStyle("danger")}
-              type="button"
-            >
-              <MenuIcon kind="signout" tone="danger" />
-              Sign out
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setIsOpen(false);
+              void session.disconnect();
+            }}
+            role="menuitem"
+            style={dropdownButtonStyle("danger")}
+            type="button"
+          >
+            <MenuIcon kind="disconnect" tone="danger" />
+            Disconnect wallet
+          </button>
         </div>
       )}
     </div>
@@ -410,7 +393,7 @@ function MenuIcon({
   kind,
   tone,
 }: {
-  kind: "check" | "copy" | "key" | "shield" | "signout";
+  kind: "check" | "copy" | "disconnect" | "shield";
   tone: "accent" | "danger" | "muted" | "warning";
 }) {
   return (
@@ -433,18 +416,10 @@ function MenuIcon({
           </>
         )}
         {kind === "check" && <path d="M5 12.5 9.5 17 19 7" />}
-        {kind === "key" && (
-          <>
-            <circle cx="8" cy="12" r="3" />
-            <path d="M11 12h9" />
-            <path d="M17 12v3" />
-            <path d="M14 12v2" />
-          </>
-        )}
         {kind === "shield" && (
           <path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
         )}
-        {kind === "signout" && (
+        {kind === "disconnect" && (
           <>
             <path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" />
             <path d="M15 8 19 12 15 16" />
