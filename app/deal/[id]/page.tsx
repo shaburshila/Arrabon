@@ -70,7 +70,7 @@ export default function DealPage() {
   const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
 
   const session = useWalletSession();
-  const dealPage = useDealPage(dealId, session.address);
+  const dealPage = useDealPage(dealId, session.address, session.siweStatus);
   const actions = useDealActions(
     dealId,
     dealPage.deal?.consultation_link_id ?? "",
@@ -103,6 +103,11 @@ export default function DealPage() {
       {/* Not found */}
       {dealPage.status === "not_found" && (
         <Notice message="Deal not found." tone="muted" />
+      )}
+
+      {/* Auth required */}
+      {dealPage.status === "auth_required" && (
+        <WalletSessionCard session={session} />
       )}
 
       {/* Error */}

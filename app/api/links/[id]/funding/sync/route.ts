@@ -11,6 +11,10 @@ import {
   type DealEventsWorkerFailureType,
 } from "@/server/workers/deal-events-error-classification";
 import {
+  DealsRepositoryError,
+  getDealByTxHash,
+} from "@/server/repositories/deals";
+import {
   runDealEventsWorker,
   runDealEventsWorkerForTx,
   serializeDealEventsWorkerRunSummary,
@@ -36,6 +40,18 @@ type FundingSyncResponse =
     ok: false;
     status: DealEventsWorkerFailureType;
   };
+
+class FundingSyncScopeError extends Error {
+  code: string;
+  status: number;
+
+  constructor(message: string, status: number, code: string) {
+    super(message);
+    this.name = "FundingSyncScopeError";
+    this.code = code;
+    this.status = status;
+  }
+}
 
 function jsonError(
   message: string,
@@ -114,17 +130,50 @@ async function readSyncRequestOverrides(request: Request): Promise<SyncRequestOv
   }
 }
 
+async function assertTxBelongsToLink(input: {
+  linkId: string;
+  txHash: Hex;
+}) {
+  const deal = await getDealByTxHash(input.txHash);
+
+  if (!deal) {
+    throw new FundingSyncScopeError(
+      "Indexed transaction did not produce a deal.",
+      409,
+      "DEAL_NOT_FOUND_FOR_TX",
+    );
+  }
+
+  if (deal.consultation_link_id !== input.linkId) {
+    throw new FundingSyncScopeError(
+      "Transaction does not belong to this link.",
+      403,
+      "TX_LINK_MISMATCH",
+    );
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireUser();
-    parsePrepareFundingParams(await params);
+    const parsedParams = parsePrepareFundingParams(await params);
     const { fromBlock, txHash } = await readSyncRequestOverrides(request);
 
     if (txHash) {
       const result = await runDealEventsWorkerForTx(txHash);
+
+      if (
+        result.status !== "pending_confirmations" &&
+        (result.summary.processed > 0 || result.summary.alreadyProcessed > 0)
+      ) {
+        await assertTxBelongsToLink({
+          linkId: parsedParams.linkId,
+          txHash,
+        });
+      }
 
       return NextResponse.json(
         {
@@ -163,6 +212,22 @@ export async function POST(
 
       return jsonError(error.message, 400, {
         code,
+        ok: false,
+        status: "fatal",
+      });
+    }
+
+    if (error instanceof FundingSyncScopeError) {
+      return jsonError(error.message, error.status, {
+        code: error.code,
+        ok: false,
+        status: "fatal",
+      });
+    }
+
+    if (error instanceof DealsRepositoryError) {
+      return jsonError("Failed to validate transaction link ownership.", 500, {
+        code: error.code ?? "DEAL_TX_LOOKUP_FAILED",
         ok: false,
         status: "fatal",
       });

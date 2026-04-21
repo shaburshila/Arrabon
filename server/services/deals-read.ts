@@ -152,6 +152,7 @@ async function logRevealAttempt(
 }
 
 export async function getDealReadModel(
+  currentUser: CurrentUserContext,
   input: DealRouteParams,
 ): Promise<DealReadModel> {
   let deal;
@@ -179,6 +180,14 @@ export async function getDealReadModel(
 
   if (!deal) {
     throw new DealReadServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
+  }
+
+  if (
+    !currentUser.is_admin &&
+    !isSameWallet(currentUser.wallet_address, deal.buyer_address) &&
+    !isSameWallet(currentUser.wallet_address, deal.seller_address)
+  ) {
+    throw new DealReadServiceError("Access denied.", 403, "DEAL_ACCESS_DENIED");
   }
 
   return {

@@ -1,7 +1,6 @@
-import { timingSafeEqual } from "node:crypto";
-
 import { NextResponse } from "next/server";
 
+import { timingSafeEqualSecret } from "@/lib/crypto/timing-safe-secret";
 import { classifyDealEventsWorkerError } from "@/server/workers/deal-events-error-classification";
 import {
   runDealEventsWorker,
@@ -28,14 +27,7 @@ function isAuthorized(request: Request, configuredSecret: string): boolean {
     return false;
   }
 
-  const expectedBuffer = Buffer.from(configuredSecret, "utf8");
-  const providedBuffer = Buffer.from(providedSecret, "utf8");
-
-  if (expectedBuffer.length !== providedBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(expectedBuffer, providedBuffer);
+  return timingSafeEqualSecret(configuredSecret, providedSecret);
 }
 
 export async function POST(request: Request) {

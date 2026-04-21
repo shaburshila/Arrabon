@@ -32,6 +32,19 @@ const currentUser: CurrentUserContext = {
   wallet_address: BUYER,
 };
 
+const sellerUser: CurrentUserContext = {
+  ...currentUser,
+  id: "user-id-2",
+  wallet_address: SELLER,
+};
+
+const adminUser: CurrentUserContext = {
+  ...currentUser,
+  id: "admin-id-1",
+  is_admin: true,
+  wallet_address: "0x0000000000000000000000000000000000000003",
+};
+
 function makeContext(overrides: Partial<DealRevealContextRow> = {}): DealRevealContextRow {
   return {
     buyer_address: BUYER,
@@ -76,9 +89,39 @@ describe("getDealReadModel", () => {
   test("includes price_usdc from the deal read view", async () => {
     mocks.getDealReadViewById = async () => makeReadView({ price_usdc: "250.00" });
 
-    const result = await getDealReadModel({ dealId: "deal-id-1" });
+    const result = await getDealReadModel(currentUser, { dealId: "deal-id-1" });
 
     assert.equal(result.price_usdc, "250.00");
+  });
+
+  test("allows the seller to read the deal", async () => {
+    const result = await getDealReadModel(sellerUser, { dealId: "deal-id-1" });
+
+    assert.equal(result.id, "deal-id-1");
+  });
+
+  test("allows an admin to read the deal", async () => {
+    const result = await getDealReadModel(adminUser, { dealId: "deal-id-1" });
+
+    assert.equal(result.id, "deal-id-1");
+  });
+
+  test("rejects a non-participant", async () => {
+    await assert.rejects(
+      () => getDealReadModel(
+        {
+          ...currentUser,
+          wallet_address: "0x0000000000000000000000000000000000000004",
+        },
+        { dealId: "deal-id-1" },
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof DealReadServiceError);
+        assert.equal(error.status, 403);
+        assert.equal(error.code, "DEAL_ACCESS_DENIED");
+        return true;
+      },
+    );
   });
 });
 

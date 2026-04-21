@@ -12,10 +12,11 @@ import {
   type DealReadModel,
 } from "@/lib/api/deals";
 import { ApiError } from "@/lib/api/auth";
+import type { SiweStatus } from "@/hooks/use-wallet-session";
 
 const DEAL_PAGE_POLL_INTERVAL_MS = 7_500;
 
-export type DealPageStatus = "error" | "loading" | "not_found" | "ready";
+export type DealPageStatus = "auth_required" | "error" | "loading" | "not_found" | "ready";
 
 export type DealRole = "buyer" | "seller" | "viewer";
 
@@ -30,7 +31,11 @@ export interface DealPageState {
   refetch: () => Promise<DealReadModel | null>;
 }
 
-export function useDealPage(dealId: string, walletAddress: string | null): DealPageState {
+export function useDealPage(
+  dealId: string,
+  walletAddress: string | null,
+  siweStatus: SiweStatus,
+): DealPageState {
   const [deal, setDeal] = useState<DealReadModel | null>(null);
   const [status, setStatus] = useState<DealPageStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +64,12 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
         return null;
       }
 
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setDeal(null);
+        setStatus("auth_required");
+        return null;
+      }
+
       if (!silent) {
         setError(err instanceof Error ? err.message : "Failed to load deal.");
         setStatus("error");
@@ -71,8 +82,20 @@ export function useDealPage(dealId: string, walletAddress: string | null): DealP
   const refetch = useCallback(() => load({ silent: true }), [load]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (siweStatus === "loading") {
+      setStatus("loading");
+      return;
+    }
+
+    if (siweStatus !== "authenticated") {
+      setDeal(null);
+      setError(null);
+      setStatus("auth_required");
+      return;
+    }
+
+    void load();
+  }, [load, siweStatus]);
 
   useEffect(() => {
     if (!deal || !isDealStatusPollable(deal.status)) {

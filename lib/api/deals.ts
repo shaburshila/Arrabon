@@ -84,7 +84,7 @@ export interface LifecyclePrepareResult {
   deal_id: string; // backend UUID
 }
 
-// GET /api/deals/:id — public, no auth required
+// GET /api/deals/:id — requires SIWE session for a participant or admin
 export async function fetchDeal(id: string): Promise<DealReadModel> {
   const res = await fetch(`/api/deals/${encodeURIComponent(id)}`);
   return parseResponse<DealReadModel>(res);
@@ -133,7 +133,7 @@ export async function prepareDispute(dealId: string): Promise<LifecyclePrepareRe
   return parseResponse<LifecyclePrepareResult>(res);
 }
 
-// POST /api/deals/:id/auto-release — public prepare, contract call can be signed by any wallet
+// POST /api/deals/:id/auto-release — requires SIWE session for a participant or admin
 export async function prepareAutoRelease(dealId: string): Promise<LifecyclePrepareResult> {
   const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/auto-release`, {
     body: "{}",

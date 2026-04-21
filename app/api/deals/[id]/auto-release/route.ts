@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
   DealCompletionValidationError,
   parseDealCompletionRouteParams,
@@ -26,11 +27,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const currentUser = await requireUser();
     const parsedParams = parseDealCompletionRouteParams(await params);
-    const result = await prepareAutoReleaseForDeal(parsedParams);
+    const result = await prepareAutoReleaseForDeal(currentUser, parsedParams);
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof AuthGuardError) {
+      return jsonError(error.message, error.status);
+    }
+
     if (error instanceof DealCompletionValidationError) {
       return jsonError(error.message, 400, error.issues);
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
   DealValidationError,
   parseDealRouteParams,
@@ -30,11 +31,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const currentUser = await requireUser();
     const parsedParams = parseDealRouteParams(await params);
-    const result = await getDealReadModel(parsedParams);
+    const result = await getDealReadModel(currentUser, parsedParams);
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof AuthGuardError) {
+      return jsonError(error.message, error.status);
+    }
+
     if (error instanceof DealValidationError) {
       return jsonError(error.message, 400, error.issues);
     }

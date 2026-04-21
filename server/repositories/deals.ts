@@ -183,6 +183,24 @@ export async function getByOnchainDealId(
   return data;
 }
 
+export async function getDealByTxHash(txHash: string): Promise<DealRow | null> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("tx_hash", txHash)
+    .maybeSingle();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load deal by tx hash: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
+}
+
 export async function insertConfirmedDeal(
   input: InsertConfirmedDealInput,
 ): Promise<DealRow> {

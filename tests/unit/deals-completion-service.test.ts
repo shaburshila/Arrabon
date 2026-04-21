@@ -31,6 +31,19 @@ const currentUser: CurrentUserContext = {
   wallet_address: BUYER,
 };
 
+const sellerUser: CurrentUserContext = {
+  ...currentUser,
+  id: "user-id-2",
+  wallet_address: SELLER,
+};
+
+const adminUser: CurrentUserContext = {
+  ...currentUser,
+  id: "admin-id-1",
+  is_admin: true,
+  wallet_address: "0x0000000000000000000000000000000000000003",
+};
+
 function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionContextRow {
   return {
     buyer_address: BUYER,
@@ -129,6 +142,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
   test("rejects auto-release at the exact 48h deadline", async () => {
     await assert.rejects(
       () => prepareAutoReleaseForDeal(
+        currentUser,
         { dealId: "deal-id-1" },
         DEADLINE,
       ),
@@ -143,6 +157,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
 
   test("allows auto-release strictly after the 48h deadline", async () => {
     const result = await prepareAutoReleaseForDeal(
+      currentUser,
       { dealId: "deal-id-1" },
       new Date(DEADLINE.getTime() + 1),
     );
@@ -157,6 +172,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
 
     await assert.rejects(
       () => prepareAutoReleaseForDeal(
+        currentUser,
         { dealId: "deal-id-1" },
         new Date(DEADLINE.getTime() + 1),
       ),
@@ -164,6 +180,45 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
         assert.ok(error instanceof DealCompletionServiceError);
         assert.equal(error.status, 409);
         assert.equal(error.code, "DEAL_NOT_CONFIRM_PENDING");
+        return true;
+      },
+    );
+  });
+
+  test("allows the seller to prepare auto-release", async () => {
+    const result = await prepareAutoReleaseForDeal(
+      sellerUser,
+      { dealId: "deal-id-1" },
+      new Date(DEADLINE.getTime() + 1),
+    );
+
+    assert.equal(result.contract_call.function_name, "autoRelease");
+  });
+
+  test("allows an admin to prepare auto-release", async () => {
+    const result = await prepareAutoReleaseForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      new Date(DEADLINE.getTime() + 1),
+    );
+
+    assert.equal(result.contract_call.function_name, "autoRelease");
+  });
+
+  test("rejects auto-release for a non-participant", async () => {
+    await assert.rejects(
+      () => prepareAutoReleaseForDeal(
+        {
+          ...currentUser,
+          wallet_address: "0x0000000000000000000000000000000000000004",
+        },
+        { dealId: "deal-id-1" },
+        new Date(DEADLINE.getTime() + 1),
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof DealCompletionServiceError);
+        assert.equal(error.status, 403);
+        assert.equal(error.code, "NOT_DEAL_PARTICIPANT");
         return true;
       },
     );
