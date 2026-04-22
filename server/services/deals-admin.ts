@@ -6,9 +6,14 @@ import {
   prepareAdminResolveReleaseCall,
   type PreparedDealLifecycleCall,
 } from "@/lib/base/consult-escrow";
+import type { CurrentUserContext } from "@/lib/auth/guards";
 import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
 import type { DealRouteParams } from "@/lib/validators/deals";
 import type { AdminResolveBody } from "@/lib/validators/deals-admin";
+import {
+  AdminResolutionIntentsRepositoryError,
+  createAdminResolutionIntent,
+} from "@/server/repositories/admin-resolution-intents";
 import {
   DealsRepositoryError,
   getAdminDealReviewRowById,
@@ -135,6 +140,14 @@ function mapRepositoryError(error: unknown): never {
     );
   }
 
+  if (error instanceof AdminResolutionIntentsRepositoryError) {
+    throw new DealAdminServiceError(
+      "Failed to prepare admin resolution.",
+      500,
+      error.code ?? "ADMIN_RESOLUTION_INTENT_FAILED",
+    );
+  }
+
   if (isEconnresetLike(error)) {
     console.warn("Supabase cold start detected (ECONNRESET)", {
       code: error.code ?? "ECONNRESET",
@@ -165,6 +178,7 @@ export async function getAdminDealReview(
 }
 
 export async function prepareAdminResolveForDeal(
+  currentUser: CurrentUserContext,
   input: DealRouteParams,
   resolution: AdminResolution,
 ): Promise<PreparedAdminResolveResult> {
@@ -188,15 +202,13 @@ export async function prepareAdminResolveForDeal(
     );
   }
 
+  let contractCall: PreparedDealLifecycleCall;
+
   try {
-    return {
-      contract_call:
-        resolution === "release"
-          ? prepareAdminResolveReleaseCall(context.onchain_deal_id)
-          : prepareAdminResolveRefundCall(context.onchain_deal_id),
-      deal_id: context.id,
-      resolution,
-    };
+    contractCall =
+      resolution === "release"
+        ? prepareAdminResolveReleaseCall(context.onchain_deal_id)
+        : prepareAdminResolveRefundCall(context.onchain_deal_id);
   } catch (error) {
     if (error instanceof ConsultEscrowConfigError) {
       throw new DealAdminServiceError(
@@ -208,4 +220,21 @@ export async function prepareAdminResolveForDeal(
 
     throw error;
   }
+
+  try {
+    await createAdminResolutionIntent({
+      adminWallet: currentUser.wallet_address,
+      dealId: context.id,
+      onchainDealId: context.onchain_deal_id,
+      resolution,
+    });
+  } catch (error) {
+    mapRepositoryError(error);
+  }
+
+  return {
+    contract_call: contractCall,
+    deal_id: context.id,
+    resolution,
+  };
 }

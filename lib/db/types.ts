@@ -215,6 +215,37 @@ export interface ProcessedTransactionUpdate {
   processed_at?: string;
 }
 
+export type AdminResolutionIntentResolution = "refund" | "release";
+
+export interface AdminResolutionIntentRow {
+  id: string;
+  deal_id: string;
+  onchain_deal_id: string;
+  resolution: AdminResolutionIntentResolution;
+  admin_wallet: string;
+  created_at: string;
+  consumed_at: string | null;
+}
+
+export interface AdminResolutionIntentInsert {
+  id?: string;
+  deal_id: string;
+  onchain_deal_id: string;
+  resolution: AdminResolutionIntentResolution;
+  admin_wallet: string;
+  created_at?: string;
+  consumed_at?: string | null;
+}
+
+export interface AdminResolutionIntentUpdate {
+  deal_id?: string;
+  onchain_deal_id?: string;
+  resolution?: AdminResolutionIntentResolution;
+  admin_wallet?: string;
+  created_at?: string;
+  consumed_at?: string | null;
+}
+
 export interface AuditLogRow {
   id: string;
   entity_type: string;
@@ -334,6 +365,20 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "processed_transactions_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      admin_resolution_intents: {
+        Row: AdminResolutionIntentRow;
+        Insert: AdminResolutionIntentInsert;
+        Update: AdminResolutionIntentUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "admin_resolution_intents_deal_id_fkey";
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";

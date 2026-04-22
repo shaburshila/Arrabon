@@ -18,6 +18,7 @@ import type {
 import type { ConsultationLinkRow } from "../../lib/db/types";
 
 interface DealEventMocks {
+  consumeLatestAdminResolutionIntent: (...args: unknown[]) => Promise<{ admin_wallet: string } | null>;
   createAuditLogEntry: (...args: unknown[]) => Promise<void>;
   getByLinkHash: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   getByTxHash: (...args: unknown[]) => Promise<unknown>;
@@ -113,6 +114,7 @@ function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLin
 }
 
 beforeEach(() => {
+  mocks.consumeLatestAdminResolutionIntent = async () => null;
   mocks.createAuditLogEntry = async () => undefined;
   mocks.getByLinkHash = async () => makeLink();
   mocks.getByTxHash = async () => null;
@@ -297,6 +299,38 @@ describe("deal event idempotency", () => {
     assert.deepEqual(capturedArgs, [
       releasedEvent.onchainDealId,
       releasedEvent.releasedAt,
+      undefined,
+    ]);
+  });
+
+  test("released event with admin intent passes resolved wallet to repository", async () => {
+    let intentInput: unknown = null;
+    let capturedArgs: unknown[] | null = null;
+
+    mocks.consumeLatestAdminResolutionIntent = async (...args: unknown[]) => {
+      intentInput = args[0];
+      return { admin_wallet: "0x0000000000000000000000000000000000000009" };
+    };
+    mocks.setReleasedByOnchainDealId = async (...args: unknown[]) => {
+      capturedArgs = args;
+      return { id: "deal-id-released" };
+    };
+
+    const result = await processConfirmedReleasedEvent(releasedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-released",
+      result: "processed",
+      txHash: releasedEvent.txHash,
+    });
+    assert.deepEqual(intentInput, {
+      onchainDealId: releasedEvent.onchainDealId,
+      resolution: "release",
+    });
+    assert.deepEqual(capturedArgs, [
+      releasedEvent.onchainDealId,
+      releasedEvent.releasedAt,
+      "0x0000000000000000000000000000000000000009",
     ]);
   });
 
@@ -347,6 +381,37 @@ describe("deal event idempotency", () => {
       result: "processed",
       txHash: refundedEvent.txHash,
     });
-    assert.deepEqual(capturedArgs, [refundedEvent.onchainDealId]);
+    assert.deepEqual(capturedArgs, [refundedEvent.onchainDealId, undefined, undefined]);
+  });
+
+  test("refunded event with admin intent passes resolved wallet to repository", async () => {
+    let intentInput: unknown = null;
+    let capturedArgs: unknown[] | null = null;
+
+    mocks.consumeLatestAdminResolutionIntent = async (...args: unknown[]) => {
+      intentInput = args[0];
+      return { admin_wallet: "0x0000000000000000000000000000000000000009" };
+    };
+    mocks.setRefundedByOnchainDealId = async (...args: unknown[]) => {
+      capturedArgs = args;
+      return { id: "deal-id-refunded" };
+    };
+
+    const result = await processConfirmedRefundedEvent(refundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-refunded",
+      result: "processed",
+      txHash: refundedEvent.txHash,
+    });
+    assert.deepEqual(intentInput, {
+      onchainDealId: refundedEvent.onchainDealId,
+      resolution: "refund",
+    });
+    assert.deepEqual(capturedArgs, [
+      refundedEvent.onchainDealId,
+      undefined,
+      "0x0000000000000000000000000000000000000009",
+    ]);
   });
 });

@@ -32,6 +32,7 @@ class ConsultEscrowConfigError extends Error {
 }
 
 const mocks = {
+  createAdminResolutionIntent: async () => ({ id: 'intent-id-1' }),
   getAdminDealReviewRowById: async () => null,
   getDealActionContextById: async () => null,
   listDisputedDealReviewRows: async () => [],
@@ -54,6 +55,18 @@ const mocks = {
 global.__dealsAdminMocks = mocks;
 
 const root = path.resolve(__dirname, '../../');
+
+const adminResolutionIntentsRepoPath = path.resolve(root, 'server/repositories/admin-resolution-intents.ts');
+require.cache[adminResolutionIntentsRepoPath] = makeEntry(adminResolutionIntentsRepoPath, {
+  AdminResolutionIntentsRepositoryError: class AdminResolutionIntentsRepositoryError extends Error {
+    constructor(message, code) {
+      super(message);
+      this.name = 'AdminResolutionIntentsRepositoryError';
+      this.code = code;
+    }
+  },
+  createAdminResolutionIntent: (...args) => mocks.createAdminResolutionIntent(...args),
+});
 
 const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');
 require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {

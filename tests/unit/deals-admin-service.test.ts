@@ -1,6 +1,7 @@
 import { beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 
+import type { CurrentUserContext } from "../../lib/auth/guards";
 import type {
   AdminDealReviewRow,
   DealActionContextRow,
@@ -13,12 +14,25 @@ import {
 } from "../../server/services/deals-admin";
 
 interface DealsAdminMocks {
+  ConsultEscrowConfigError: new (message: string) => Error;
+  createAdminResolutionIntent: (...args: unknown[]) => Promise<unknown>;
   getAdminDealReviewRowById: (...args: unknown[]) => Promise<AdminDealReviewRow | null>;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
   listDisputedDealReviewRows: (...args: unknown[]) => Promise<AdminDealReviewRow[]>;
+  prepareAdminResolveReleaseCall: (...args: unknown[]) => unknown;
 }
 
 const mocks = (global as typeof globalThis & { __dealsAdminMocks: DealsAdminMocks }).__dealsAdminMocks;
+const ADMIN_WALLET = "0x0000000000000000000000000000000000000003";
+
+const adminUser: CurrentUserContext = {
+  avatar_url: null,
+  expires_at: "2026-04-12T12:00:00.000Z",
+  id: "admin-id-1",
+  is_admin: true,
+  username: null,
+  wallet_address: ADMIN_WALLET,
+};
 
 function makeActionContext(
   overrides: Partial<DealActionContextRow> = {},
@@ -66,9 +80,16 @@ function makeReviewRow(
 }
 
 beforeEach(() => {
+  mocks.createAdminResolutionIntent = async () => ({ id: "intent-id-1" });
   mocks.getAdminDealReviewRowById = async () => makeReviewRow();
   mocks.getDealActionContextById = async () => makeActionContext();
   mocks.listDisputedDealReviewRows = async () => [makeReviewRow()];
+  mocks.prepareAdminResolveReleaseCall = (dealId: unknown) => ({
+    args: { deal_id: dealId },
+    chain_id: 8453,
+    contract_address: "0x0000000000000000000000000000000000000001",
+    function_name: "adminResolveRelease",
+  });
 });
 
 describe("listAdminDisputedDeals", () => {
@@ -100,6 +121,7 @@ describe("getAdminDealReview", () => {
 describe("prepareAdminResolveForDeal", () => {
   test("prepares admin release call for disputed deal", async () => {
     const result = await prepareAdminResolveForDeal(
+      adminUser,
       { dealId: "deal-id-1" },
       "release",
     );
@@ -112,6 +134,7 @@ describe("prepareAdminResolveForDeal", () => {
 
   test("prepares admin refund call for disputed deal", async () => {
     const result = await prepareAdminResolveForDeal(
+      adminUser,
       { dealId: "deal-id-1" },
       "refund",
     );
@@ -123,10 +146,16 @@ describe("prepareAdminResolveForDeal", () => {
   });
 
   test("rejects resolve for non-disputed deal", async () => {
+    let intentCalls = 0;
+
     mocks.getDealActionContextById = async () => makeActionContext({ status: "Funded" });
+    mocks.createAdminResolutionIntent = async () => {
+      intentCalls += 1;
+      return { id: "intent-id-1" };
+    };
 
     await assert.rejects(
-      () => prepareAdminResolveForDeal({ dealId: "deal-id-1" }, "release"),
+      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
       (error: unknown) => {
         assert.ok(error instanceof DealAdminServiceError);
         assert.equal(error.status, 409);
@@ -134,5 +163,75 @@ describe("prepareAdminResolveForDeal", () => {
         return true;
       },
     );
+    assert.equal(intentCalls, 0);
+  });
+
+  test("creates admin release intent after preparing release call", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.createAdminResolutionIntent = async (...args: unknown[]) => {
+      capturedInput = args[0];
+      return { id: "intent-id-1" };
+    };
+
+    const result = await prepareAdminResolveForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "release",
+    );
+
+    assert.equal(result.contract_call.function_name, "adminResolveRelease");
+    assert.deepEqual(capturedInput, {
+      adminWallet: ADMIN_WALLET,
+      dealId: "deal-id-1",
+      onchainDealId: "42",
+      resolution: "release",
+    });
+  });
+
+  test("creates admin refund intent after preparing refund call", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.createAdminResolutionIntent = async (...args: unknown[]) => {
+      capturedInput = args[0];
+      return { id: "intent-id-1" };
+    };
+
+    const result = await prepareAdminResolveForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "refund",
+    );
+
+    assert.equal(result.contract_call.function_name, "adminResolveRefund");
+    assert.deepEqual(capturedInput, {
+      adminWallet: ADMIN_WALLET,
+      dealId: "deal-id-1",
+      onchainDealId: "42",
+      resolution: "refund",
+    });
+  });
+
+  test("does not create intent when contract config is unavailable", async () => {
+    let intentCalls = 0;
+
+    mocks.prepareAdminResolveReleaseCall = () => {
+      throw new mocks.ConsultEscrowConfigError("Missing contract config.");
+    };
+    mocks.createAdminResolutionIntent = async () => {
+      intentCalls += 1;
+      return { id: "intent-id-1" };
+    };
+
+    await assert.rejects(
+      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      (error: unknown) => {
+        assert.ok(error instanceof DealAdminServiceError);
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "CONTRACT_CONFIG_UNAVAILABLE");
+        return true;
+      },
+    );
+    assert.equal(intentCalls, 0);
   });
 });

@@ -685,6 +685,7 @@ function resolveReleaseResolutionType(
 export async function setReleasedByOnchainDealId(
   onchainDealId: string,
   releasedAt: Date,
+  resolvedByWallet?: string,
 ): Promise<DealRow> {
   const releasedAtIso = toUtcIsoString(releasedAt);
 
@@ -697,7 +698,7 @@ export async function setReleasedByOnchainDealId(
       released_at: releasedAtIso,
       resolution_type: resolveReleaseResolutionType(currentDeal, releasedAt),
       resolved_at: releasedAtIso,
-      resolved_by_wallet: null,
+      resolved_by_wallet: resolvedByWallet ?? null,
       resolved_from_status: currentDeal.status,
       status: "Released",
     }),
@@ -724,6 +725,7 @@ export async function setDisputedByOnchainDealId(
 export async function setRefundedByOnchainDealId(
   onchainDealId: string,
   resolvedAt: Date = new Date(),
+  resolvedByWallet?: string,
 ): Promise<DealRow> {
   const resolvedAtIso = toUtcIsoString(resolvedAt);
 
@@ -733,7 +735,7 @@ export async function setRefundedByOnchainDealId(
     patch: (currentDeal) => ({
       resolution_type: "admin_refund",
       resolved_at: resolvedAtIso,
-      resolved_by_wallet: null,
+      resolved_by_wallet: resolvedByWallet ?? null,
       resolved_from_status: currentDeal.status,
       status: "Refunded",
     }),

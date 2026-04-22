@@ -10,6 +10,7 @@ import type {
 } from "@/lib/base/consult-escrow";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
+import { consumeLatestAdminResolutionIntent } from "@/server/repositories/admin-resolution-intents";
 import { getByLinkHash } from "@/server/repositories/consultation-links";
 import {
   setConfirmPendingByOnchainDealId,
@@ -242,9 +243,15 @@ export async function processConfirmedReleasedEvent(
     return createAlreadyProcessedResult(event.txHash);
   }
 
+  const adminIntent = await consumeLatestAdminResolutionIntent({
+    onchainDealId: event.onchainDealId,
+    resolution: "release",
+  });
+
   const deal = await setReleasedByOnchainDealId(
     event.onchainDealId,
     event.releasedAt,
+    adminIntent?.admin_wallet,
   );
 
   const marker = await insertProcessedTransaction({
@@ -313,7 +320,16 @@ export async function processConfirmedRefundedEvent(
     return createAlreadyProcessedResult(event.txHash);
   }
 
-  const deal = await setRefundedByOnchainDealId(event.onchainDealId);
+  const adminIntent = await consumeLatestAdminResolutionIntent({
+    onchainDealId: event.onchainDealId,
+    resolution: "refund",
+  });
+
+  const deal = await setRefundedByOnchainDealId(
+    event.onchainDealId,
+    undefined,
+    adminIntent?.admin_wallet,
+  );
 
   const marker = await insertProcessedTransaction({
     dealId: deal.id,

@@ -25,6 +25,7 @@ class ProcessedTransactionsRepositoryError extends Error {
 }
 
 const mocks = {
+  consumeLatestAdminResolutionIntent: async () => null,
   createAuditLogEntry: async () => undefined,
   getByLinkHash: async () => null,
   getByTxHash: async () => null,
@@ -44,6 +45,11 @@ const root = path.resolve(__dirname, '../../');
 const auditLogPath = path.resolve(root, 'server/repositories/audit-log.ts');
 require.cache[auditLogPath] = makeEntry(auditLogPath, {
   createAuditLogEntry: (...args) => mocks.createAuditLogEntry(...args),
+});
+
+const adminResolutionIntentsRepoPath = path.resolve(root, 'server/repositories/admin-resolution-intents.ts');
+require.cache[adminResolutionIntentsRepoPath] = makeEntry(adminResolutionIntentsRepoPath, {
+  consumeLatestAdminResolutionIntent: (...args) => mocks.consumeLatestAdminResolutionIntent(...args),
 });
 
 const consultationLinksRepoPath = path.resolve(root, 'server/repositories/consultation-links.ts');

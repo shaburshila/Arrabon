@@ -31,10 +31,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireAdmin();
+    const adminUser = await requireAdmin();
     const parsedParams = parseDealRouteParams(await params);
     const body = parseAdminResolveBody(await request.json().catch(() => null));
     const result = await prepareAdminResolveForDeal(
+      adminUser,
       parsedParams,
       body.resolution,
     );
