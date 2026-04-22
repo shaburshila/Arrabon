@@ -363,7 +363,21 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      insert_confirmed_deal_and_maybe_consume_link: {
+        Args: {
+          p_buyer_address: string;
+          p_consultation_link_id: string;
+          p_consume_link: boolean;
+          p_funded_at: string | null;
+          p_onchain_deal_id: string;
+          p_seller_address: string;
+          p_status: DealStatus;
+          p_tx_hash: string | null;
+        };
+        Returns: DealRow[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

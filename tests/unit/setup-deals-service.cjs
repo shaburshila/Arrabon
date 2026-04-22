@@ -29,6 +29,7 @@ const mocks = {
   getById: async () => null,
   getByOnchainDealId: async () => null,
   insertConfirmedDeal: async () => ({ id: 'deal-id-1' }),
+  insertConfirmedDealAndMaybeConsumeLink: async () => ({ id: 'deal-id-1' }),
   updateStatus: async () => ({ id: 'link-id-1', status: 'Consumed' }),
   DealsRepositoryError,
 };
@@ -43,6 +44,7 @@ require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
   getByConsultationLinkId: (...args) => mocks.getByConsultationLinkId(...args),
   getByOnchainDealId: (...args) => mocks.getByOnchainDealId(...args),
   insertConfirmedDeal: (...args) => mocks.insertConfirmedDeal(...args),
+  insertConfirmedDealAndMaybeConsumeLink: (...args) => mocks.insertConfirmedDealAndMaybeConsumeLink(...args),
 });
 
 const consultationLinksRepoPath = path.resolve(root, 'server/repositories/consultation-links.ts');

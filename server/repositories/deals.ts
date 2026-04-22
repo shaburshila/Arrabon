@@ -31,6 +31,10 @@ export interface InsertConfirmedDealInput {
   txHash: string | null;
 }
 
+export interface InsertConfirmedDealAndMaybeConsumeLinkOptions {
+  consumeLink: boolean;
+}
+
 export interface DealReadViewRow {
   buyer_address: string;
   completed_at: string | null;
@@ -224,6 +228,35 @@ export async function insertConfirmedDeal(
   if (error) {
     throw new DealsRepositoryError(
       `Failed to insert confirmed deal: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
+}
+
+export async function insertConfirmedDealAndMaybeConsumeLink(
+  input: InsertConfirmedDealInput,
+  options: InsertConfirmedDealAndMaybeConsumeLinkOptions,
+): Promise<DealRow> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .rpc("insert_confirmed_deal_and_maybe_consume_link", {
+      p_buyer_address: input.buyerAddress,
+      p_consultation_link_id: input.consultationLinkId,
+      p_consume_link: options.consumeLink,
+      p_funded_at: toUtcIsoString(input.fundedAt),
+      p_onchain_deal_id: input.onchainDealId,
+      p_seller_address: input.sellerAddress,
+      p_status: input.status,
+      p_tx_hash: input.txHash,
+    })
+    .returns<DealRow>()
+    .single();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to insert confirmed deal and maybe consume link: ${error.message}`,
       error.code,
     );
   }

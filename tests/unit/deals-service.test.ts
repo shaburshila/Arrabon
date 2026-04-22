@@ -5,10 +5,12 @@ import type { ConsultationLinkRow, DealRow } from "../../lib/db/types";
 import { handleFundedEvent } from "../../server/services/deals";
 
 interface DealsServiceMocks {
+  DealsRepositoryError: new (message: string, code?: string) => Error & { code?: string };
   getByConsultationLinkId: (...args: unknown[]) => Promise<DealRow | null>;
   getById: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   getByOnchainDealId: (...args: unknown[]) => Promise<DealRow | null>;
   insertConfirmedDeal: (...args: unknown[]) => Promise<DealRow>;
+  insertConfirmedDealAndMaybeConsumeLink: (...args: unknown[]) => Promise<DealRow>;
   updateStatus: (...args: unknown[]) => Promise<ConsultationLinkRow>;
 }
 
@@ -60,17 +62,22 @@ beforeEach(() => {
   mocks.getById = async () => makeLink();
   mocks.getByOnchainDealId = async () => null;
   mocks.insertConfirmedDeal = async () => makeDeal();
+  mocks.insertConfirmedDealAndMaybeConsumeLink = async () => makeDeal();
   mocks.updateStatus = async () => makeLink({ status: "Consumed" });
 });
 
 describe("handleFundedEvent", () => {
-  test("does not transition a time-expired raw Open link to Consumed", async () => {
+  test("inserts a new funded deal and consumes an Open link with one atomic repository call", async () => {
+    let atomicCalls = 0;
     let updateCalls = 0;
+    let capturedOptions: unknown = null;
 
-    mocks.getById = async () => makeLink({
-      status: "Open",
-      expires_at: "2026-04-10T12:00:00.000Z",
-    });
+    mocks.insertConfirmedDealAndMaybeConsumeLink = async (...args: unknown[]) => {
+      atomicCalls += 1;
+      capturedOptions = args[1];
+
+      return makeDeal();
+    };
     mocks.updateStatus = async () => {
       updateCalls += 1;
       return makeLink({ status: "Consumed" });
@@ -90,6 +97,113 @@ describe("handleFundedEvent", () => {
     );
 
     assert.equal(result.id, "deal-id-1");
+    assert.equal(atomicCalls, 1);
+    assert.deepEqual(capturedOptions, { consumeLink: true });
     assert.equal(updateCalls, 0);
+  });
+
+  test("does not transition a time-expired raw Open link to Consumed", async () => {
+    let atomicCalls = 0;
+    let updateCalls = 0;
+    let capturedOptions: unknown = null;
+
+    mocks.getById = async () => makeLink({
+      status: "Open",
+      expires_at: "2026-04-10T12:00:00.000Z",
+    });
+    mocks.insertConfirmedDealAndMaybeConsumeLink = async (...args: unknown[]) => {
+      atomicCalls += 1;
+      capturedOptions = args[1];
+
+      return makeDeal();
+    };
+    mocks.updateStatus = async () => {
+      updateCalls += 1;
+      return makeLink({ status: "Consumed" });
+    };
+
+    const result = await handleFundedEvent(
+      {
+        buyerAddress: "0xBuyer",
+        consultationLinkId: "link-id-1",
+        fundedAt: null,
+        onchainDealId: "1",
+        sellerAddress: "0xExpert",
+        status: "Funded",
+        txHash: "0x" + "2".repeat(64),
+      },
+      new Date("2026-04-10T12:00:00.000Z"),
+    );
+
+    assert.equal(result.id, "deal-id-1");
+    assert.equal(atomicCalls, 1);
+    assert.deepEqual(capturedOptions, { consumeLink: false });
+    assert.equal(updateCalls, 0);
+  });
+
+  test("keeps existing-deal recovery path and consumes link when the matching deal already exists", async () => {
+    let atomicCalls = 0;
+    let updateCalls = 0;
+
+    mocks.getByConsultationLinkId = async () => makeDeal();
+    mocks.insertConfirmedDealAndMaybeConsumeLink = async () => {
+      atomicCalls += 1;
+      return makeDeal();
+    };
+    mocks.updateStatus = async () => {
+      updateCalls += 1;
+      return makeLink({ status: "Consumed" });
+    };
+
+    const result = await handleFundedEvent(
+      {
+        buyerAddress: "0xBuyer",
+        consultationLinkId: "link-id-1",
+        fundedAt: null,
+        onchainDealId: "1",
+        sellerAddress: "0xExpert",
+        status: "Funded",
+        txHash: "0x" + "2".repeat(64),
+      },
+      new Date("2026-04-10T12:00:00.000Z"),
+    );
+
+    assert.equal(result.id, "deal-id-1");
+    assert.equal(atomicCalls, 0);
+    assert.equal(updateCalls, 1);
+  });
+
+  test("recovers a matching deal after duplicate insert race", async () => {
+    let onchainLookupCalls = 0;
+    let updateCalls = 0;
+
+    mocks.getByOnchainDealId = async () => {
+      onchainLookupCalls += 1;
+      return onchainLookupCalls === 1 ? null : makeDeal();
+    };
+    mocks.insertConfirmedDealAndMaybeConsumeLink = async () => {
+      throw new mocks.DealsRepositoryError("duplicate deal", "23505");
+    };
+    mocks.updateStatus = async () => {
+      updateCalls += 1;
+      return makeLink({ status: "Consumed" });
+    };
+
+    const result = await handleFundedEvent(
+      {
+        buyerAddress: "0xBuyer",
+        consultationLinkId: "link-id-1",
+        fundedAt: null,
+        onchainDealId: "1",
+        sellerAddress: "0xExpert",
+        status: "Funded",
+        txHash: "0x" + "2".repeat(64),
+      },
+      new Date("2026-04-10T12:00:00.000Z"),
+    );
+
+    assert.equal(result.id, "deal-id-1");
+    assert.equal(onchainLookupCalls, 2);
+    assert.equal(updateCalls, 1);
   });
 });

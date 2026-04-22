@@ -5,7 +5,7 @@ import {
   DealsRepositoryError,
   getByConsultationLinkId,
   getByOnchainDealId,
-  insertConfirmedDeal,
+  insertConfirmedDealAndMaybeConsumeLink,
   type InsertConfirmedDealInput,
 } from "@/server/repositories/deals";
 import {
@@ -78,7 +78,9 @@ export async function handleFundedEvent(
   let deal;
 
   try {
-    deal = await insertConfirmedDeal(input);
+    deal = await insertConfirmedDealAndMaybeConsumeLink(input, {
+      consumeLink: !shouldSkipConsumedTransition,
+    });
   } catch (error) {
     if (
       error instanceof DealsRepositoryError &&
@@ -98,15 +100,6 @@ export async function handleFundedEvent(
     }
 
     throw error;
-  }
-
-  // If the link was already cancelled or expired offchain, we still persist the
-  // funded deal because the confirmed onchain event is the source of truth.
-  // In that terminal-link path we intentionally do not force the link into
-  // Consumed, because that would attempt an invalid transition and create
-  // inconsistent offchain handling for an already terminal record.
-  if (!shouldSkipConsumedTransition) {
-    await updateStatus(input.consultationLinkId, "Consumed");
   }
 
   return deal;
