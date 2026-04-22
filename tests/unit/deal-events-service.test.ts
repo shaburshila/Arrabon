@@ -331,4 +331,22 @@ describe("deal event idempotency", () => {
     });
     assert.equal(auditCalls, 0);
   });
+
+  test("refunded event passes onchain deal id to repository", async () => {
+    let capturedArgs: unknown[] | null = null;
+
+    mocks.setRefundedByOnchainDealId = async (...args: unknown[]) => {
+      capturedArgs = args;
+      return { id: "deal-id-refunded" };
+    };
+
+    const result = await processConfirmedRefundedEvent(refundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-refunded",
+      result: "processed",
+      txHash: refundedEvent.txHash,
+    });
+    assert.deepEqual(capturedArgs, [refundedEvent.onchainDealId]);
+  });
 });

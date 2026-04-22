@@ -725,25 +725,18 @@ export async function setRefundedByOnchainDealId(
   onchainDealId: string,
   resolvedAt: Date = new Date(),
 ): Promise<DealRow> {
-  const currentDeal = await getByOnchainDealId(onchainDealId);
-
-  if (!currentDeal) {
-    throw new DealsRepositoryError(
-      `Deal not found for onchain deal id: ${onchainDealId}`,
-      "DEAL_NOT_FOUND",
-    );
-  }
+  const resolvedAtIso = toUtcIsoString(resolvedAt);
 
   return updateLifecycleStateByOnchainDealId({
     alreadyConvergedStatuses: ["Refunded"],
     onchainDealId,
-    patch: {
+    patch: (currentDeal) => ({
       resolution_type: "admin_refund",
-      resolved_at: toUtcIsoString(resolvedAt),
+      resolved_at: resolvedAtIso,
       resolved_by_wallet: null,
       resolved_from_status: currentDeal.status,
       status: "Refunded",
-    },
+    }),
     targetStatus: "Refunded",
     validFromStatuses: ["Disputed"],
   });
