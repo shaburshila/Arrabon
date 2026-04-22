@@ -61,6 +61,35 @@ function computeReleaseDeadline(completedAt: string | null): Date {
   return new Date(computeReleaseDeadlineMs(completedAtMs));
 }
 
+function parseScheduledAt(scheduledAt: string): Date {
+  const scheduledAtMs = new Date(scheduledAt).getTime();
+
+  if (Number.isNaN(scheduledAtMs)) {
+    throw new DealCompletionServiceError(
+      "Deal scheduled timestamp is invalid.",
+      500,
+      "SCHEDULED_AT_INVALID",
+    );
+  }
+
+  return new Date(scheduledAtMs);
+}
+
+function assertFundedDisputeWindowOpen(
+  context: { scheduled_at: string },
+  now: Date,
+) {
+  const scheduledAt = parseScheduledAt(context.scheduled_at);
+
+  if (now.getTime() < scheduledAt.getTime()) {
+    throw new DealCompletionServiceError(
+      "Dispute is available only after the scheduled consultation time.",
+      409,
+      "FUNDED_DISPUTE_NOT_AVAILABLE",
+    );
+  }
+}
+
 function isEconnresetLike(error: unknown): error is Error & { code?: string } {
   const maybeError = error as (Error & { code?: string }) | null;
 
@@ -243,6 +272,8 @@ export async function prepareOpenDisputeForDeal(
   assertBuyer(currentUser, context.buyer_address);
 
   if (context.status === "Funded") {
+    assertFundedDisputeWindowOpen(context, now);
+
     try {
       return buildPreparedResult(
         context.id,

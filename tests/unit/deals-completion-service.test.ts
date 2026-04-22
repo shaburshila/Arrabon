@@ -21,6 +21,7 @@ const BUYER = "0x0000000000000000000000000000000000000002";
 const SELLER = "0x0000000000000000000000000000000000000001";
 const COMPLETED_AT = "2026-04-10T00:00:00.000Z";
 const DEADLINE = new Date("2026-04-12T00:00:00.000Z");
+const SCHEDULED_AT = "2026-04-09T00:00:00.000Z";
 
 const currentUser: CurrentUserContext = {
   avatar_url: null,
@@ -52,7 +53,7 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
-    scheduled_at: "2026-04-09T00:00:00.000Z",
+    scheduled_at: SCHEDULED_AT,
     seller_address: SELLER,
     status: "ConfirmPending",
     ...overrides,
@@ -109,6 +110,73 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
 });
 
 describe("prepareOpenDisputeForDeal deadline boundary", () => {
+  test("rejects funded dispute before scheduled_at", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    await assert.rejects(
+      () => prepareOpenDisputeForDeal(
+        currentUser,
+        { dealId: "deal-id-1" },
+        new Date(new Date(SCHEDULED_AT).getTime() - 1),
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof DealCompletionServiceError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "FUNDED_DISPUTE_NOT_AVAILABLE");
+        return true;
+      },
+    );
+  });
+
+  test("allows funded dispute at scheduled_at", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    const result = await prepareOpenDisputeForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      new Date(SCHEDULED_AT),
+    );
+
+    assert.equal(result.deal_id, "deal-id-1");
+    assert.equal(result.contract_call.function_name, "openDispute");
+    assert.equal(result.contract_call.args.deal_id, "42");
+  });
+
+  test("allows funded dispute after scheduled_at", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    const result = await prepareOpenDisputeForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      new Date(new Date(SCHEDULED_AT).getTime() + 1),
+    );
+
+    assert.equal(result.deal_id, "deal-id-1");
+    assert.equal(result.contract_call.function_name, "openDispute");
+    assert.equal(result.contract_call.args.deal_id, "42");
+  });
+
+  test("rejects funded dispute when scheduled_at is invalid", async () => {
+    mocks.getDealActionContextById = async () => makeContext({
+      scheduled_at: "invalid-date",
+      status: "Funded",
+    });
+
+    await assert.rejects(
+      () => prepareOpenDisputeForDeal(
+        currentUser,
+        { dealId: "deal-id-1" },
+        new Date(SCHEDULED_AT),
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof DealCompletionServiceError);
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "SCHEDULED_AT_INVALID");
+        return true;
+      },
+    );
+  });
+
   test("allows open dispute at the exact 48h deadline", async () => {
     const result = await prepareOpenDisputeForDeal(
       currentUser,
