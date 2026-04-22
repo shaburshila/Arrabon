@@ -177,6 +177,13 @@ export async function listMyConsultationLinks(
 
   return rows.map((row) => {
     const existingDeal = dealsByLinkId.get(row.id);
+    const effectiveStatus = resolveEffectiveConsultationLinkStatus(row, now);
+    const status =
+      effectiveStatus === "Cancelled" || effectiveStatus === "Expired"
+        ? effectiveStatus
+        : existingDeal
+          ? "Consumed"
+          : effectiveStatus;
 
     return {
       deal_id: existingDeal?.id ?? null,
@@ -191,7 +198,7 @@ export async function listMyConsultationLinks(
       price_usdc: String(row.price_usdc),
       scheduled_at: row.scheduled_at,
       share_url: existingDeal ? `/deal/${existingDeal.id}` : `/link/${row.id}`,
-      status: existingDeal ? "Consumed" : resolveEffectiveConsultationLinkStatus(row, now),
+      status,
       timezone: row.timezone,
       title: row.title,
     };

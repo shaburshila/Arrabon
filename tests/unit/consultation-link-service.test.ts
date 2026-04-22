@@ -382,7 +382,7 @@ describe('response shape', () => {
 // ── Seller link list ─────────────────────────────────────────────────────────
 
 describe('listMyConsultationLinks', () => {
-  test('returns Consumed for a time-expired Open link when a deal exists', async () => {
+  test('returns Expired for a time-expired Open link when a deal exists', async () => {
     const link = makeLink({
       expires_at: PAST,
       id: 'link-uuid-001',
@@ -404,7 +404,7 @@ describe('listMyConsultationLinks', () => {
     assert.equal(result.length, 1);
     assert.equal(result[0].deal_id, 'deal-uuid-999');
     assert.equal(result[0].deal_status, 'Funded');
-    assert.equal(result[0].status, 'Consumed');
+    assert.equal(result[0].status, 'Expired');
     assert.equal(result[0].share_url, '/deal/deal-uuid-999');
   });
 
@@ -434,7 +434,52 @@ describe('listMyConsultationLinks', () => {
     assert.equal(result[0].deal_resolved_at, '2026-04-12T12:00:00.000Z');
     assert.equal(result[0].deal_resolved_from_status, 'Disputed');
     assert.equal(result[0].deal_status, 'Released');
-    assert.equal(result[0].status, 'Consumed');
+    assert.equal(result[0].status, 'Expired');
+    assert.equal(result[0].share_url, '/deal/deal-uuid-999');
+  });
+
+  test('returns Cancelled for a raw Cancelled link when a deal exists', async () => {
+    const link = makeLink({
+      id: 'link-uuid-001',
+      status: 'Cancelled',
+    });
+    const deal = makeDeal({
+      consultation_link_id: link.id,
+      id: 'deal-uuid-999',
+    });
+
+    mocks.getByCreatorUserId = async () => [link];
+    mocks.getByConsultationLinkIds = async () => [deal];
+
+    const result = await listMyConsultationLinks(currentUser);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].deal_id, 'deal-uuid-999');
+    assert.equal(result[0].deal_status, 'Funded');
+    assert.equal(result[0].status, 'Cancelled');
+    assert.equal(result[0].share_url, '/deal/deal-uuid-999');
+  });
+
+  test('returns Expired for a raw Expired link when a deal exists', async () => {
+    const link = makeLink({
+      expires_at: PAST,
+      id: 'link-uuid-001',
+      status: 'Expired',
+    });
+    const deal = makeDeal({
+      consultation_link_id: link.id,
+      id: 'deal-uuid-999',
+    });
+
+    mocks.getByCreatorUserId = async () => [link];
+    mocks.getByConsultationLinkIds = async () => [deal];
+
+    const result = await listMyConsultationLinks(currentUser);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].deal_id, 'deal-uuid-999');
+    assert.equal(result[0].deal_status, 'Funded');
+    assert.equal(result[0].status, 'Expired');
     assert.equal(result[0].share_url, '/deal/deal-uuid-999');
   });
 
