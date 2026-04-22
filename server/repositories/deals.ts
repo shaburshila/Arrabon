@@ -555,19 +555,21 @@ export async function getAdminDealReviewRowById(
   return toAdminDealReviewRow(deal, linkedConsultationLink);
 }
 
+type LifecycleStatePatch = Partial<Pick<
+  DealRow,
+  | "completed_at"
+  | "released_at"
+  | "resolution_type"
+  | "resolved_at"
+  | "resolved_by_wallet"
+  | "resolved_from_status"
+  | "status"
+>>;
+
 async function updateLifecycleStateByOnchainDealId(input: {
   alreadyConvergedStatuses: DealRow["status"][];
   onchainDealId: string;
-  patch: Partial<Pick<
-    DealRow,
-    | "completed_at"
-    | "released_at"
-    | "resolution_type"
-    | "resolved_at"
-    | "resolved_by_wallet"
-    | "resolved_from_status"
-    | "status"
-  >>;
+  patch: LifecycleStatePatch | ((currentDeal: DealRow) => LifecycleStatePatch);
   requiredTimestampField?: "completed_at" | "released_at";
   targetStatus: DealRow["status"];
   validFromStatuses: DealRow["status"][];
@@ -601,9 +603,14 @@ async function updateLifecycleStateByOnchainDealId(input: {
     );
   }
 
+  const patch =
+    typeof input.patch === "function"
+      ? input.patch(currentDeal)
+      : input.patch;
+
   const { data, error } = await db
     .from("deals")
-    .update(input.patch)
+    .update(patch)
     .eq("id", currentDeal.id)
     .eq("status", currentDeal.status)
     .select("*")
@@ -679,31 +686,21 @@ export async function setReleasedByOnchainDealId(
   onchainDealId: string,
   releasedAt: Date,
 ): Promise<DealRow> {
-  const currentDeal = await getByOnchainDealId(onchainDealId);
   const releasedAtIso = toUtcIsoString(releasedAt);
-
-  if (!currentDeal) {
-    throw new DealsRepositoryError(
-      `Deal not found for onchain deal id: ${onchainDealId}`,
-      "DEAL_NOT_FOUND",
-    );
-  }
-
-  const resolutionType = resolveReleaseResolutionType(currentDeal, releasedAt);
 
   // "Disputed" is included so the indexer can converge admin-resolved disputes
   // (adminResolveRelease emits a Released event from the Disputed state).
   return updateLifecycleStateByOnchainDealId({
     alreadyConvergedStatuses: ["Released"],
     onchainDealId,
-    patch: {
+    patch: (currentDeal) => ({
       released_at: releasedAtIso,
-      resolution_type: resolutionType,
+      resolution_type: resolveReleaseResolutionType(currentDeal, releasedAt),
       resolved_at: releasedAtIso,
       resolved_by_wallet: null,
       resolved_from_status: currentDeal.status,
       status: "Released",
-    },
+    }),
     requiredTimestampField: "released_at",
     targetStatus: "Released",
     validFromStatuses: ["ConfirmPending", "Disputed"],

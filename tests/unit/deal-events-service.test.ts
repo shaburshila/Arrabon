@@ -279,6 +279,27 @@ describe("deal event idempotency", () => {
     assert.equal(auditCalls, 0);
   });
 
+  test("released event passes onchain deal id and released timestamp to repository", async () => {
+    let capturedArgs: unknown[] | null = null;
+
+    mocks.setReleasedByOnchainDealId = async (...args: unknown[]) => {
+      capturedArgs = args;
+      return { id: "deal-id-released" };
+    };
+
+    const result = await processConfirmedReleasedEvent(releasedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-released",
+      result: "processed",
+      txHash: releasedEvent.txHash,
+    });
+    assert.deepEqual(capturedArgs, [
+      releasedEvent.onchainDealId,
+      releasedEvent.releasedAt,
+    ]);
+  });
+
   test("disputed duplicate marker returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
     mocks.insertProcessedTransaction = async () => ({ duplicate: true, row: null });
