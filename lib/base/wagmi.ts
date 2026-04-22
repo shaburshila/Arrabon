@@ -1,3 +1,5 @@
+import "client-only";
+
 import { createConfig, http } from "wagmi";
 import { coinbaseWallet, injected } from "wagmi/connectors";
 import { base, baseSepolia } from "viem/chains";
