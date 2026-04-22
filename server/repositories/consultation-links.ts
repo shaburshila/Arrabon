@@ -104,6 +104,27 @@ export async function getById(id: string): Promise<ConsultationLinkRow | null> {
   return data;
 }
 
+export async function getByIds(ids: readonly string[]): Promise<ConsultationLinkRow[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("consultation_links")
+    .select("*")
+    .in("id", [...ids]);
+
+  if (error) {
+    throw new ConsultationLinksRepositoryError(
+      `Failed to load consultation links by ids: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data ?? [];
+}
+
 export async function getByCreatorUserId(
   creatorUserId: string,
 ): Promise<ConsultationLinkRow[]> {

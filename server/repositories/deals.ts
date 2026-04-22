@@ -6,7 +6,11 @@ import type {
 } from "@/lib/db/types";
 import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
 import { getServerDbClient } from "@/lib/db/server";
-import { getById as getConsultationLinkById } from "@/server/repositories/consultation-links";
+import {
+  ConsultationLinksRepositoryError,
+  getById as getConsultationLinkById,
+  getByIds as getConsultationLinksByIds,
+} from "@/server/repositories/consultation-links";
 
 type DealsTable = Database["public"]["Tables"]["deals"];
 type DealInsert = DealsTable["Insert"];
@@ -458,6 +462,26 @@ function toMyBuyerDealRow(
   };
 }
 
+async function getConsultationLinksByDealRows(
+  deals: readonly DealRow[],
+): Promise<Map<string, ConsultationLinkRow>> {
+  const linkIds = [...new Set(deals.map((deal) => deal.consultation_link_id))];
+
+  try {
+    const links = await getConsultationLinksByIds(linkIds);
+    return new Map(links.map((link) => [link.id, link]));
+  } catch (error) {
+    if (error instanceof ConsultationLinksRepositoryError) {
+      throw new DealsRepositoryError(
+        `Failed to load consultation links for deals: ${error.message}`,
+        error.code,
+      );
+    }
+
+    throw error;
+  }
+}
+
 export async function listBuyerDealRows(
   buyerAddress: string,
 ): Promise<MyBuyerDealRow[]> {
@@ -475,20 +499,26 @@ export async function listBuyerDealRows(
     );
   }
 
-  return Promise.all(
-    (deals ?? []).map(async (deal) => {
-      const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+  const dealRows = deals ?? [];
 
-      if (!linkedConsultationLink) {
-        throw new DealsRepositoryError(
-          `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
-          "CONSULTATION_LINK_MISSING",
-        );
-      }
+  if (dealRows.length === 0) {
+    return [];
+  }
 
-      return toMyBuyerDealRow(deal, linkedConsultationLink);
-    }),
-  );
+  const linksById = await getConsultationLinksByDealRows(dealRows);
+
+  return dealRows.map((deal) => {
+    const linkedConsultationLink = linksById.get(deal.consultation_link_id);
+
+    if (!linkedConsultationLink) {
+      throw new DealsRepositoryError(
+        `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+        "CONSULTATION_LINK_MISSING",
+      );
+    }
+
+    return toMyBuyerDealRow(deal, linkedConsultationLink);
+  });
 }
 
 export async function listDisputedDealReviewRows(): Promise<AdminDealReviewRow[]> {
@@ -506,20 +536,26 @@ export async function listDisputedDealReviewRows(): Promise<AdminDealReviewRow[]
     );
   }
 
-  return Promise.all(
-    (deals ?? []).map(async (deal) => {
-      const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+  const dealRows = deals ?? [];
 
-      if (!linkedConsultationLink) {
-        throw new DealsRepositoryError(
-          `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
-          "CONSULTATION_LINK_MISSING",
-        );
-      }
+  if (dealRows.length === 0) {
+    return [];
+  }
 
-      return toAdminDealReviewRow(deal, linkedConsultationLink);
-    }),
-  );
+  const linksById = await getConsultationLinksByDealRows(dealRows);
+
+  return dealRows.map((deal) => {
+    const linkedConsultationLink = linksById.get(deal.consultation_link_id);
+
+    if (!linkedConsultationLink) {
+      throw new DealsRepositoryError(
+        `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+        "CONSULTATION_LINK_MISSING",
+      );
+    }
+
+    return toAdminDealReviewRow(deal, linkedConsultationLink);
+  });
 }
 
 export async function getAdminDealReviewRowById(
