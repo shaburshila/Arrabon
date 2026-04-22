@@ -53,6 +53,22 @@ describe("parseCreateDisputeMessageBody", () => {
     );
   });
 
+  test("rejects non-https evidence urls", () => {
+    for (const evidenceUrl of [
+      "http://example.com/evidence",
+      "ftp://example.com/evidence",
+      "data:text/plain,evidence",
+    ]) {
+      assert.throws(
+        () => parseCreateDisputeMessageBody({
+          body: "Bad link.",
+          evidence_url: evidenceUrl,
+        }),
+        DisputeMessageValidationError,
+      );
+    }
+  });
+
   test("rejects empty body", () => {
     assert.throws(
       () => parseCreateDisputeMessageBody({

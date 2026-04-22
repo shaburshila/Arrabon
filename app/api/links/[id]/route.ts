@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  FundingValidationError,
+  parseLinkRouteParams,
+} from "@/lib/validators/funding";
+import {
   ConsultationLinkServiceError,
   getPublicConsultationLinkById,
 } from "@/server/services/consultation-links";
@@ -24,13 +28,16 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-
   try {
-    const result = await getPublicConsultationLinkById(id);
+    const parsedParams = parseLinkRouteParams(await params);
+    const result = await getPublicConsultationLinkById(parsedParams.linkId);
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof FundingValidationError) {
+      return jsonError(error.message, 400);
+    }
+
     if (error instanceof ConsultationLinkServiceError) {
       return jsonError(error.message, error.status, error.statusValue);
     }

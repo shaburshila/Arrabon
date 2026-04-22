@@ -22,6 +22,14 @@ export class DisputeMessageValidationError extends Error {
   }
 }
 
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const evidenceUrlSchema = z.preprocess(
   (value) => {
     if (typeof value !== "string") {
@@ -32,7 +40,9 @@ const evidenceUrlSchema = z.preprocess(
 
     return trimmed.length === 0 ? null : trimmed;
   },
-  z.string().url().max(2048).nullable().optional(),
+  z.string().url().max(2048).refine(isHttpsUrl, {
+    message: "Expected an https URL.",
+  }).nullable().optional(),
 );
 
 const createDisputeMessageSchema = z.object({

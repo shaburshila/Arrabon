@@ -28,6 +28,12 @@ export interface CreateConsultationLinkInput {
 
 const MIN_PRICE_USDC = 10;
 const MAX_PRICE_USDC = 1000;
+const MAX_TITLE_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 3000;
+const MAX_DURATION_MINUTES = 24 * 60;
+const MAX_SCHEDULED_AT_OFFSET_DAYS = 365;
+const MAX_EXPIRES_AT_OFFSET_DAYS = 365;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DECIMAL_PRICE_PATTERN = /^(0|[1-9]\d*)(\.\d{1,6})?$/;
 const ISO_UTC_OR_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/;
 
@@ -120,6 +126,39 @@ function readUtcDate(
   return parsedDate;
 }
 
+function validateStringLength(
+  value: string | null,
+  field: string,
+  maxLength: number,
+  issues: ValidationIssue[],
+) {
+  if (value !== null && value.length > maxLength) {
+    issues.push({
+      field,
+      message: `Must be at most ${maxLength} characters.`,
+    });
+  }
+}
+
+function isValidIanaTimeZone(value: string): boolean {
+  try {
+    const supportedValues = Intl.supportedValuesOf?.("timeZone");
+
+    if (supportedValues?.includes(value)) {
+      return true;
+    }
+  } catch {
+    // Fall through to DateTimeFormat validation for runtimes without full support.
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function validatePrice(
   source: Record<string, unknown>,
   issues: ValidationIssue[],
@@ -186,6 +225,10 @@ function validateMeetingUrl(
   return meetingUrl;
 }
 
+function maxDateFromNow(now: Date, days: number): number {
+  return now.getTime() + days * MS_PER_DAY;
+}
+
 export function parseCreateConsultationLinkInput(
   payload: unknown,
   now: Date = new Date(),
@@ -207,10 +250,27 @@ export function parseCreateConsultationLinkInput(
   const expiresAt = readUtcDate(payload, "expires_at", issues);
   const meetingUrl = validateMeetingUrl(payload, issues);
 
+  validateStringLength(title, "title", MAX_TITLE_LENGTH, issues);
+  validateStringLength(description, "description", MAX_DESCRIPTION_LENGTH, issues);
+
+  if (timezone && !isValidIanaTimeZone(timezone)) {
+    issues.push({
+      field: "timezone",
+      message: "Expected a valid IANA time zone.",
+    });
+  }
+
   if (durationMinutes !== null && durationMinutes <= 0) {
     issues.push({
       field: "duration_minutes",
       message: "Must be greater than 0.",
+    });
+  }
+
+  if (durationMinutes !== null && durationMinutes > MAX_DURATION_MINUTES) {
+    issues.push({
+      field: "duration_minutes",
+      message: `Must be at most ${MAX_DURATION_MINUTES}.`,
     });
   }
 
@@ -221,10 +281,24 @@ export function parseCreateConsultationLinkInput(
     });
   }
 
+  if (scheduledAt && scheduledAt.getTime() > maxDateFromNow(now, MAX_SCHEDULED_AT_OFFSET_DAYS)) {
+    issues.push({
+      field: "scheduled_at",
+      message: `Must be within ${MAX_SCHEDULED_AT_OFFSET_DAYS} days.`,
+    });
+  }
+
   if (expiresAt && expiresAt.getTime() <= now.getTime()) {
     issues.push({
       field: "expires_at",
       message: "Must be later than the current time.",
+    });
+  }
+
+  if (expiresAt && expiresAt.getTime() > maxDateFromNow(now, MAX_EXPIRES_AT_OFFSET_DAYS)) {
+    issues.push({
+      field: "expires_at",
+      message: `Must be within ${MAX_EXPIRES_AT_OFFSET_DAYS} days.`,
     });
   }
 

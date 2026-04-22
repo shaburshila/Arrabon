@@ -25,6 +25,12 @@ const UUID_PATTERN =
 export function parsePrepareFundingParams(
   params: { id?: string | undefined },
 ): PrepareFundingParams {
+  return parseLinkRouteParams(params);
+}
+
+export function parseLinkRouteParams(
+  params: { id?: string | undefined },
+): PrepareFundingParams {
   const issues: ValidationIssue[] = [];
 
   if (typeof params.id !== "string" || params.id.trim().length === 0) {

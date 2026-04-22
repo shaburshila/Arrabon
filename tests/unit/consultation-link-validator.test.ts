@@ -23,6 +23,25 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
 }
 
 describe("parseCreateConsultationLinkInput description", () => {
+  test("rejects titles longer than 120 characters", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({ title: "a".repeat(121) }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.deepEqual(error.issues, [
+          {
+            field: "title",
+            message: "Must be at most 120 characters.",
+          },
+        ]);
+        return true;
+      },
+    );
+  });
+
   test("allows a missing description and normalizes it to an empty string", () => {
     const payload = makePayload();
     delete payload.description;
@@ -71,6 +90,55 @@ describe("parseCreateConsultationLinkInput description", () => {
           {
             field: "description",
             message: "Expected a string.",
+          },
+        ]);
+        return true;
+      },
+    );
+  });
+
+  test("rejects descriptions longer than 3000 characters", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({ description: "a".repeat(3001) }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.deepEqual(error.issues, [
+          {
+            field: "description",
+            message: "Must be at most 3000 characters.",
+          },
+        ]);
+        return true;
+      },
+    );
+  });
+});
+
+describe("parseCreateConsultationLinkInput timezone", () => {
+  test("accepts a valid IANA timezone", () => {
+    const result = parseCreateConsultationLinkInput(
+      makePayload({ timezone: "America/New_York" }),
+      NOW,
+    );
+
+    assert.equal(result.timezone, "America/New_York");
+  });
+
+  test("rejects an invalid timezone", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({ timezone: "Not/AZone" }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.deepEqual(error.issues, [
+          {
+            field: "timezone",
+            message: "Expected a valid IANA time zone.",
           },
         ]);
         return true;
@@ -171,5 +239,66 @@ describe("parseCreateConsultationLinkInput expiration and removed grace period",
     );
 
     assert.equal(result.expiresAt.toISOString(), "2026-01-01T00:59:00.000Z");
+  });
+
+  test("rejects duration over 1440 minutes", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({ duration_minutes: 1441 }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.deepEqual(error.issues, [
+          {
+            field: "duration_minutes",
+            message: "Must be at most 1440.",
+          },
+        ]);
+        return true;
+      },
+    );
+  });
+
+  test("rejects scheduled_at beyond 365 days", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({
+          expires_at: "2027-01-01T00:00:00.000Z",
+          scheduled_at: "2027-01-02T00:00:01.000Z",
+        }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.deepEqual(error.issues, [
+          {
+            field: "scheduled_at",
+            message: "Must be within 365 days.",
+          },
+        ]);
+        return true;
+      },
+    );
+  });
+
+  test("rejects expires_at beyond 365 days", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({
+          expires_at: "2027-01-01T00:00:01.000Z",
+          scheduled_at: "2027-01-01T00:00:01.000Z",
+        }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.ok(error.issues.some((issue) => (
+          issue.field === "expires_at" &&
+          issue.message === "Must be within 365 days."
+        )));
+        return true;
+      },
+    );
   });
 });
