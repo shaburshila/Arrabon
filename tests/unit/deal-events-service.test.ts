@@ -15,13 +15,14 @@ import type {
   NormalizedRefundedEvent,
   NormalizedReleasedEvent,
 } from "../../lib/base/consult-escrow";
+import type { ConsultationLinkRow } from "../../lib/db/types";
 
 interface DealEventMocks {
   createAuditLogEntry: (...args: unknown[]) => Promise<void>;
-  getByLinkHash: (...args: unknown[]) => Promise<{ id: string } | null>;
+  getByLinkHash: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   getByTxHash: (...args: unknown[]) => Promise<unknown>;
-  handleFundedEvent: (...args: unknown[]) => Promise<{ id: string }>;
   insertProcessedTransaction: (...args: unknown[]) => Promise<{ duplicate: boolean; row: unknown }>;
+  processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   setConfirmPendingByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
   setDisputedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
   setRefundedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
@@ -91,12 +92,35 @@ const refundedEvent: NormalizedRefundedEvent = {
   txHash: REFUNDED_TX_HASH,
 };
 
+function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLinkRow {
+  return {
+    id: "link-id-1",
+    creator_user_id: "user-id-1",
+    expert_address: SELLER_ADDRESS,
+    title: "Consult",
+    description: "Desc",
+    price_usdc: "100.00",
+    scheduled_at: "2030-01-02T00:00:00.000Z",
+    timezone: "UTC",
+    expires_at: "2030-01-01T00:00:00.000Z",
+    duration_minutes: 30,
+    meeting_url_encrypted: "encrypted",
+    link_hash: LINK_HASH,
+    status: "Open",
+    created_at: "2026-04-10T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   mocks.createAuditLogEntry = async () => undefined;
-  mocks.getByLinkHash = async () => ({ id: "link-id-1" });
+  mocks.getByLinkHash = async () => makeLink();
   mocks.getByTxHash = async () => null;
-  mocks.handleFundedEvent = async () => ({ id: "deal-id-funded" });
   mocks.insertProcessedTransaction = async () => ({ duplicate: false, row: { tx_hash: "0xtx" } });
+  mocks.processConfirmedFundedEventOnce = async () => ({
+    alreadyProcessed: false,
+    dealId: "deal-id-funded",
+  });
   mocks.setConfirmPendingByOnchainDealId = async () => ({ id: "deal-id-completed" });
   mocks.setDisputedByOnchainDealId = async () => ({ id: "deal-id-disputed" });
   mocks.setRefundedByOnchainDealId = async () => ({ id: "deal-id-refunded" });
@@ -104,9 +128,53 @@ beforeEach(() => {
 });
 
 describe("deal event idempotency", () => {
-  test("funded duplicate marker returns already_processed and skips audit logging", async () => {
+  test("funded event processes atomically and appends audit logging", async () => {
     let auditCalls = 0;
-    mocks.insertProcessedTransaction = async () => ({ duplicate: true, row: null });
+    let atomicCalls = 0;
+    let capturedInput: unknown = null;
+
+    mocks.processConfirmedFundedEventOnce = async (...args: unknown[]) => {
+      atomicCalls += 1;
+      capturedInput = args[0];
+
+      return {
+        alreadyProcessed: false,
+        dealId: "deal-id-funded",
+      };
+    };
+    mocks.createAuditLogEntry = async () => {
+      auditCalls += 1;
+    };
+
+    const result = await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-funded",
+      result: "processed",
+      txHash: fundedEvent.txHash,
+    });
+    assert.equal(atomicCalls, 1);
+    assert.equal(auditCalls, 1);
+    assert.deepEqual(capturedInput, {
+      buyerAddress: fundedEvent.buyerAddress,
+      consultationLinkId: "link-id-1",
+      consumeLink: true,
+      eventType: fundedEvent.eventType,
+      fundedAt: fundedEvent.fundedAt,
+      onchainDealId: fundedEvent.onchainDealId,
+      sellerAddress: fundedEvent.sellerAddress,
+      status: "Funded",
+      txHash: fundedEvent.txHash,
+    });
+  });
+
+  test("funded atomic duplicate returns already_processed and skips audit logging", async () => {
+    let auditCalls = 0;
+
+    mocks.processConfirmedFundedEventOnce = async () => ({
+      alreadyProcessed: true,
+      dealId: "deal-id-funded",
+    });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
     };
@@ -118,6 +186,65 @@ describe("deal event idempotency", () => {
       txHash: fundedEvent.txHash,
     });
     assert.equal(auditCalls, 0);
+  });
+
+  test("funded unknown link hash is skipped without atomic processing", async () => {
+    let atomicCalls = 0;
+
+    mocks.getByLinkHash = async () => null;
+    mocks.processConfirmedFundedEventOnce = async () => {
+      atomicCalls += 1;
+      return {
+        alreadyProcessed: false,
+        dealId: "deal-id-funded",
+      };
+    };
+
+    const result = await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(result, {
+      linkHash: fundedEvent.linkHash,
+      reason: "UNKNOWN_LINK_HASH",
+      result: "skipped",
+      txHash: fundedEvent.txHash,
+    });
+    assert.equal(atomicCalls, 0);
+  });
+
+  test("funded effective-expired raw Open link does not request consume transition", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.getByLinkHash = async () => makeLink({
+      expires_at: "2020-01-01T00:00:00.000Z",
+      status: "Open",
+    });
+    mocks.processConfirmedFundedEventOnce = async (...args: unknown[]) => {
+      capturedInput = args[0];
+
+      return {
+        alreadyProcessed: false,
+        dealId: "deal-id-funded",
+      };
+    };
+
+    const result = await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-funded",
+      result: "processed",
+      txHash: fundedEvent.txHash,
+    });
+    assert.deepEqual(capturedInput, {
+      buyerAddress: fundedEvent.buyerAddress,
+      consultationLinkId: "link-id-1",
+      consumeLink: false,
+      eventType: fundedEvent.eventType,
+      fundedAt: fundedEvent.fundedAt,
+      onchainDealId: fundedEvent.onchainDealId,
+      sellerAddress: fundedEvent.sellerAddress,
+      status: "Funded",
+      txHash: fundedEvent.txHash,
+    });
   });
 
   test("completed duplicate marker returns already_processed and skips audit logging", async () => {

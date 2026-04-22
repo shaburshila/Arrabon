@@ -377,6 +377,23 @@ export interface Database {
         };
         Returns: DealRow[];
       };
+      process_confirmed_funded_event_once: {
+        Args: {
+          p_buyer_address: string;
+          p_consultation_link_id: string;
+          p_consume_link: boolean;
+          p_event_type: string;
+          p_funded_at: string | null;
+          p_onchain_deal_id: string;
+          p_seller_address: string;
+          p_status: DealStatus;
+          p_tx_hash: string;
+        };
+        Returns: {
+          already_processed: boolean;
+          deal_id: string | null;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

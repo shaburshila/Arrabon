@@ -8,6 +8,7 @@ import type {
   NormalizedRefundedEvent,
   NormalizedReleasedEvent,
 } from "@/lib/base/consult-escrow";
+import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
 import { getByLinkHash } from "@/server/repositories/consultation-links";
 import {
@@ -19,9 +20,9 @@ import {
 import {
   getByTxHash,
   insertProcessedTransaction,
+  processConfirmedFundedEventOnce,
   ProcessedTransactionsRepositoryError,
 } from "@/server/repositories/processed-transactions";
-import { handleFundedEvent } from "@/server/services/deals";
 
 export class DealEventSyncServiceError extends Error {
   code: string;
@@ -152,34 +153,44 @@ export async function processConfirmedFundedEvent(
     };
   }
 
-  const deal = await handleFundedEvent({
+  const effectiveStatus = resolveEffectiveConsultationLinkStatus(
+    consultationLink,
+    new Date(),
+  );
+  const shouldSkipConsumedTransition =
+    effectiveStatus === "Cancelled" ||
+    effectiveStatus === "Expired";
+
+  const fundedResult = await processConfirmedFundedEventOnce({
     buyerAddress: event.buyerAddress,
-    consultationLinkId: consultationLink.id,
+    consumeLink: !shouldSkipConsumedTransition,
+    eventType: event.eventType,
     fundedAt: event.fundedAt,
+    consultationLinkId: consultationLink.id,
     onchainDealId: event.onchainDealId,
     sellerAddress: event.sellerAddress,
     status: "Funded",
     txHash: event.txHash,
   });
 
-  const marker = await insertProcessedTransaction({
-    dealId: deal.id,
-    eventType: event.eventType,
-    txHash: event.txHash,
-  });
-
-  if (marker.duplicate) {
+  if (fundedResult.alreadyProcessed) {
     return createAlreadyProcessedResult(event.txHash);
+  }
+
+  if (!fundedResult.dealId) {
+    throw new Error(
+      `Funded event ${event.txHash} was processed without a linked deal id.`,
+    );
   }
 
   await appendFundingSyncAuditLog({
     consultationLinkId: consultationLink.id,
-    dealId: deal.id,
+    dealId: fundedResult.dealId,
     event,
   });
 
   return {
-    dealId: deal.id,
+    dealId: fundedResult.dealId,
     result: "processed",
     txHash: event.txHash,
   };

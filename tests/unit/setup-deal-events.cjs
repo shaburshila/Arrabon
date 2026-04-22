@@ -28,8 +28,8 @@ const mocks = {
   createAuditLogEntry: async () => undefined,
   getByLinkHash: async () => null,
   getByTxHash: async () => null,
-  handleFundedEvent: async () => ({ id: 'deal-id-1' }),
   insertProcessedTransaction: async () => ({ duplicate: false, row: { tx_hash: '0xtx' } }),
+  processConfirmedFundedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-1' }),
   setConfirmPendingByOnchainDealId: async () => ({ id: 'deal-id-1' }),
   setDisputedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
   setRefundedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
@@ -64,9 +64,5 @@ require.cache[processedTransactionsRepoPath] = makeEntry(processedTransactionsRe
   ProcessedTransactionsRepositoryError,
   getByTxHash: (...args) => mocks.getByTxHash(...args),
   insertProcessedTransaction: (...args) => mocks.insertProcessedTransaction(...args),
-});
-
-const dealsServicePath = path.resolve(root, 'server/services/deals.ts');
-require.cache[dealsServicePath] = makeEntry(dealsServicePath, {
-  handleFundedEvent: (...args) => mocks.handleFundedEvent(...args),
+  processConfirmedFundedEventOnce: (...args) => mocks.processConfirmedFundedEventOnce(...args),
 });
