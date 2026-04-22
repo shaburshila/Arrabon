@@ -1,6 +1,18 @@
 import type { UserInsert, UserRow } from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
 
+export type UsersRepositoryErrorCode = "USER_GET_OR_CREATE_FAILED";
+
+export class UsersRepositoryError extends Error {
+  code: UsersRepositoryErrorCode;
+
+  constructor(message: string, code: UsersRepositoryErrorCode, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "UsersRepositoryError";
+    this.code = code;
+  }
+}
+
 export async function getByWallet(wallet: string): Promise<UserRow | null> {
   const db = getServerDbClient();
   const { data, error } = await db
@@ -36,26 +48,24 @@ export async function createUser(wallet: string): Promise<UserRow> {
 }
 
 export async function getOrCreateUser(wallet: string): Promise<UserRow> {
-  const existingUser = await getByWallet(wallet);
+  const db = getServerDbClient().schema("public");
+  const payload: UserInsert = {
+    wallet,
+  };
 
-  if (existingUser) {
-    return existingUser;
+  const { data, error } = await db
+    .from("users")
+    .upsert(payload, { onConflict: "wallet" })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new UsersRepositoryError(
+      `Failed to get or create user: ${error.message}`,
+      "USER_GET_OR_CREATE_FAILED",
+      { cause: error },
+    );
   }
 
-  try {
-    return await createUser(wallet);
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes("duplicate key") || error.message.includes("23505"))
-    ) {
-      const user = await getByWallet(wallet);
-
-      if (user) {
-        return user;
-      }
-    }
-
-    throw error;
-  }
+  return data as UserRow;
 }
