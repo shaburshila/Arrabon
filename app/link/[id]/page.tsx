@@ -53,6 +53,15 @@ export default function LinkPage() {
     );
   }, [funding, handleDealIndexed, linkPage]);
 
+  const handleBack = useCallback(() => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push("/");
+  }, [router]);
+
   // If link is already consumed + deal_id exists → redirect immediately
   useEffect(() => {
     if (
@@ -98,9 +107,9 @@ export default function LinkPage() {
           <Link href="/" style={brandStyle}>
             Base Consult Link
           </Link>
-          <Link href="/" style={backLinkStyle}>
+          <button onClick={handleBack} style={backButtonStyle} type="button">
             ← Back
-          </Link>
+          </button>
         </div>
 
         {/* Loading */}
@@ -237,6 +246,14 @@ const backLinkStyle = {
   fontSize: 13,
   fontWeight: 700,
   textDecoration: "none",
+} as const;
+
+const backButtonStyle = {
+  ...backLinkStyle,
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  padding: 0,
 } as const;
 
 const timeoutCardStyle = {
