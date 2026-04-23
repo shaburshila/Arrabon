@@ -1,10 +1,27 @@
 import { ApiError } from "@/lib/api/auth";
-import type { DealResolutionType, DealStatus } from "@/lib/api/deals";
+import type {
+  DealResolutionType,
+  DealStatus,
+  ListPaginationParams,
+} from "@/lib/api/deals";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, body);
   return body as T;
+}
+
+function formatListQuery(params?: ListPaginationParams): string {
+  if (!params) {
+    return "";
+  }
+
+  const searchParams = new URLSearchParams({
+    limit: String(params.limit),
+    offset: String(params.offset),
+  });
+
+  return `?${searchParams.toString()}`;
 }
 
 export type AdminResolution = "refund" | "release";
@@ -47,8 +64,10 @@ export interface AdminResolvePrepareResult {
 }
 
 // GET /api/admin/deals — requires SIWE admin session
-export async function fetchAdminDisputedDeals(): Promise<AdminDealReview[]> {
-  const res = await fetch("/api/admin/deals");
+export async function fetchAdminDisputedDeals(
+  params?: ListPaginationParams,
+): Promise<AdminDealReview[]> {
+  const res = await fetch(`/api/admin/deals${formatListQuery(params)}`);
   return parseResponse<AdminDealReview[]>(res);
 }
 

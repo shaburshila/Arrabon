@@ -19,6 +19,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
+import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
@@ -48,6 +49,8 @@ const emptyResolveState: ResolveState = {
   step: "idle",
   txHash: null,
 };
+
+const PAGE_SIZE = 20;
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -111,6 +114,8 @@ export default function AdminDisputesPage() {
   const config = useConfig();
   const session = useWalletSession();
   const [deals, setDeals] = useState<AdminDealReview[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<{
@@ -137,15 +142,23 @@ export default function AdminDisputesPage() {
 
   const loadDeals = useCallback(async () => {
     if (!canLoadAdminDeals) {
+      setPage(0);
+      setHasNextPage(false);
       setDeals([]);
       return;
     }
 
     setLoading(true);
     setLoadError(null);
+    setDeals([]);
 
     try {
-      setDeals(await fetchAdminDisputedDeals());
+      const loadedDeals = await fetchAdminDisputedDeals({
+        limit: PAGE_SIZE + 1,
+        offset: page * PAGE_SIZE,
+      });
+      setHasNextPage(loadedDeals.length > PAGE_SIZE);
+      setDeals(loadedDeals.slice(0, PAGE_SIZE));
     } catch (error) {
       setLoadError(
         error instanceof ApiError
@@ -157,7 +170,7 @@ export default function AdminDisputesPage() {
     } finally {
       setLoading(false);
     }
-  }, [canLoadAdminDeals]);
+  }, [canLoadAdminDeals, page]);
 
   useEffect(() => {
     loadDeals();
@@ -312,7 +325,7 @@ export default function AdminDisputesPage() {
       {canLoadAdminDeals && (
         <>
           <div style={toolbarStyle}>
-            <span style={countStyle}>{deals.length} open disputes</span>
+            <span style={countStyle}>Page {page + 1} · {deals.length} shown</span>
             <button
               disabled={loading || isResolving}
               onClick={loadDeals}
@@ -324,7 +337,9 @@ export default function AdminDisputesPage() {
           </div>
 
           {loading && (
-            <Notice message="Loading disputes..." tone="muted" />
+            <ActionPanel style={skeletonPanelStyle}>
+              <AdminDisputeSkeletonList />
+            </ActionPanel>
           )}
 
           {loadError && (
@@ -430,9 +445,50 @@ export default function AdminDisputesPage() {
               );
             })}
           </div>
+
+          {!loading && !loadError && (page > 0 || hasNextPage) && (
+            <ListPagination
+              currentPage={page}
+              hasNextPage={hasNextPage}
+              onNext={() => setPage((value) => value + 1)}
+              onPrevious={() => setPage((value) => Math.max(0, value - 1))}
+            />
+          )}
         </>
       )}
     </AppShell>
+  );
+}
+
+function AdminDisputeSkeletonList() {
+  return (
+    <div style={listStyle}>
+      {[0, 1].map((item) => (
+        <ActionPanel as="section" key={item} style={dealCardStyle}>
+          <div style={dealHeaderStyle}>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...skeletonLineStyle, width: "42%" }} />
+              <div style={{ ...skeletonLineStyle, marginTop: 10, width: "24%" }} />
+            </div>
+            <div style={{ ...skeletonLineStyle, width: 86 }} />
+          </div>
+
+          <div style={gridStyle}>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} style={infoStyle}>
+                <div style={{ ...skeletonLineStyle, marginBottom: 8, width: "38%" }} />
+                <div style={{ ...skeletonLineStyle, width: "72%" }} />
+              </div>
+            ))}
+          </div>
+
+          <div style={actionsStyle}>
+            <div style={{ ...skeletonLineStyle, height: 44, width: 140 }} />
+            <div style={{ ...skeletonLineStyle, height: 44, width: 140 }} />
+          </div>
+        </ActionPanel>
+      ))}
+    </div>
   );
 }
 
@@ -482,6 +538,16 @@ const listStyle = {
   flexDirection: "column" as const,
   gap: 12,
 };
+
+const skeletonPanelStyle = {
+  padding: 0,
+} as const;
+
+const skeletonLineStyle = {
+  background: "var(--muted-bg)",
+  borderRadius: 999,
+  height: 12,
+} as const;
 
 const dealCardStyle = {
   display: "flex",
