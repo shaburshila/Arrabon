@@ -3,6 +3,7 @@ import { getAddress } from "viem";
 import { createSession, getSession, revokeSession } from "@/server/repositories/sessions";
 
 export const AUTH_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+let hasLoggedMissingAdminWallets = false;
 
 export interface AuthSessionContext {
   expires_at: string;
@@ -15,6 +16,11 @@ function getAdminWalletAllowlist() {
   const rawValue = process.env.ADMIN_WALLETS?.trim();
 
   if (!rawValue) {
+    if (!hasLoggedMissingAdminWallets) {
+      hasLoggedMissingAdminWallets = true;
+      console.error("ADMIN_WALLETS is empty or not set; admin functionality is disabled.");
+    }
+
     return new Set<string>();
   }
 
