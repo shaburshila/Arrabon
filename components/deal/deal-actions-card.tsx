@@ -80,10 +80,9 @@ export function DealActionsCard({
         </div>
       )}
 
-      {/* Actions */}
+      {/* Participant actions */}
       {!actionsBlocked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
           {/* Seller: complete */}
           {showComplete && (
             <ActionGroup
@@ -116,18 +115,20 @@ export function DealActionsCard({
               variant="danger"
             />
           )}
-
-          {/* Anyone: auto-release after buyer window closes */}
-          {showAutoRelease && (
-            <ActionGroup
-              action={autoRelease}
-              disabledByOtherAction={isAnyActionInFlight}
-              description="The buyer dispute window has closed. Anyone can finalize the escrow release to the seller."
-              label="Auto-release to seller"
-              variant="primary"
-            />
-          )}
         </div>
+      )}
+
+      {/* Anyone: auto-release after buyer window closes */}
+      {showAutoRelease && (
+        <ActionGroup
+          action={autoRelease}
+          description="The buyer dispute window has closed. Anyone can finalize the escrow release to the seller."
+          disabled={needsWallet}
+          disabledByOtherAction={isAnyActionInFlight}
+          disabledReason="Connect your wallet on the correct network to finalize auto-release."
+          label="Auto-release to seller"
+          variant="primary"
+        />
       )}
     </ActionPanel>
   );
