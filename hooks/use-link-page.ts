@@ -103,6 +103,7 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
       stopPolling();
       setDealIdPollingTimedOut(false);
       let count = 0;
+      let syncConfirmed = false;
       const MAX_POLLS = 40;
 
       pollingRef.current = setInterval(async () => {
@@ -113,27 +114,33 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
           onTimeout?.();
           return;
         }
-        try {
-          const syncResult = await triggerFundingSync(linkId, txHash);
-          onSyncStatus?.(syncResult);
+        if (!syncConfirmed) {
+          try {
+            const syncResult = await triggerFundingSync(linkId, txHash);
+            onSyncStatus?.(syncResult);
 
-          if (!syncResult.ok && syncResult.status === "fatal") {
-            stopPolling();
-            return;
-          }
-        } catch (err) {
-          const errorMessage =
-            err instanceof ApiError
-              ? err.message
-              : err instanceof Error
+            if (syncResult.ok) {
+              syncConfirmed = true;
+            }
+
+            if (!syncResult.ok && syncResult.status === "fatal") {
+              stopPolling();
+              return;
+            }
+          } catch (err) {
+            const errorMessage =
+              err instanceof ApiError
                 ? err.message
-                : "Backend indexing check failed.";
-          onSyncStatus?.({
-            code: "POLLING_SYNC_CHECK_FAILED",
-            error: errorMessage,
-            ok: false,
-            status: "retryable",
-          });
+                : err instanceof Error
+                  ? err.message
+                  : "Backend indexing check failed.";
+            onSyncStatus?.({
+              code: "POLLING_SYNC_CHECK_FAILED",
+              error: errorMessage,
+              ok: false,
+              status: "retryable",
+            });
+          }
         }
 
         try {

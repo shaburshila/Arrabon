@@ -43,6 +43,7 @@ export default function LinkPage() {
   const handleRetryPolling = useCallback(() => {
     const txHash = funding.state.txHash ?? undefined;
 
+    linkPage.stopPolling();
     funding.retryIndexing();
     linkPage.startDealIdPolling(
       handleDealIndexed,
@@ -59,9 +60,10 @@ export default function LinkPage() {
       linkPage.link?.status === "Consumed" &&
       linkPage.link.deal_id
     ) {
+      linkPage.stopPolling();
       router.replace(`/deal/${linkPage.link.deal_id}`);
     }
-  }, [linkPage.link, linkPage.status, router]);
+  }, [linkPage.link, linkPage.status, linkPage.stopPolling, router]);
 
   useEffect(() => {
     const shouldPollConsumedLink =
