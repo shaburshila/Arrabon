@@ -6,6 +6,24 @@ async function parseResponse<T>(res: Response): Promise<T> {
   return body as T;
 }
 
+export interface ListPaginationParams {
+  limit: number;
+  offset: number;
+}
+
+function formatListQuery(params?: ListPaginationParams): string {
+  if (!params) {
+    return "";
+  }
+
+  const searchParams = new URLSearchParams({
+    limit: String(params.limit),
+    offset: String(params.offset),
+  });
+
+  return `?${searchParams.toString()}`;
+}
+
 export type DealStatus =
   | "ConfirmPending"
   | "Disputed"
@@ -91,8 +109,8 @@ export async function fetchDeal(id: string): Promise<DealReadModel> {
 }
 
 // GET /api/me/deals — requires SIWE session, returns deals where current wallet is buyer
-export async function fetchMyDeals(): Promise<MyDeal[]> {
-  const res = await fetch("/api/me/deals");
+export async function fetchMyDeals(params?: ListPaginationParams): Promise<MyDeal[]> {
+  const res = await fetch(`/api/me/deals${formatListQuery(params)}`);
   return parseResponse<MyDeal[]>(res);
 }
 

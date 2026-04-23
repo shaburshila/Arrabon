@@ -22,6 +22,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -41,6 +42,8 @@ const FILTERS: { value: LinkFilter; label: string }[] = [
   { value: "Expired", label: "Expired" },
   { value: "Cancelled", label: "Cancelled" },
 ];
+
+const PAGE_SIZE = 20;
 
 const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
   Cancelled: {
@@ -94,6 +97,8 @@ export default function MyLinksPage() {
 
   const [filter, setFilter] = useState<LinkFilter>("all");
   const [links, setLinks] = useState<MyLink[] | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,16 +120,25 @@ export default function MyLinksPage() {
   useEffect(() => {
     if (!isAuthenticated) {
       setLinks(null);
+      setPage(0);
+      setHasNextPage(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    fetchMyLinks()
-      .then(setLinks)
+    setLinks(null);
+    fetchMyLinks({
+      limit: PAGE_SIZE + 1,
+      offset: page * PAGE_SIZE,
+    })
+      .then((loadedLinks) => {
+        setHasNextPage(loadedLinks.length > PAGE_SIZE);
+        setLinks(loadedLinks.slice(0, PAGE_SIZE));
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load links."))
       .finally(() => setLoading(false));
-  }, [isAuthenticated]);
+  }, [isAuthenticated, page]);
 
   function renderAuthState() {
     if (!session.isConnected) {
@@ -235,8 +249,8 @@ export default function MyLinksPage() {
       />
 
       {loading && (
-        <ActionPanel style={statePanelStyle}>
-          <p style={mutedTextStyle}>Loading links...</p>
+        <ActionPanel style={listPanelStyle}>
+          <LinkSkeletonRows />
         </ActionPanel>
       )}
 
@@ -256,12 +270,46 @@ export default function MyLinksPage() {
 
           {filteredLinks.length > 0 && (
             <p style={footerCountStyle}>
-              {filteredLinks.length} link{filteredLinks.length === 1 ? "" : "s"}
+              Page {page + 1} · {filteredLinks.length} shown
             </p>
+          )}
+
+          {(page > 0 || hasNextPage) && (
+            <ListPagination
+              currentPage={page}
+              hasNextPage={hasNextPage}
+              onNext={() => setPage((value) => value + 1)}
+              onPrevious={() => setPage((value) => Math.max(0, value - 1))}
+            />
           )}
         </>
       )}
     </AppShell>
+  );
+}
+
+function LinkSkeletonRows() {
+  return (
+    <>
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          style={{
+            ...rowStyle,
+            borderBottom: item === 2 ? "none" : "1px solid var(--subtle-border)",
+          }}
+        >
+          <div style={{ ...rowIconStyle, color: "transparent" }} />
+          <div style={rowInfoStyle}>
+            <div style={{ ...skeletonLineStyle, width: "55%" }} />
+            <div style={{ ...skeletonLineStyle, marginTop: 8, width: "38%" }} />
+          </div>
+          <div style={{ ...skeletonLineStyle, width: 72 }} />
+          <div style={{ ...skeletonLineStyle, width: 68 }} />
+          <div style={{ ...skeletonLineStyle, width: 72 }} />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -511,19 +559,14 @@ const h1Style = {
   margin: 0,
 } as const;
 
-const statePanelStyle = {
-  padding: 20,
-} as const;
-
-const mutedTextStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  margin: 0,
-  textAlign: "center" as const,
-} as const;
-
 const listPanelStyle = {
   overflow: "hidden",
+} as const;
+
+const skeletonLineStyle = {
+  background: "var(--muted-bg)",
+  borderRadius: 999,
+  height: 12,
 } as const;
 
 const rowStyle = {

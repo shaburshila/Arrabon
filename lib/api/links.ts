@@ -8,6 +8,24 @@ async function parseResponse<T>(res: Response): Promise<T> {
   return body as T;
 }
 
+export interface ListPaginationParams {
+  limit: number;
+  offset: number;
+}
+
+function formatListQuery(params?: ListPaginationParams): string {
+  if (!params) {
+    return "";
+  }
+
+  const searchParams = new URLSearchParams({
+    limit: String(params.limit),
+    offset: String(params.offset),
+  });
+
+  return `?${searchParams.toString()}`;
+}
+
 // Shape returned by GET /api/links/:id
 export interface PublicLink {
   deal_id: string | null;
@@ -136,8 +154,8 @@ export interface MyLink {
 }
 
 // GET /api/links — requires SIWE session
-export async function fetchMyLinks(): Promise<MyLink[]> {
-  const res = await fetch("/api/links");
+export async function fetchMyLinks(params?: ListPaginationParams): Promise<MyLink[]> {
+  const res = await fetch(`/api/links${formatListQuery(params)}`);
   return parseResponse<MyLink[]>(res);
 }
 

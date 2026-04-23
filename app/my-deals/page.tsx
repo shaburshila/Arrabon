@@ -19,6 +19,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -32,6 +33,8 @@ const FILTERS: { value: DealFilter; label: string }[] = [
   { value: "disputed", label: "Disputed" },
   { value: "resolved", label: "Resolved" },
 ];
+
+const PAGE_SIZE = 20;
 
 function shortAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
@@ -73,6 +76,8 @@ export default function MyDealsPage() {
 
   const [deals, setDeals] = useState<MyDeal[] | null>(null);
   const [filter, setFilter] = useState<DealFilter>("all");
+  const [page, setPage] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,16 +88,25 @@ export default function MyDealsPage() {
   useEffect(() => {
     if (!isAuthenticated) {
       setDeals(null);
+      setPage(0);
+      setHasNextPage(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    fetchMyDeals()
-      .then(setDeals)
+    setDeals(null);
+    fetchMyDeals({
+      limit: PAGE_SIZE + 1,
+      offset: page * PAGE_SIZE,
+    })
+      .then((loadedDeals) => {
+        setHasNextPage(loadedDeals.length > PAGE_SIZE);
+        setDeals(loadedDeals.slice(0, PAGE_SIZE));
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load deals."))
       .finally(() => setLoading(false));
-  }, [isAuthenticated]);
+  }, [isAuthenticated, page]);
 
   function renderAuthState() {
     if (!session.isConnected) {
@@ -192,9 +206,6 @@ export default function MyDealsPage() {
     <AppShell maxWidth={672}>
       <div style={pageHeaderStyle}>
         <h1 style={h1Style}>My deals</h1>
-        {deals && deals.length > 0 && (
-          <span style={totalStyle}>{deals.length} total</span>
-        )}
       </div>
 
       <SegmentedTabs
@@ -204,8 +215,8 @@ export default function MyDealsPage() {
       />
 
       {loading && (
-        <ActionPanel style={statePanelStyle}>
-          <p style={mutedTextStyle}>Loading deals...</p>
+        <ActionPanel style={listPanelStyle}>
+          <DealSkeletonRows />
         </ActionPanel>
       )}
 
@@ -225,12 +236,46 @@ export default function MyDealsPage() {
 
           {filteredDeals.length > 0 && (
             <p style={footerCountStyle}>
-              {filteredDeals.length} deal{filteredDeals.length === 1 ? "" : "s"}
+              Page {page + 1} · {filteredDeals.length} shown
             </p>
+          )}
+
+          {(page > 0 || hasNextPage) && (
+            <ListPagination
+              currentPage={page}
+              hasNextPage={hasNextPage}
+              onNext={() => setPage((value) => value + 1)}
+              onPrevious={() => setPage((value) => Math.max(0, value - 1))}
+            />
           )}
         </>
       )}
     </AppShell>
+  );
+}
+
+function DealSkeletonRows() {
+  return (
+    <>
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          style={{
+            ...rowStyle,
+            borderBottom: item === 2 ? "none" : "1px solid var(--subtle-border)",
+          }}
+        >
+          <div style={{ ...rowIconStyle, color: "transparent" }} />
+          <div style={rowInfoStyle}>
+            <div style={{ ...skeletonLineStyle, width: "55%" }} />
+            <div style={{ ...skeletonLineStyle, marginTop: 8, width: "44%" }} />
+          </div>
+          <div style={{ ...skeletonLineStyle, width: 72 }} />
+          <div style={{ ...skeletonLineStyle, width: 68 }} />
+          <div style={{ ...skeletonLineStyle, width: 32 }} />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -386,24 +431,14 @@ const h1Style = {
   margin: 0,
 } as const;
 
-const totalStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-} as const;
-
-const statePanelStyle = {
-  padding: 20,
-} as const;
-
-const mutedTextStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  margin: 0,
-  textAlign: "center" as const,
-} as const;
-
 const listPanelStyle = {
   overflow: "hidden",
+} as const;
+
+const skeletonLineStyle = {
+  background: "var(--muted-bg)",
+  borderRadius: 999,
+  height: 12,
 } as const;
 
 const rowStyle = {
