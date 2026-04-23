@@ -13,15 +13,25 @@ import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { DetailRow } from "@/components/shared/detail-row";
 import { Notice } from "@/components/shared/notice";
+import { FundingProgress } from "@/components/link/funding-progress";
 
 interface LinkActionCardProps {
+  dealIdPollingTimedOut: boolean;
   link: PublicLink;
+  onRetryPolling: () => void;
   role: "seller" | "viewer";
   session: WalletSessionState;
   funding: FundingFlow;
 }
 
-export function LinkActionCard({ funding, link, role, session }: LinkActionCardProps) {
+export function LinkActionCard({
+  dealIdPollingTimedOut,
+  funding,
+  link,
+  onRetryPolling,
+  role,
+  session,
+}: LinkActionCardProps) {
   const { isConnected, isCorrectChain, siweStatus, connect, signIn, signInError } = session;
   const { execute, reset, state: fundingState } = funding;
 
@@ -94,19 +104,6 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
         <div style={stackStyle}>
           <PaymentSummary priceUsdc={link.price_usdc} />
 
-          {fundingState.step === "failed" && (
-            <Btn fullWidth onClick={reset} variant="secondary">
-              Try again
-            </Btn>
-          )}
-
-          {fundingState.step === "indexing_failed" && (
-            <Notice
-              message="Your payment is confirmed on-chain. Do not retry the payment — check the status below."
-              tone="info"
-            />
-          )}
-
           {fundingState.step === "idle" && (
             <Btn
               disabled={isFunding}
@@ -118,10 +115,38 @@ export function LinkActionCard({ funding, link, role, session }: LinkActionCardP
             </Btn>
           )}
 
-          {isFunding && (
-            <p style={inProgressStyle}>
-              Transaction in progress — do not close this page.
-            </p>
+          {fundingState.step !== "idle" && (
+            <FundingProgress
+              embedded
+              error={fundingState.error}
+              footer={
+                <div style={progressFooterStyle}>
+                  {fundingState.step === "failed" && (
+                    <Btn fullWidth onClick={reset} variant="secondary">
+                      Try again
+                    </Btn>
+                  )}
+
+                  {(dealIdPollingTimedOut || fundingState.step === "indexing_failed") && (
+                    <>
+                      <Notice
+                        message={
+                          fundingState.step === "indexing_failed"
+                            ? "Your payment is confirmed on-chain. Do not retry the payment — check the status below."
+                            : "Deal creation is taking longer than expected. Retry polling or refresh this page."
+                        }
+                        tone={fundingState.step === "indexing_failed" ? "info" : "danger"}
+                      />
+                      <Btn fullWidth onClick={onRetryPolling} variant="secondary">
+                        Retry check
+                      </Btn>
+                    </>
+                  )}
+                </div>
+              }
+              step={fundingState.step}
+              txHash={fundingState.txHash}
+            />
           )}
         </div>
       )}
@@ -172,14 +197,6 @@ const paymentSummaryStyle = {
   padding: "4px 14px 12px",
 };
 
-const inProgressStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.45,
-  margin: 0,
-  textAlign: "center" as const,
-};
-
 const myLinksLinkStyle = {
   color: "var(--accent)",
   display: "inline-block",
@@ -187,4 +204,11 @@ const myLinksLinkStyle = {
   fontWeight: 700,
   marginTop: 12,
   textDecoration: "none",
+};
+
+const progressFooterStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+  marginTop: 12,
 };

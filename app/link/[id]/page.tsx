@@ -13,10 +13,8 @@ import { useFundingFlow } from "@/hooks/use-funding-flow";
 
 import { LinkSummary } from "@/components/link/link-summary";
 import { LinkActionCard } from "@/components/link/link-action-card";
-import { FundingProgress } from "@/components/link/funding-progress";
 import { StatusNotice } from "@/components/link/status-notice";
 import { Notice } from "@/components/shared/notice";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 export default function LinkPage() {
   const params = useParams();
@@ -162,40 +160,15 @@ export default function LinkPage() {
         {linkPage.status === "ready" && linkPage.link && linkPage.link.status === "Open" && (
           <>
             <LinkSummary link={linkPage.link} />
-            <WalletSessionCard session={session} />
 
             <LinkActionCard
+              dealIdPollingTimedOut={linkPage.dealIdPollingTimedOut}
               link={linkPage.link}
+              onRetryPolling={handleRetryPolling}
               role={linkPage.role}
               session={session}
               funding={funding}
             />
-
-            {/* Funding progress — only shown while funding is active or failed */}
-            {funding.state.step !== "idle" && (
-              <>
-                <FundingProgress
-                  error={funding.state.error}
-                  step={funding.state.step}
-                  txHash={funding.state.txHash}
-                />
-                {(linkPage.dealIdPollingTimedOut || funding.state.step === "indexing_failed") && (
-                  <div style={timeoutCardStyle}>
-                    <Notice
-                      message="Deal creation is taking longer than expected. Retry polling or refresh this page."
-                      tone="danger"
-                    />
-                    <button
-                      onClick={handleRetryPolling}
-                      style={retryButtonStyle}
-                      type="button"
-                    >
-                      Retry check
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
           </>
         )}
       </div>
@@ -254,12 +227,6 @@ const backButtonStyle = {
   border: "none",
   cursor: "pointer",
   padding: 0,
-} as const;
-
-const timeoutCardStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 10,
 } as const;
 
 const indexingRetryCardStyle = {

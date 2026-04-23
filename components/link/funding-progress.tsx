@@ -4,6 +4,7 @@
 
 import type { FundingStep } from "@/hooks/use-funding-flow";
 import type { Hex } from "viem";
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -11,9 +12,11 @@ import { Notice } from "@/components/shared/notice";
 import { ProgressSteps, type ProgressStepItem } from "@/components/shared/progress-steps";
 
 interface FundingProgressProps {
+  embedded?: boolean;
   step: FundingStep;
   txHash: Hex | null;
   error: string | null;
+  footer?: ReactNode;
 }
 
 const progressOrder: Array<{
@@ -47,24 +50,33 @@ const activeStepLabels: Partial<Record<FundingStep, string>> = {
   preparing: "Checking payment state...",
 };
 
-export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
+export function FundingProgress({
+  embedded = false,
+  error,
+  footer,
+  step,
+  txHash,
+}: FundingProgressProps) {
   if (!activeSteps.includes(step) && step !== "failed") return null;
 
   if (step === "failed") {
-    return (
-      <ActionPanel style={{ padding: 20 }}>
+    return renderProgressContent(
+      embedded,
+      <>
         <p style={sectionLabelStyle}>Payment progress</p>
         <Notice
           message={error ?? "Payment failed. Please try again."}
           title="Payment failed"
           tone="danger"
         />
-      </ActionPanel>
+        {footer}
+      </>,
     );
   }
 
-  return (
-    <ActionPanel style={{ padding: 20 }}>
+  return renderProgressContent(
+    embedded,
+    <>
       <p style={sectionLabelStyle}>Payment progress</p>
 
       <ProgressSteps steps={getProgressSteps(step)} />
@@ -99,8 +111,18 @@ export function FundingProgress({ error, step, txHash }: FundingProgressProps) {
           tone={step === "indexing_failed" ? "warning" : "danger"}
         />
       )}
-    </ActionPanel>
+
+      {footer}
+    </>,
   );
+}
+
+function renderProgressContent(embedded: boolean, content: ReactNode) {
+  if (embedded) {
+    return <div style={embeddedProgressStyle}>{content}</div>;
+  }
+
+  return <ActionPanel style={{ padding: 20 }}>{content}</ActionPanel>;
 }
 
 function getProgressSteps(step: FundingStep): ProgressStepItem[] {
@@ -180,4 +202,10 @@ const txStyle = {
   fontSize: 12,
   margin: "8px 0 0",
   wordBreak: "break-all" as const,
+};
+
+const embeddedProgressStyle = {
+  borderTop: "1px solid var(--border)",
+  marginTop: 16,
+  paddingTop: 16,
 };
