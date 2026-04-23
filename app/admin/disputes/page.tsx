@@ -130,6 +130,7 @@ export default function AdminDisputesPage() {
     session.isCorrectChain &&
     session.siweStatus === "authenticated" &&
     session.session?.is_admin === true;
+  const isSessionLoading = session.siweStatus === "loading";
 
   const isResolving = useMemo(() => {
     return (
@@ -317,6 +318,13 @@ export default function AdminDisputesPage() {
       </div>
 
       <WalletSessionCard session={session} />
+
+      {isSessionLoading && (
+        <Notice
+          message="Checking wallet session. Disputes will load automatically once access is restored."
+          tone="muted"
+        />
+      )}
 
       {session.siweStatus === "authenticated" && session.session?.is_admin !== true && (
         <Notice message="This wallet is not on the admin allowlist." tone="danger" />
