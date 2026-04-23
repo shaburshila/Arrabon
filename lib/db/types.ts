@@ -172,6 +172,7 @@ export interface AuthNonceUpdate {
 export interface SessionRow {
   id: string;
   wallet: string;
+  is_admin: boolean;
   session_token_hash: string;
   expires_at: string;
   created_at: string;
@@ -181,6 +182,7 @@ export interface SessionRow {
 export interface SessionInsert {
   id?: string;
   wallet: string;
+  is_admin: boolean;
   session_token_hash: string;
   expires_at: string;
   created_at?: string;
@@ -189,6 +191,7 @@ export interface SessionInsert {
 
 export interface SessionUpdate {
   wallet?: string;
+  is_admin?: boolean;
   session_token_hash?: string;
   expires_at?: string;
   created_at?: string;

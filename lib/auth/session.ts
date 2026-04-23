@@ -48,7 +48,8 @@ export function hashSessionToken(token: string) {
 export async function createAuthSession(wallet: string) {
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + AUTH_SESSION_TTL_MS);
-  const session = await createSession(wallet, hashSessionToken(token), expiresAt);
+  const isAdmin = isAdminWallet(wallet);
+  const session = await createSession(wallet, isAdmin, hashSessionToken(token), expiresAt);
 
   return {
     expiresAt,
@@ -66,7 +67,7 @@ export async function getAuthSessionFromToken(token: string): Promise<AuthSessio
 
   return {
     expires_at: session.expires_at,
-    is_admin: isAdminWallet(session.wallet),
+    is_admin: session.is_admin,
     session_id: session.id,
     wallet_address: session.wallet,
   };

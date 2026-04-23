@@ -7,11 +7,13 @@ function mustBeUtcDate(value: Date): string {
 
 export async function createSession(
   wallet: string,
+  isAdmin: boolean,
   tokenHash: string,
   expiresAt: Date,
 ): Promise<SessionRow> {
   const db = getServerDbClient();
   const payload: SessionInsert = {
+    is_admin: isAdmin,
     wallet,
     session_token_hash: tokenHash,
     expires_at: mustBeUtcDate(expiresAt),
