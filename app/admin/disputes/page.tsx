@@ -337,9 +337,7 @@ export default function AdminDisputesPage() {
           </div>
 
           {loading && (
-            <ActionPanel style={skeletonPanelStyle}>
-              <AdminDisputeSkeletonList />
-            </ActionPanel>
+            <AdminDisputeSkeletonList />
           )}
 
           {loadError && (
@@ -538,10 +536,6 @@ const listStyle = {
   flexDirection: "column" as const,
   gap: 12,
 };
-
-const skeletonPanelStyle = {
-  padding: 0,
-} as const;
 
 const skeletonLineStyle = {
   background: "var(--muted-bg)",
