@@ -76,7 +76,7 @@ export function useWalletSession(): WalletSessionState {
   const { signMessageAsync } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
 
-  const [siweStatus, setSiweStatus] = useState<SiweStatus>("loading");
+  const [siweStatus, setSiweStatus] = useState<SiweStatus>("unauthenticated");
   const [session, setSession] = useState<SiweSession | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -110,15 +110,25 @@ export function useWalletSession(): WalletSessionState {
     }
 
     pingDone.current = true;
+    setSiweStatus("loading");
+    setSignInError(null);
 
-    pingSession().then((s) => {
-      if (s) {
-        setSession(s);
-        setSiweStatus("authenticated");
-      } else {
+    pingSession()
+      .then((s) => {
+        if (s) {
+          setSession(s);
+          setSiweStatus("authenticated");
+        } else {
+          setSiweStatus("unauthenticated");
+        }
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error ? error.message : "Failed to restore wallet session.";
+        setSession(null);
         setSiweStatus("unauthenticated");
-      }
-    });
+        setSignInError(message);
+      });
   }, [isConnected, address, session]);
 
   const connect = useCallback(
@@ -143,7 +153,13 @@ export function useWalletSession(): WalletSessionState {
   }, [disconnectAsync]);
 
   const signIn = useCallback(async () => {
-    if (!address) throw new Error("Wallet not connected");
+    if (!address) {
+      setSession(null);
+      setSiweStatus("unauthenticated");
+      setSignInError("Wallet not connected.");
+      return;
+    }
+
     setIsSigningIn(true);
     setSignInError(null);
 
