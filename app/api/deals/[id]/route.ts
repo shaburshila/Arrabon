@@ -17,11 +17,19 @@ function jsonError(
   status: number,
   details?: unknown,
 ) {
+  const body: {
+    details?: unknown;
+    error: string;
+  } = {
+    error: message,
+  };
+
+  if (details !== undefined) {
+    body.details = details;
+  }
+
   return NextResponse.json(
-    {
-      details,
-      error: message,
-    },
+    body,
     { status },
   );
 }

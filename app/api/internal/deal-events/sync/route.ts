@@ -17,7 +17,23 @@ function jsonError(
     failure_type?: "fatal" | "retryable";
   },
 ) {
-  return NextResponse.json({ error: message, ...details }, { status });
+  const body: {
+    code?: string;
+    error: string;
+    failure_type?: "fatal" | "retryable";
+  } = {
+    error: message,
+  };
+
+  if (details?.code !== undefined) {
+    body.code = details.code;
+  }
+
+  if (details?.failure_type !== undefined) {
+    body.failure_type = details.failure_type;
+  }
+
+  return NextResponse.json(body, { status });
 }
 
 function isAuthorized(request: Request, configuredSecret: string): boolean {

@@ -15,11 +15,19 @@ function jsonError(
   status: number,
   statusValue?: "Cancelled" | "Expired" | "unavailable",
 ) {
+  const body: {
+    error: string;
+    status?: "Cancelled" | "Expired" | "unavailable";
+  } = {
+    error: message,
+  };
+
+  if (statusValue !== undefined) {
+    body.status = statusValue;
+  }
+
   return NextResponse.json(
-    {
-      error: message,
-      status: statusValue,
-    },
+    body,
     { status },
   );
 }
