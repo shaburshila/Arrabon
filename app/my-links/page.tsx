@@ -350,9 +350,13 @@ function LinkRow({
   link: MyLink;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const [origin, setOrigin] = useState("");
   const shareUrl = `${origin}${link.share_url}`;
   const badge = getMyLinkBadge(link);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   return (
     <div
