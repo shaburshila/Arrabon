@@ -30,6 +30,51 @@ export async function createNonce(
   return data as AuthNonceRow;
 }
 
+export async function countRecentNonces(wallet: string, since: Date): Promise<number> {
+  const db = getServerDbClient();
+  const { count, error } = await db
+    .from("auth_nonces")
+    .select("id", { count: "exact", head: true })
+    .eq("wallet", wallet)
+    .gte("created_at", mustBeUtcDate(since));
+
+  if (error) {
+    throw new Error(`Failed to count recent auth nonces: ${error.message}`);
+  }
+
+  if (count === null) {
+    throw new Error("Failed to count recent auth nonces: count was not returned.");
+  }
+
+  return count;
+}
+
+export async function invalidateActiveNonces(wallet: string, now: Date): Promise<void> {
+  const db = getServerDbClient();
+  const { error } = await db
+    .from("auth_nonces")
+    .update({ used_at: mustBeUtcDate(now) } as never)
+    .eq("wallet", wallet)
+    .is("used_at", null)
+    .gt("expires_at", mustBeUtcDate(now));
+
+  if (error) {
+    throw new Error(`Failed to invalidate active auth nonces: ${error.message}`);
+  }
+}
+
+export async function deleteExpiredNonces(now: Date): Promise<void> {
+  const db = getServerDbClient();
+  const { error } = await db
+    .from("auth_nonces")
+    .delete()
+    .lte("expires_at", mustBeUtcDate(now));
+
+  if (error) {
+    throw new Error(`Failed to delete expired auth nonces: ${error.message}`);
+  }
+}
+
 export async function getValidNonce(
   wallet: string,
   nonce: string,

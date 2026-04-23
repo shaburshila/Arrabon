@@ -3,6 +3,10 @@ import { baseRuntimeConfig } from "@/lib/base/config";
 import { getAddress, isAddress, isHex, verifyMessage, type Address, type Hex } from "viem";
 
 export const AUTH_NONCE_TTL_MS = 10 * 60 * 1000;
+// Keep the rate-limit window <= AUTH_NONCE_TTL_MS because expired nonce cleanup
+// runs before counting recent nonce issuances.
+export const AUTH_NONCE_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+export const AUTH_NONCE_RATE_LIMIT_MAX_REQUESTS = 5;
 
 const SIWE_HEADER_SUFFIX = " wants you to sign in with your Ethereum account:";
 
