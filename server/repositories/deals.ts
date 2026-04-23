@@ -7,6 +7,10 @@ import type {
 import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
 import { getServerDbClient } from "@/lib/db/server";
 import {
+  normalizeListPagination,
+  type ListPagination,
+} from "@/lib/validators/pagination";
+import {
   ConsultationLinksRepositoryError,
   getById as getConsultationLinkById,
   getByIds as getConsultationLinksByIds,
@@ -484,13 +488,16 @@ async function getConsultationLinksByDealRows(
 
 export async function listBuyerDealRows(
   buyerAddress: string,
+  pagination?: Partial<ListPagination>,
 ): Promise<MyBuyerDealRow[]> {
+  const { limit, offset } = normalizeListPagination(pagination);
   const db = getServerDbClient().schema("public");
   const { data: deals, error } = await db
     .from("deals")
     .select("*")
     .eq("buyer_address", buyerAddress)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     throw new DealsRepositoryError(
@@ -521,13 +528,17 @@ export async function listBuyerDealRows(
   });
 }
 
-export async function listDisputedDealReviewRows(): Promise<AdminDealReviewRow[]> {
+export async function listDisputedDealReviewRows(
+  pagination?: Partial<ListPagination>,
+): Promise<AdminDealReviewRow[]> {
+  const { limit, offset } = normalizeListPagination(pagination);
   const db = getServerDbClient().schema("public");
   const { data: deals, error } = await db
     .from("deals")
     .select("*")
     .eq("status", "Disputed")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     throw new DealsRepositoryError(

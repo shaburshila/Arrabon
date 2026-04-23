@@ -15,6 +15,7 @@ interface DealsRepositoryMocks {
     getById: unknown[];
     getByIds: unknown[];
     order: unknown[];
+    range: unknown[];
     schema: unknown[];
     select: unknown[];
   };
@@ -98,6 +99,7 @@ describe("deals repository list rows", () => {
     const result = await listBuyerDealRows(BUYER_ADDRESS);
 
     assert.deepEqual(mocks.calls.getByIds, [[["link-id-1", "link-id-2"]]]);
+    assert.deepEqual(mocks.calls.range, [[0, 49]]);
     assert.deepEqual(mocks.calls.getById, []);
     assert.equal(result.length, 2);
     assert.equal(result[0].id, "deal-id-1");
@@ -126,6 +128,7 @@ describe("deals repository list rows", () => {
     const result = await listDisputedDealReviewRows();
 
     assert.deepEqual(mocks.calls.getByIds, [[["link-id-1", "link-id-2"]]]);
+    assert.deepEqual(mocks.calls.range, [[0, 49]]);
     assert.deepEqual(mocks.calls.getById, []);
     assert.equal(result.length, 2);
     assert.equal(result[0].id, "deal-id-1");
@@ -161,8 +164,31 @@ describe("deals repository list rows", () => {
     const result = await listBuyerDealRows(BUYER_ADDRESS);
 
     assert.deepEqual(result, []);
+    assert.deepEqual(mocks.calls.range, [[0, 49]]);
     assert.deepEqual(mocks.calls.getByIds, []);
     assert.deepEqual(mocks.calls.getById, []);
+  });
+
+  test("applies custom pagination range to buyer deal list", async () => {
+    mocks.dealsResult = {
+      data: [],
+      error: null,
+    };
+
+    await listBuyerDealRows(BUYER_ADDRESS, { limit: 25, offset: 50 });
+
+    assert.deepEqual(mocks.calls.range, [[50, 74]]);
+  });
+
+  test("applies custom pagination range to disputed deal list", async () => {
+    mocks.dealsResult = {
+      data: [],
+      error: null,
+    };
+
+    await listDisputedDealReviewRows({ limit: 10, offset: 20 });
+
+    assert.deepEqual(mocks.calls.range, [[20, 29]]);
   });
 
   test("preserves consultation-link-missing errors after batch loading", async () => {

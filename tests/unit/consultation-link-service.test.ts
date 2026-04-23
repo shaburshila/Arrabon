@@ -34,7 +34,7 @@ import {
 
 interface ServiceMocks {
   getById: (id: string) => Promise<ConsultationLinkRow | null>;
-  getByCreatorUserId: (creatorUserId: string) => Promise<ConsultationLinkRow[]>;
+  getByCreatorUserId: (...args: unknown[]) => Promise<ConsultationLinkRow[]>;
   getByConsultationLinkId: (id: string) => Promise<DealRow | null>;
   getByConsultationLinkIds: (ids: readonly string[]) => Promise<DealRow[]>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -382,6 +382,18 @@ describe('response shape', () => {
 // ── Seller link list ─────────────────────────────────────────────────────────
 
 describe('listMyConsultationLinks', () => {
+  test('passes pagination options to the repository', async () => {
+    let receivedArgs: unknown[] = [];
+    mocks.getByCreatorUserId = async (...args) => {
+      receivedArgs = args;
+      return [];
+    };
+
+    await listMyConsultationLinks(currentUser, new Date(FUTURE), { limit: 25, offset: 50 });
+
+    assert.deepEqual(receivedArgs, ['user-uuid-001', { limit: 25, offset: 50 }]);
+  });
+
   test('returns Expired for a time-expired Open link when a deal exists', async () => {
     const link = makeLink({
       expires_at: PAST,

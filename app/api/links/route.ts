@@ -5,6 +5,10 @@ import {
   parseCreateConsultationLinkInput,
 } from "@/lib/validators/consultation-links";
 import {
+  PaginationValidationError,
+  parseListPagination,
+} from "@/lib/validators/pagination";
+import {
   ConsultationLinkServiceError,
   createConsultationLink,
   listMyConsultationLinks,
@@ -22,14 +26,18 @@ function jsonError(message: string, status: number, details?: unknown) {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const currentUser = await requireUser();
-    const links = await listMyConsultationLinks(currentUser);
+    const pagination = parseListPagination(new URL(request.url).searchParams);
+    const links = await listMyConsultationLinks(currentUser, new Date(), pagination);
     return NextResponse.json(links);
   } catch (error) {
     if (error instanceof AuthGuardError) {
       return jsonError(error.message, error.status);
+    }
+    if (error instanceof PaginationValidationError) {
+      return jsonError(error.message, 400);
     }
     if (error instanceof ConsultationLinkServiceError) {
       return jsonError(error.message, error.status);

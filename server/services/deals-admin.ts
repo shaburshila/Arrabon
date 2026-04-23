@@ -21,6 +21,7 @@ import {
   listDisputedDealReviewRows,
   type AdminDealReviewRow,
 } from "@/server/repositories/deals";
+import type { ListPagination } from "@/lib/validators/pagination";
 
 export type AdminResolution = AdminResolveBody["resolution"];
 
@@ -158,9 +159,11 @@ function mapRepositoryError(error: unknown): never {
   throw error;
 }
 
-export async function listAdminDisputedDeals(): Promise<AdminDealReviewModel[]> {
+export async function listAdminDisputedDeals(
+  pagination?: Partial<ListPagination>,
+): Promise<AdminDealReviewModel[]> {
   try {
-    const rows = await listDisputedDealReviewRows();
+    const rows = await listDisputedDealReviewRows(pagination);
     return rows.map((row) => toReviewModel(row));
   } catch (error) {
     mapRepositoryError(error);

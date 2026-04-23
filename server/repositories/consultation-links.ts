@@ -3,6 +3,10 @@ import type {
   Database,
 } from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
+import {
+  normalizeListPagination,
+  type ListPagination,
+} from "@/lib/validators/pagination";
 
 type ConsultationLinksTable =
   Database["public"]["Tables"]["consultation_links"];
@@ -127,13 +131,16 @@ export async function getByIds(ids: readonly string[]): Promise<ConsultationLink
 
 export async function getByCreatorUserId(
   creatorUserId: string,
+  pagination?: Partial<ListPagination>,
 ): Promise<ConsultationLinkRow[]> {
+  const { limit, offset } = normalizeListPagination(pagination);
   const db = getServerDbClient().schema("public");
   const { data, error } = await db
     .from("consultation_links")
     .select("*")
     .eq("creator_user_id", creatorUserId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     throw new ConsultationLinksRepositoryError(

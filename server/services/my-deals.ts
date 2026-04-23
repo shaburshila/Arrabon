@@ -4,6 +4,7 @@ import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import type { DealResolutionType, DealStatus } from "@/lib/db/types";
+import type { ListPagination } from "@/lib/validators/pagination";
 import {
   DealsRepositoryError,
   listBuyerDealRows,
@@ -45,9 +46,10 @@ export class MyDealsServiceError extends Error {
 
 export async function listMyBuyerDeals(
   currentUser: CurrentUserContext,
+  pagination?: Partial<ListPagination>,
 ): Promise<MyDealResult[]> {
   try {
-    return await listBuyerDealRows(getAddress(currentUser.wallet_address));
+    return await listBuyerDealRows(getAddress(currentUser.wallet_address), pagination);
   } catch (error) {
     if (error instanceof DealsRepositoryError) {
       if (error.code === "CONSULTATION_LINK_MISSING") {

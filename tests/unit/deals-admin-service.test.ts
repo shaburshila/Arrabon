@@ -100,6 +100,18 @@ describe("listAdminDisputedDeals", () => {
     assert.equal(result[0].status, "Disputed");
     assert.equal(result[0].release_deadline_at, "2026-04-12T00:00:00.000Z");
   });
+
+  test("passes pagination options to the repository", async () => {
+    let receivedPagination: unknown = null;
+    mocks.listDisputedDealReviewRows = async (pagination) => {
+      receivedPagination = pagination;
+      return [makeReviewRow()];
+    };
+
+    await listAdminDisputedDeals({ limit: 10, offset: 20 });
+
+    assert.deepEqual(receivedPagination, { limit: 10, offset: 20 });
+  });
 });
 
 describe("getAdminDealReview", () => {

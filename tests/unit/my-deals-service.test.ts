@@ -75,6 +75,18 @@ describe("listMyBuyerDeals", () => {
     assert.equal(receivedBuyerAddress, BUYER_LOWER);
   });
 
+  test("passes pagination options to the repository", async () => {
+    let receivedPagination: unknown = null;
+    mocks.listBuyerDealRows = async (_buyerAddress, pagination) => {
+      receivedPagination = pagination;
+      return [];
+    };
+
+    await listMyBuyerDeals(currentUser, { limit: 25, offset: 50 });
+
+    assert.deepEqual(receivedPagination, { limit: 25, offset: 50 });
+  });
+
   test("returns mapped buyer deal rows", async () => {
     mocks.listBuyerDealRows = async () => [
       makeRow({

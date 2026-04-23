@@ -12,6 +12,7 @@ import type {
 } from "@/lib/db/types";
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
 import { assertLinkHash, generateLinkHash } from "@/lib/crypto/link-hash";
+import type { ListPagination } from "@/lib/validators/pagination";
 import type { CreateConsultationLinkInput } from "@/lib/validators/consultation-links";
 import {
   ConsultationLinksRepositoryError,
@@ -141,11 +142,12 @@ export interface MyLinkResult {
 export async function listMyConsultationLinks(
   currentUser: CurrentUserContext,
   now: Date = new Date(),
+  pagination?: Partial<ListPagination>,
 ): Promise<MyLinkResult[]> {
   let rows: ConsultationLinkRow[];
 
   try {
-    rows = await getByCreatorUserId(currentUser.id);
+    rows = await getByCreatorUserId(currentUser.id, pagination);
   } catch (error) {
     if (error instanceof ConsultationLinksRepositoryError) {
       throw new ConsultationLinkServiceError(
