@@ -1,19 +1,19 @@
 "use client";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { TopNav } from "@/components/app/top-nav";
 
 export function AppShell({
   children,
   flushBottom = false,
   maxWidth = 640,
+  session,
 }: {
   children: React.ReactNode;
   flushBottom?: boolean;
   maxWidth?: number;
+  session: WalletSessionState;
 }) {
-  const session = useWalletSession();
-
   return (
     <>
       <TopNav session={session} />

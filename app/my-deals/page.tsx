@@ -196,14 +196,14 @@ export default function MyDealsPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={672}>
+      <AppShell maxWidth={672} session={session}>
         {renderAuthState()}
       </AppShell>
     );
   }
 
   return (
-    <AppShell maxWidth={672}>
+    <AppShell maxWidth={672} session={session}>
       <div style={pageHeaderStyle}>
         <h1 style={h1Style}>My deals</h1>
       </div>

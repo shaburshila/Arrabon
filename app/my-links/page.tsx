@@ -229,14 +229,14 @@ export default function MyLinksPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={672}>
+      <AppShell maxWidth={672} session={session}>
         {renderAuthState()}
       </AppShell>
     );
   }
 
   return (
-    <AppShell maxWidth={672}>
+    <AppShell maxWidth={672} session={session}>
       <div style={pageHeaderStyle}>
         <h1 style={h1Style}>My links</h1>
         {createLinkAction}

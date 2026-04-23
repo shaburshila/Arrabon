@@ -308,7 +308,7 @@ export default function AdminDisputesPage() {
   );
 
   return (
-    <AppShell maxWidth={860}>
+    <AppShell maxWidth={860} session={session}>
       <div style={headerStyle}>
         <h1 style={h1Style}>Disputes</h1>
         <p style={subtitleStyle}>

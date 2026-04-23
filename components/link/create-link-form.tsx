@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -58,8 +58,7 @@ const emptyForm: FormState = {
   title: "",
 };
 
-export function CreateLinkForm() {
-  const session = useWalletSession();
+export function CreateLinkForm({ session }: { session: WalletSessionState }) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

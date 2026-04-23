@@ -82,7 +82,7 @@ export default function DealPage() {
   });
 
   return (
-    <AppShell maxWidth={480}>
+    <AppShell maxWidth={480} session={session}>
       {dealPage.status === "ready" && dealPage.deal && isDealStatusPollable(dealPage.deal.status) && (
         <div style={pageHeaderStyle}>
           <LiveBadge />

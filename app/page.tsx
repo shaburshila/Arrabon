@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
+import { useWalletSession } from "@/hooks/use-wallet-session";
 
 const howItWorksCards = [
   {
@@ -80,6 +81,7 @@ const footerLinks = [
 ] as const;
 
 export default function HomePage() {
+  const session = useWalletSession();
   const [showScrollHint, setShowScrollHint] = useState(true);
 
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <AppShell flushBottom maxWidth={1120}>
+    <AppShell flushBottom maxWidth={1120} session={session}>
       <div style={homeStackStyle}>
         <HeroSection />
         <ScrollHint visible={showScrollHint} />
