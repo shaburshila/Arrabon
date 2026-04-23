@@ -132,7 +132,6 @@ export default function DealPage() {
             releaseDeadlineAt={dealPage.deal.release_deadline_at}
             scheduledAt={dealPage.deal.scheduled_at}
           />
-          <WalletSessionCard session={session} />
           <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
 
           <MeetingUrlCard
@@ -141,6 +140,8 @@ export default function DealPage() {
             isParticipant={dealPage.isParticipant}
             session={session}
           />
+
+          <WalletSessionCard session={session} />
 
           <DealActionsCard
             autoRelease={actions.autoRelease}

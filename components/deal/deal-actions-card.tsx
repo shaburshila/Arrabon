@@ -41,7 +41,7 @@ export function DealActionsCard({
   release,
   session,
 }: DealActionsCardProps) {
-  const { isConnected, isCorrectChain, siweStatus, signIn, isSigningIn, signInError } = session;
+  const { isConnected, isCorrectChain, siweStatus } = session;
 
   // Determine what's visible to this user
   const showComplete = isSeller && dealStatus === "Funded";
@@ -74,28 +74,9 @@ export function DealActionsCard({
       {actionsBlocked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <Notice
-            message={
-              needsWallet
-                ? "Connect your wallet on the correct network to perform actions."
-                : "Sign in with your wallet to perform participant actions."
-            }
+            message="Use the wallet panel above to connect, switch network, or sign in before performing actions."
             tone="muted"
           />
-          {needsParticipantAuth && (
-            <>
-              <Btn
-                fullWidth
-                loading={isSigningIn}
-                onClick={signIn}
-                variant="secondary"
-              >
-                Sign in with Ethereum
-              </Btn>
-              {signInError && (
-                <Notice message={signInError} tone="danger" />
-              )}
-            </>
-          )}
         </div>
       )}
 
