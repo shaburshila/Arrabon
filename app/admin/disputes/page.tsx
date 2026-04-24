@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
@@ -16,6 +17,7 @@ import { fetchDeal, type DealStatus } from "@/lib/api/deals";
 import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 import { truncateAddress } from "@/lib/ui/address";
+import { wait } from "@/lib/ui/async";
 import { formatDate } from "@/lib/ui/date";
 import { AppShell } from "@/components/app/app-shell";
 import { DisputeThread } from "@/components/deal/dispute-thread";
@@ -60,12 +62,6 @@ function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
 
 function actionLabel(resolution: AdminResolution) {
   return resolution === "release" ? "Release to seller" : "Refund to buyer";
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 function statusText(state: ResolveState) {
@@ -355,6 +351,9 @@ export default function AdminDisputesPage() {
                     <div>
                       <h2 style={dealTitleStyle}>{deal.title}</h2>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
+                      <Link href={`/admin/disputes/${deal.id}`} style={detailLinkStyle}>
+                        View dispute
+                      </Link>
                     </div>
                     <StatusPill label="Disputed" size="md" tone="danger" />
                   </div>
@@ -582,6 +581,15 @@ const metaStyle = {
   fontSize: 13,
   margin: 0,
 };
+
+const detailLinkStyle = {
+  color: "var(--accent)",
+  display: "inline-block",
+  fontSize: 13,
+  fontWeight: 600,
+  marginTop: 8,
+  textDecoration: "none",
+} as const;
 
 const gridStyle = {
   display: "grid",
