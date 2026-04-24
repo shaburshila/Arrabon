@@ -569,6 +569,48 @@ export async function listDisputedDealReviewRows(
   });
 }
 
+export async function listResolvedDealReviewRows(
+  pagination?: Partial<ListPagination>,
+): Promise<AdminDealReviewRow[]> {
+  const { limit, offset } = normalizeListPagination(pagination);
+  const db = getServerDbClient().schema("public");
+  const { data: deals, error } = await db
+    .from("deals")
+    .select("*")
+    .in("status", ["Released", "Refunded"])
+    .eq("resolved_from_status", "Disputed")
+    .order("resolved_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to list resolved deals: ${error.message}`,
+      error.code,
+    );
+  }
+
+  const dealRows = deals ?? [];
+
+  if (dealRows.length === 0) {
+    return [];
+  }
+
+  const linksById = await getConsultationLinksByDealRows(dealRows);
+
+  return dealRows.map((deal) => {
+    const linkedConsultationLink = linksById.get(deal.consultation_link_id);
+
+    if (!linkedConsultationLink) {
+      throw new DealsRepositoryError(
+        `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+        "CONSULTATION_LINK_MISSING",
+      );
+    }
+
+    return toAdminDealReviewRow(deal, linkedConsultationLink);
+  });
+}
+
 export async function getAdminDealReviewRowById(
   dealId: string,
 ): Promise<AdminDealReviewRow | null> {

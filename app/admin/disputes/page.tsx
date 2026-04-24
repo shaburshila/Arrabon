@@ -9,8 +9,10 @@ import { useWalletSession } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import {
   type AdminDealReview,
+  type AdminResolvedDealReview,
   type AdminResolution,
   fetchAdminDisputedDeals,
+  fetchAdminResolvedDeals,
   prepareAdminResolve,
 } from "@/lib/api/admin-deals";
 import { fetchDeal, type DealStatus } from "@/lib/api/deals";
@@ -25,6 +27,7 @@ import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
@@ -55,6 +58,11 @@ const emptyResolveState: ResolveState = {
 };
 
 const PAGE_SIZE = 20;
+const VIEW_OPTIONS = [
+  { label: "Open disputes", value: "open" },
+  { label: "Resolved history", value: "resolved" },
+] as const;
+type AdminDisputesView = (typeof VIEW_OPTIONS)[number]["value"];
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -102,7 +110,9 @@ function resolveNoticeTone(
 export default function AdminDisputesPage() {
   const config = useConfig();
   const session = useWalletSession();
+  const [view, setView] = useState<AdminDisputesView>("open");
   const [deals, setDeals] = useState<AdminDealReview[]>([]);
+  const [resolvedDeals, setResolvedDeals] = useState<AdminResolvedDealReview[]>([]);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,36 +145,60 @@ export default function AdminDisputesPage() {
       setPage(0);
       setHasNextPage(false);
       setDeals([]);
+      setResolvedDeals([]);
       return;
     }
 
     setLoading(true);
     setLoadError(null);
-    setDeals([]);
+    if (view === "resolved") {
+      setResolvedDeals([]);
+    } else {
+      setDeals([]);
+    }
 
     try {
-      const loadedDeals = await fetchAdminDisputedDeals({
-        limit: PAGE_SIZE + 1,
-        offset: page * PAGE_SIZE,
-      });
-      setHasNextPage(loadedDeals.length > PAGE_SIZE);
-      setDeals(loadedDeals.slice(0, PAGE_SIZE));
+      if (view === "resolved") {
+        const loadedDeals = await fetchAdminResolvedDeals({
+          limit: PAGE_SIZE + 1,
+          offset: page * PAGE_SIZE,
+        });
+        setHasNextPage(loadedDeals.length > PAGE_SIZE);
+        setResolvedDeals(loadedDeals.slice(0, PAGE_SIZE));
+      } else {
+        const loadedDeals = await fetchAdminDisputedDeals({
+          limit: PAGE_SIZE + 1,
+          offset: page * PAGE_SIZE,
+        });
+        setHasNextPage(loadedDeals.length > PAGE_SIZE);
+        setDeals(loadedDeals.slice(0, PAGE_SIZE));
+      }
     } catch (error) {
       setLoadError(
         error instanceof ApiError
           ? error.message
           : error instanceof Error
             ? error.message
-            : "Failed to load disputes.",
+            : view === "resolved"
+              ? "Failed to load resolved disputes."
+              : "Failed to load disputes.",
       );
     } finally {
       setLoading(false);
     }
-  }, [canLoadAdminDeals, page]);
+  }, [canLoadAdminDeals, page, view]);
 
   useEffect(() => {
-    loadDeals();
+    void loadDeals();
   }, [loadDeals]);
+
+  useEffect(() => {
+    setPage(0);
+    setHasNextPage(false);
+    setLoadError(null);
+    setConfirming(null);
+    setResolveState(emptyResolveState);
+  }, [view]);
 
   const syncUntilConverged = useCallback(
     async (
@@ -291,6 +325,8 @@ export default function AdminDisputesPage() {
     [config, isResolving, loadDeals, syncUntilConverged],
   );
 
+  const visibleCount = view === "resolved" ? resolvedDeals.length : deals.length;
+
   return (
     <AppShell maxWidth={860} session={session}>
       <div style={headerStyle}>
@@ -315,8 +351,20 @@ export default function AdminDisputesPage() {
 
       {canLoadAdminDeals && (
         <>
+          <SegmentedTabs
+            onChange={(nextValue) => {
+              if (isResolving) {
+                return;
+              }
+
+              setView(nextValue as AdminDisputesView);
+            }}
+            options={VIEW_OPTIONS.map((option) => ({ ...option }))}
+            value={view}
+          />
+
           <div style={toolbarStyle}>
-            <span style={countStyle}>Page {page + 1} · {deals.length} shown</span>
+            <span style={countStyle}>Page {page + 1} · {visibleCount} shown</span>
             <button
               disabled={loading || isResolving}
               onClick={loadDeals}
@@ -335,12 +383,17 @@ export default function AdminDisputesPage() {
             <Notice message={loadError} tone="danger" />
           )}
 
-          {!loading && !loadError && deals.length === 0 && (
+          {!loading && !loadError && view === "open" && deals.length === 0 && (
             <Notice message="No open disputes." tone="muted" />
           )}
 
-          <div style={listStyle}>
-            {deals.map((deal) => {
+          {!loading && !loadError && view === "resolved" && resolvedDeals.length === 0 && (
+            <Notice message="No resolved disputes yet." tone="muted" />
+          )}
+
+          {view === "open" && (
+            <div style={listStyle}>
+              {deals.map((deal) => {
               const activeForDeal = resolveState.dealId === deal.id;
               const activeText = activeForDeal ? statusText(resolveState) : null;
               const confirmForDeal = confirming?.dealId === deal.id ? confirming : null;
@@ -453,8 +506,58 @@ export default function AdminDisputesPage() {
                   />
                 </ActionPanel>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
+
+          {view === "resolved" && (
+            <div style={listStyle}>
+              {resolvedDeals.map((deal) => (
+                <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
+                  <div style={dealHeaderStyle}>
+                    <div>
+                      <h2 style={dealTitleStyle}>{deal.title}</h2>
+                      <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
+                    </div>
+                    <StatusPill
+                      label={deal.status === "Released" ? "Released" : "Refunded"}
+                      size="md"
+                      tone={deal.status === "Released" ? "success" : "accent"}
+                    />
+                  </div>
+
+                  <div style={gridStyle}>
+                    <Info label="Price" value={`${deal.price_usdc} USDC`} />
+                    <Info
+                      label="Decision"
+                      value={formatResolutionDecision(deal.resolution_type)}
+                    />
+                    <Info
+                      label="Resolved at"
+                      value={formatDate(deal.resolved_at, {
+                        fallback: "Not set",
+                        showTimeZoneName: true,
+                      })}
+                    />
+                    <Info
+                      label="Resolved by"
+                      value={
+                        deal.resolved_by_wallet
+                          ? truncateAddress(deal.resolved_by_wallet)
+                          : "Not set"
+                      }
+                    />
+                    <Info
+                      label="Funding tx"
+                      value={deal.tx_hash ? truncateTxHash(deal.tx_hash) : "Not set"}
+                    />
+                    <Info label="Buyer" value={truncateAddress(deal.buyer_address)} />
+                    <Info label="Seller" value={truncateAddress(deal.seller_address)} />
+                  </div>
+                </ActionPanel>
+              ))}
+            </div>
+          )}
 
           {!loading && !loadError && (page > 0 || hasNextPage) && (
             <ListPagination
@@ -509,6 +612,32 @@ function Info({ label, value }: { label: string; value: string }) {
       <span style={infoValueStyle}>{value}</span>
     </div>
   );
+}
+
+function truncateTxHash(value: string) {
+  return `${value.slice(0, 10)}...${value.slice(-6)}`;
+}
+
+function formatResolutionDecision(
+  value: AdminResolvedDealReview["resolution_type"],
+): string {
+  if (value === "admin_refund") {
+    return "Refund";
+  }
+
+  if (value === "admin_release") {
+    return "Release";
+  }
+
+  if (value === "auto_release") {
+    return "Auto-release";
+  }
+
+  if (value === "buyer_confirmed") {
+    return "Buyer confirmed";
+  }
+
+  return "Not set";
 }
 
 const headerStyle = {

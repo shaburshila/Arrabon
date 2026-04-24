@@ -19,6 +19,7 @@ import {
   getAdminDealReviewRowById,
   getDealActionContextById,
   listDisputedDealReviewRows,
+  listResolvedDealReviewRows,
   type AdminDealReviewRow,
 } from "@/server/repositories/deals";
 import type { ListPagination } from "@/lib/validators/pagination";
@@ -44,6 +45,29 @@ export interface AdminDealReviewModel {
   scheduled_at: string;
   seller_address: string;
   status: "Disputed";
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
+}
+
+export interface AdminResolvedDealReviewModel {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  created_at: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  released_at: string | null;
+  resolution_type: AdminDealReviewRow["resolution_type"];
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: AdminDealReviewRow["resolved_from_status"];
+  scheduled_at: string;
+  seller_address: string;
+  status: Extract<AdminDealReviewRow["status"], "Refunded" | "Released">;
   timezone: string;
   title: string;
   tx_hash: string | null;
@@ -123,6 +147,39 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
   };
 }
 
+function toResolvedReviewModel(row: AdminDealReviewRow): AdminResolvedDealReviewModel {
+  if (row.status !== "Released" && row.status !== "Refunded") {
+    throw new DealAdminServiceError(
+      "Deal is not resolved.",
+      409,
+      "DEAL_NOT_RESOLVED",
+    );
+  }
+
+  return {
+    buyer_address: row.buyer_address,
+    completed_at: row.completed_at,
+    consultation_link_id: row.consultation_link_id,
+    created_at: row.created_at,
+    duration_minutes: row.duration_minutes,
+    expires_at: row.expires_at,
+    id: row.id,
+    onchain_deal_id: row.onchain_deal_id,
+    price_usdc: row.price_usdc,
+    released_at: row.released_at,
+    resolution_type: row.resolution_type,
+    resolved_at: row.resolved_at,
+    resolved_by_wallet: row.resolved_by_wallet,
+    resolved_from_status: row.resolved_from_status,
+    scheduled_at: row.scheduled_at,
+    seller_address: row.seller_address,
+    status: row.status,
+    timezone: row.timezone,
+    title: row.title,
+    tx_hash: row.tx_hash,
+  };
+}
+
 function isEconnresetLike(error: unknown): error is Error & { code?: string } {
   const maybeError = error as (Error & { code?: string }) | null;
 
@@ -165,6 +222,17 @@ export async function listAdminDisputedDeals(
   try {
     const rows = await listDisputedDealReviewRows(pagination);
     return rows.map((row) => toReviewModel(row));
+  } catch (error) {
+    mapRepositoryError(error);
+  }
+}
+
+export async function listAdminResolvedDeals(
+  pagination?: Partial<ListPagination>,
+): Promise<AdminResolvedDealReviewModel[]> {
+  try {
+    const rows = await listResolvedDealReviewRows(pagination);
+    return rows.map((row) => toResolvedReviewModel(row));
   } catch (error) {
     mapRepositoryError(error);
   }

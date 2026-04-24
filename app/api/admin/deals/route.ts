@@ -8,6 +8,7 @@ import {
 import {
   DealAdminServiceError,
   listAdminDisputedDeals,
+  listAdminResolvedDeals,
 } from "@/server/services/deals-admin";
 
 export const runtime = "nodejs";
@@ -22,11 +23,30 @@ function jsonError(message: string, status: number, details?: unknown) {
   );
 }
 
+function parseAdminDealsView(searchParams: URLSearchParams): "open" | "resolved" {
+  const value = searchParams.get("view");
+
+  if (value === null || value === "open") {
+    return "open";
+  }
+
+  if (value === "resolved") {
+    return "resolved";
+  }
+
+  throw new PaginationValidationError("view must be either 'open' or 'resolved'.");
+}
+
 export async function GET(request: Request) {
   try {
     await requireAdmin();
-    const pagination = parseListPagination(new URL(request.url).searchParams);
-    const result = await listAdminDisputedDeals(pagination);
+    const searchParams = new URL(request.url).searchParams;
+    const pagination = parseListPagination(searchParams);
+    const view = parseAdminDealsView(searchParams);
+    const result =
+      view === "resolved"
+        ? await listAdminResolvedDeals(pagination)
+        : await listAdminDisputedDeals(pagination);
 
     return NextResponse.json(result);
   } catch (error) {

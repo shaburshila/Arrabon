@@ -25,6 +25,7 @@ function formatListQuery(params?: ListPaginationParams): string {
 }
 
 export type AdminResolution = "refund" | "release";
+export type AdminDealsView = "open" | "resolved";
 
 export interface AdminDealReview {
   buyer_address: string;
@@ -50,6 +51,29 @@ export interface AdminDealReview {
   tx_hash: string | null;
 }
 
+export interface AdminResolvedDealReview {
+  buyer_address: string;
+  completed_at: string | null;
+  consultation_link_id: string;
+  created_at: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  released_at: string | null;
+  resolution_type: DealResolutionType | null;
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: DealStatus | null;
+  scheduled_at: string;
+  seller_address: string;
+  status: Extract<DealStatus, "Released" | "Refunded">;
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
+}
+
 export interface AdminContractCall {
   args: { deal_id: string };
   chain_id: number;
@@ -69,6 +93,15 @@ export async function fetchAdminDisputedDeals(
 ): Promise<AdminDealReview[]> {
   const res = await fetch(`/api/admin/deals${formatListQuery(params)}`);
   return parseResponse<AdminDealReview[]>(res);
+}
+
+export async function fetchAdminResolvedDeals(
+  params?: ListPaginationParams,
+): Promise<AdminResolvedDealReview[]> {
+  const query = formatListQuery(params);
+  const suffix = query ? `${query}&view=resolved` : "?view=resolved";
+  const res = await fetch(`/api/admin/deals${suffix}`);
+  return parseResponse<AdminResolvedDealReview[]>(res);
 }
 
 // GET /api/admin/deals/:id — requires SIWE admin session
