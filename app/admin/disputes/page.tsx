@@ -60,6 +60,12 @@ function actionLabel(resolution: AdminResolution) {
   return resolution === "release" ? "Release to seller" : "Refund to buyer";
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function shortAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
@@ -177,12 +183,6 @@ export default function AdminDisputesPage() {
     loadDeals();
   }, [loadDeals]);
 
-  const wait = useCallback((ms: number) => {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  }, []);
-
   const syncUntilConverged = useCallback(
     async (
       deal: AdminDealReview,
@@ -241,7 +241,7 @@ export default function AdminDisputesPage() {
 
       return false;
     },
-    [wait],
+    [],
   );
 
   const resolveDeal = useCallback(
