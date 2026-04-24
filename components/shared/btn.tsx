@@ -82,24 +82,32 @@ export function Btn({
   variant = "primary",
 }: BtnProps) {
   const isDisabled = disabled || loading;
+  const needsWrapper = fullWidth || Boolean(isDisabled && disabledReason);
+  const button = (
+    <button
+      disabled={isDisabled}
+      onClick={onClick}
+      style={{
+        ...baseStyle,
+        ...sizeStyles[size],
+        ...variantStyles[variant],
+        ...(fullWidth ? { width: "100%" } : {}),
+        ...(isDisabled ? { cursor: "not-allowed", opacity: 0.5 } : {}),
+      }}
+      type={type}
+    >
+      {loading && <Spinner />}
+      {children}
+    </button>
+  );
+
+  if (!needsWrapper) {
+    return button;
+  }
 
   return (
     <div style={fullWidth ? { width: "100%" } : {}}>
-      <button
-        disabled={isDisabled}
-        onClick={onClick}
-        style={{
-          ...baseStyle,
-          ...sizeStyles[size],
-          ...variantStyles[variant],
-          ...(fullWidth ? { width: "100%" } : {}),
-          ...(isDisabled ? { cursor: "not-allowed", opacity: 0.5 } : {}),
-        }}
-        type={type}
-      >
-        {loading && <Spinner />}
-        {children}
-      </button>
+      {button}
       {isDisabled && disabledReason && (
         <p
           style={{
