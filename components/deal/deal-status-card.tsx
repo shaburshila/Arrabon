@@ -2,6 +2,7 @@
 
 import type { DealReadModel } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
+import { formatDate } from "@/lib/ui/date";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { DetailRow } from "@/components/shared/detail-row";
@@ -11,22 +12,6 @@ interface DealStatusCardProps {
   deal: DealReadModel;
   isAdmin?: boolean;
   role: "buyer" | "seller" | "viewer";
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("en-US", {
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "short",
-      timeZoneName: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 export function DealStatusCard({ deal, isAdmin = false, role }: DealStatusCardProps) {
@@ -60,17 +45,29 @@ export function DealStatusCard({ deal, isAdmin = false, role }: DealStatusCardPr
         label="Buyer"
         value={<span style={monoValueStyle}>{formatPartyAddress(deal.buyer_address, role === "buyer")}</span>}
       />
-      <DetailRow label="Scheduled" value={formatDate(deal.scheduled_at)} />
+      <DetailRow
+        label="Scheduled"
+        value={formatDate(deal.scheduled_at, { fallback: "—", showTimeZoneName: true })}
+      />
       {deal.completed_at && (
-        <DetailRow label="Completed" value={formatDate(deal.completed_at)} />
+        <DetailRow
+          label="Completed"
+          value={formatDate(deal.completed_at, { fallback: "—", showTimeZoneName: true })}
+        />
       )}
       {deal.resolved_at && (
-        <DetailRow label="Resolved" value={formatDate(deal.resolved_at)} />
+        <DetailRow
+          label="Resolved"
+          value={formatDate(deal.resolved_at, { fallback: "—", showTimeZoneName: true })}
+        />
       )}
       {deal.release_deadline_at && (
         <DetailRow
           label={role === "seller" ? "Auto-release available after" : "Release / dispute deadline"}
-          value={formatDate(deal.release_deadline_at)}
+          value={formatDate(deal.release_deadline_at, {
+            fallback: "—",
+            showTimeZoneName: true,
+          })}
         />
       )}
       {deal.tx_hash && (

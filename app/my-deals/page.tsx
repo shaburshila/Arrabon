@@ -15,6 +15,7 @@ import {
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
+import { formatDate } from "@/lib/ui/date";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -47,21 +48,6 @@ const MY_DEALS_AUTH_MESSAGES = {
   switchDescription: "Switch networks to view your paid consultations.",
   switchTitle: "Switch to Base",
 } as const;
-
-function formatDate(iso: string, tz: string) {
-  try {
-    return new Date(iso).toLocaleString("en-US", {
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "short",
-      timeZone: tz,
-      year: "numeric",
-    });
-  } catch {
-    return new Date(iso).toLocaleString();
-  }
-}
 
 function matchDealFilter(deal: MyDeal, filter: DealFilter): boolean {
   if (filter === "all") return true;
@@ -271,7 +257,7 @@ function DealRow({
           </span>
           <span style={metaItemStyle}>
             <Clock size={10} />
-            {formatDate(deal.scheduled_at, deal.timezone)}
+            {formatDate(deal.scheduled_at, { timeZone: deal.timezone })}
           </span>
         </div>
       </div>

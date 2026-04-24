@@ -16,6 +16,7 @@ import { fetchDeal, type DealStatus } from "@/lib/api/deals";
 import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 import { truncateAddress } from "@/lib/ui/address";
+import { formatDate } from "@/lib/ui/date";
 import { AppShell } from "@/components/app/app-shell";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -65,17 +66,6 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Not set";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 
 function statusText(state: ResolveState) {
@@ -371,9 +361,27 @@ export default function AdminDisputesPage() {
 
                   <div style={gridStyle}>
                     <Info label="Price" value={`${deal.price_usdc} USDC`} />
-                    <Info label="Scheduled" value={formatDate(deal.scheduled_at)} />
-                    <Info label="Completed" value={formatDate(deal.completed_at)} />
-                    <Info label="Release deadline" value={formatDate(deal.release_deadline_at)} />
+                    <Info
+                      label="Scheduled"
+                      value={formatDate(deal.scheduled_at, {
+                        fallback: "Not set",
+                        timeZone: deal.timezone,
+                      })}
+                    />
+                    <Info
+                      label="Completed"
+                      value={formatDate(deal.completed_at, {
+                        fallback: "Not set",
+                        showTimeZoneName: true,
+                      })}
+                    />
+                    <Info
+                      label="Release deadline"
+                      value={formatDate(deal.release_deadline_at, {
+                        fallback: "Not set",
+                        showTimeZoneName: true,
+                      })}
+                    />
                     <Info label="Buyer" value={truncateAddress(deal.buyer_address)} />
                     <Info label="Seller" value={truncateAddress(deal.seller_address)} />
                   </div>

@@ -18,6 +18,7 @@ import {
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyLinks, type MyLink } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
+import { formatDate } from "@/lib/ui/date";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
@@ -84,21 +85,6 @@ const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
     label: "Open",
   },
 };
-
-function formatDate(iso: string, tz: string) {
-  try {
-    return new Date(iso).toLocaleString("en-US", {
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "short",
-      timeZone: tz,
-      year: "numeric",
-    });
-  } catch {
-    return new Date(iso).toLocaleString();
-  }
-}
 
 export default function MyLinksPage() {
   const session = useWalletSession();
@@ -311,7 +297,7 @@ function LinkRow({
         <p style={rowTitleStyle}>{link.title}</p>
         <div style={rowMetaStyle}>
           <Clock size={11} />
-          <span>{formatDate(link.scheduled_at, link.timezone)}</span>
+          <span>{formatDate(link.scheduled_at, { timeZone: link.timezone })}</span>
         </div>
       </div>
 

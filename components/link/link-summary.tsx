@@ -4,28 +4,13 @@
 
 import type { PublicLink } from "@/lib/api/links";
 import { truncateAddress } from "@/lib/ui/address";
+import { formatDate } from "@/lib/ui/date";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { DetailRow } from "@/components/shared/detail-row";
 import { StatusPill } from "@/components/shared/status-pill";
 
 interface LinkSummaryProps {
   link: PublicLink;
-}
-
-function formatDate(iso: string, timezone?: string) {
-  try {
-    return new Date(iso).toLocaleString("en-US", {
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "short",
-      timeZone: timezone || "UTC",
-      timeZoneName: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 function formatDuration(minutes: number) {
@@ -59,7 +44,10 @@ export function LinkSummary({ link }: LinkSummaryProps) {
       <div style={detailsStyle}>
         <DetailRow
           label="Scheduled"
-          value={formatDate(link.scheduled_at, link.timezone)}
+          value={formatDate(link.scheduled_at, {
+            showTimeZoneName: true,
+            timeZone: link.timezone,
+          })}
         />
         <DetailRow
           label="Duration"
@@ -67,7 +55,10 @@ export function LinkSummary({ link }: LinkSummaryProps) {
         />
         <DetailRow
           label="Expires"
-          value={formatDate(link.expires_at, link.timezone)}
+          value={formatDate(link.expires_at, {
+            showTimeZoneName: true,
+            timeZone: link.timezone,
+          })}
         />
         <DetailRow
           bordered={false}

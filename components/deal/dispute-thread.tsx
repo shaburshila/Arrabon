@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/dispute-messages";
 import { ApiError } from "@/lib/api/auth";
 import { truncateAddress } from "@/lib/ui/address";
+import { formatDate } from "@/lib/ui/date";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { Notice } from "@/components/shared/notice";
@@ -31,13 +32,6 @@ const ROLE_LABELS: Record<DisputeMessageAuthorRole, string> = {
   buyer: "Buyer",
   seller: "Seller",
 };
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
