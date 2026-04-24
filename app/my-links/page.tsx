@@ -26,6 +26,7 @@ import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
+import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
 type LinkFilter = "all" | MyLink["status"];
 
@@ -44,6 +45,17 @@ const FILTERS: { value: LinkFilter; label: string }[] = [
 ];
 
 const PAGE_SIZE = 20;
+
+const MY_LINKS_AUTH_MESSAGES = {
+  checkingDescription: "Restoring your wallet session.",
+  checkingTitle: "Checking session",
+  connectDescription: "Connect to view and manage your consultation links.",
+  connectTitle: "Connect your wallet",
+  signInDescription: "Sign in with Ethereum to view your consultation links.",
+  signInTitle: "Sign in required",
+  switchDescription: "Switch networks to view your consultation links.",
+  switchTitle: "Switch to Base",
+} as const;
 
 const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
   Cancelled: {
@@ -140,64 +152,12 @@ export default function MyLinksPage() {
       .finally(() => setLoading(false));
   }, [isAuthenticated, page]);
 
-  function renderAuthState() {
-    if (!session.isConnected) {
-      return (
-        <AuthStatePanel
-          action={
-            <Btn onClick={() => session.connect()} size="md">
-              Connect wallet
-            </Btn>
-          }
-          description="Connect to view and manage your consultation links."
-          title="Connect your wallet"
-        />
-      );
-    }
-
-    if (!session.isCorrectChain) {
-      return (
-        <AuthStatePanel
-          action={
-            <Btn onClick={() => session.switchToCorrectChain()} size="md">
-              Switch to Base
-            </Btn>
-          }
-          description="Switch networks to view your consultation links."
-          title="Switch to Base"
-        />
-      );
-    }
-
-    if (session.siweStatus === "loading") {
-      return (
-        <AuthStatePanel
-          description="Restoring your wallet session."
-          title="Checking session"
-        />
-      );
-    }
-
-    return (
-      <AuthStatePanel
-        action={
-          <Btn
-            loading={session.isSigningIn}
-            onClick={() => session.signIn()}
-            size="md"
-          >
-            Sign in with Ethereum
-          </Btn>
-        }
-        description="Sign in with Ethereum to view your consultation links."
-        error={session.signInError}
-        title="Sign in required"
-      />
-    );
-  }
-
   function renderListContent() {
-    if (!links || links.length === 0) {
+    if (links === null) {
+      return null;
+    }
+
+    if (links.length === 0) {
       return (
         <EmptyState
           action={createLinkAction}
@@ -230,7 +190,11 @@ export default function MyLinksPage() {
   if (!isAuthenticated) {
     return (
       <AppShell maxWidth={672} session={session}>
-        {renderAuthState()}
+        <WalletAuthStatePanel
+          icon={<Link2 size={40} />}
+          messages={MY_LINKS_AUTH_MESSAGES}
+          session={session}
+        />
       </AppShell>
     );
   }
@@ -262,7 +226,7 @@ export default function MyLinksPage() {
         />
       )}
 
-      {!loading && !error && (
+      {!loading && !error && links !== null && (
         <>
           <ActionPanel style={listPanelStyle}>
             {renderListContent()}
@@ -310,35 +274,6 @@ function LinkSkeletonRows() {
         </div>
       ))}
     </>
-  );
-}
-
-function AuthStatePanel({
-  action,
-  description,
-  error,
-  title,
-}: {
-  action?: ReactNode;
-  description: string;
-  error?: string | null;
-  title: string;
-}) {
-  return (
-    <ActionPanel style={authPanelStyle}>
-      <EmptyState
-        action={action}
-        description={description}
-        icon={<Link2 size={40} />}
-        title={title}
-      />
-      {error && (
-        <Notice
-          message={error}
-          tone="danger"
-        />
-      )}
-    </ActionPanel>
   );
 }
 
@@ -542,11 +477,6 @@ function iconActionStyle(isHovered: boolean): CSSProperties {
     width: 32,
   };
 }
-
-const authPanelStyle = {
-  overflow: "hidden",
-  padding: "0 16px 16px",
-} as const;
 
 const pageHeaderStyle = {
   alignItems: "center",

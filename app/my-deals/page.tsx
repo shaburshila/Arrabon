@@ -17,12 +17,12 @@ import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
-import { Btn } from "@/components/shared/btn";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
+import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
 type DealFilter = "all" | "upcoming" | "pending" | "disputed" | "resolved";
 
@@ -35,6 +35,17 @@ const FILTERS: { value: DealFilter; label: string }[] = [
 ];
 
 const PAGE_SIZE = 20;
+
+const MY_DEALS_AUTH_MESSAGES = {
+  checkingDescription: "Restoring your wallet session.",
+  checkingTitle: "Checking session",
+  connectDescription: "Connect to view your paid consultations.",
+  connectTitle: "Connect your wallet",
+  signInDescription: "Sign in with Ethereum to view your paid consultations.",
+  signInTitle: "Sign in required",
+  switchDescription: "Switch networks to view your paid consultations.",
+  switchTitle: "Switch to Base",
+} as const;
 
 function shortAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
@@ -108,62 +119,6 @@ export default function MyDealsPage() {
       .finally(() => setLoading(false));
   }, [isAuthenticated, page]);
 
-  function renderAuthState() {
-    if (!session.isConnected) {
-      return (
-        <AuthStatePanel
-          action={
-            <Btn onClick={() => session.connect()} size="md">
-              Connect wallet
-            </Btn>
-          }
-          description="Connect to view your paid consultations."
-          title="Connect your wallet"
-        />
-      );
-    }
-
-    if (!session.isCorrectChain) {
-      return (
-        <AuthStatePanel
-          action={
-            <Btn onClick={() => session.switchToCorrectChain()} size="md">
-              Switch to Base
-            </Btn>
-          }
-          description="Switch networks to view your paid consultations."
-          title="Switch to Base"
-        />
-      );
-    }
-
-    if (session.siweStatus === "loading") {
-      return (
-        <AuthStatePanel
-          description="Restoring your wallet session."
-          title="Checking session"
-        />
-      );
-    }
-
-    return (
-      <AuthStatePanel
-        action={
-          <Btn
-            loading={session.isSigningIn}
-            onClick={() => session.signIn()}
-            size="md"
-          >
-            Sign in with Ethereum
-          </Btn>
-        }
-        description="Sign in with Ethereum to view your paid consultations."
-        error={session.signInError}
-        title="Sign in required"
-      />
-    );
-  }
-
   function renderListContent() {
     if (!deals || deals.length === 0) {
       return (
@@ -197,7 +152,11 @@ export default function MyDealsPage() {
   if (!isAuthenticated) {
     return (
       <AppShell maxWidth={672} session={session}>
-        {renderAuthState()}
+        <WalletAuthStatePanel
+          icon={<Briefcase size={40} />}
+          messages={MY_DEALS_AUTH_MESSAGES}
+          session={session}
+        />
       </AppShell>
     );
   }
@@ -276,35 +235,6 @@ function DealSkeletonRows() {
         </div>
       ))}
     </>
-  );
-}
-
-function AuthStatePanel({
-  action,
-  description,
-  error,
-  title,
-}: {
-  action?: ReactNode;
-  description: string;
-  error?: string | null;
-  title: string;
-}) {
-  return (
-    <ActionPanel style={authPanelStyle}>
-      <EmptyState
-        action={action}
-        description={description}
-        icon={<Briefcase size={40} />}
-        title={title}
-      />
-      {error && (
-        <Notice
-          message={error}
-          tone="danger"
-        />
-      )}
-    </ActionPanel>
   );
 }
 
@@ -410,11 +340,6 @@ function iconActionStyle(isHovered: boolean): CSSProperties {
     width: 32,
   };
 }
-
-const authPanelStyle = {
-  overflow: "hidden",
-  padding: "0 16px 16px",
-} as const;
 
 const pageHeaderStyle = {
   alignItems: "center",
