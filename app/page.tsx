@@ -297,16 +297,18 @@ function InfoCard({
   marker?: number;
   title: string;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <article
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.transform = "translateY(0)";
+      }}
       style={{
         ...infoCardStyle,
         minHeight: compact ? 0 : 220,
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        transform: "translateY(0)",
       }}
     >
       {marker && <span style={cardMarkerStyle}>{marker}</span>}
@@ -328,27 +330,34 @@ function CtaLink({
   href: string;
   variant: "primary" | "secondary";
 }) {
-  const [hovered, setHovered] = useState(false);
   const isPrimary = variant === "primary";
 
   return (
     <Link
       href={href}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.background = isPrimary
+          ? "var(--accent-strong)"
+          : "var(--panel-hover)";
+        event.currentTarget.style.transform = isPrimary
+          ? "translateY(-1px)"
+          : "translateY(0)";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.background = isPrimary
+          ? "var(--accent)"
+          : "transparent";
+        event.currentTarget.style.transform = "translateY(0)";
+      }}
       style={{
         ...ctaLinkBaseStyle,
         background: isPrimary
-          ? hovered
-            ? "var(--accent-strong)"
-            : "var(--accent)"
-          : hovered
-            ? "var(--panel-hover)"
-            : "transparent",
+          ? "var(--accent)"
+          : "transparent",
         border: isPrimary ? "1px solid transparent" : "1px solid var(--border)",
         color: isPrimary ? "#fff" : "var(--foreground)",
         minWidth: 160,
-        transform: hovered && isPrimary ? "translateY(-1px)" : "translateY(0)",
+        transform: "translateY(0)",
       }}
     >
       <span style={ctaContentStyle}>{children}</span>
@@ -366,16 +375,18 @@ function TrustIndicator({ label }: { label: string }) {
 }
 
 function FooterLink({ children, href }: { children: ReactNode; href: string }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <a
       href={href}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.opacity = "0.7";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.opacity = "1";
+      }}
       style={{
         ...footerLinkStyle,
-        opacity: hovered ? 0.7 : 1,
+        opacity: 1,
       }}
     >
       {children}
