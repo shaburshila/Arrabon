@@ -10,6 +10,7 @@ import {
   type DisputeMessageAuthorRole,
 } from "@/lib/api/dispute-messages";
 import { ApiError } from "@/lib/api/auth";
+import { truncateAddress } from "@/lib/ui/address";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { Notice } from "@/components/shared/notice";
@@ -30,10 +31,6 @@ const ROLE_LABELS: Record<DisputeMessageAuthorRole, string> = {
   buyer: "Buyer",
   seller: "Seller",
 };
-
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -242,7 +239,7 @@ function MessageCard({
           label={ROLE_LABELS[message.author_role]}
           tone={roleTone(message.author_role)}
         />
-        <span>{shortAddress(message.author_wallet)}</span>
+        <span>{truncateAddress(message.author_wallet)}</span>
         <span>{formatDate(message.created_at)}</span>
       </div>
       <p style={bodyStyle}>{message.body}</p>

@@ -14,6 +14,7 @@ import {
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
+import { truncateAddress } from "@/lib/ui/address";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -46,10 +47,6 @@ const MY_DEALS_AUTH_MESSAGES = {
   switchDescription: "Switch networks to view your paid consultations.",
   switchTitle: "Switch to Base",
 } as const;
-
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
 
 function formatDate(iso: string, tz: string) {
   try {
@@ -270,7 +267,7 @@ function DealRow({
         <div style={rowMetaStyle}>
           <span style={metaItemStyle}>
             <User size={10} />
-            {shortAddress(deal.seller_address)}
+            {truncateAddress(deal.seller_address)}
           </span>
           <span style={metaItemStyle}>
             <Clock size={10} />

@@ -9,6 +9,7 @@ import { useState, type FormEvent } from "react";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
+import { truncateAddress } from "@/lib/ui/address";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { CopyBtn } from "@/components/shared/copy-btn";
@@ -474,10 +475,6 @@ function PageHeader() {
       </p>
     </div>
   );
-}
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
 function Divider() {

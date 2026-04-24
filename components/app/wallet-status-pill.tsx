@@ -4,10 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
-
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
+import { truncateAddress } from "@/lib/ui/address";
 
 export function WalletStatusPill({ session }: { session: WalletSessionState }) {
   const state = getWalletStatus(session);
@@ -90,7 +87,7 @@ export function WalletStatusPill({ session }: { session: WalletSessionState }) {
                 {session.session?.is_admin === true ? "Admin wallet" : "Connected wallet"}
               </p>
               <p style={addressStyle}>
-                {session.address ? shortAddress(session.address) : "Unknown address"}
+                {session.address ? truncateAddress(session.address) : "Unknown address"}
               </p>
             </div>
           </div>
@@ -154,7 +151,7 @@ function getWalletStatus(session: WalletSessionState) {
     return {
       avatar: "wallet" as const,
       dot: true,
-      label: session.address ? shortAddress(session.address) : "Connected",
+      label: session.address ? truncateAddress(session.address) : "Connected",
       tone: "muted" as const,
     };
   }
@@ -164,7 +161,7 @@ function getWalletStatus(session: WalletSessionState) {
   }
 
   if (session.address) {
-    return { avatar: "wallet" as const, dot: true, label: shortAddress(session.address), tone: "success" as const };
+    return { avatar: "wallet" as const, dot: true, label: truncateAddress(session.address), tone: "success" as const };
   }
 
   return { avatar: "wallet" as const, dot: true, label: "Connected", tone: "success" as const };

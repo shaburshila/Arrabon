@@ -5,15 +5,12 @@
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { baseRuntimeConfig } from "@/lib/base/config";
+import { truncateAddress } from "@/lib/ui/address";
 import { Btn } from "@/components/shared/btn";
 
 interface WalletSessionCardProps {
   hideActions?: boolean;
   session: WalletSessionState;
-}
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 export function WalletSessionCard({ hideActions = false, session }: WalletSessionCardProps) {

@@ -15,6 +15,7 @@ import {
 import { fetchDeal, type DealStatus } from "@/lib/api/deals";
 import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
+import { truncateAddress } from "@/lib/ui/address";
 import { AppShell } from "@/components/app/app-shell";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -64,10 +65,6 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
 function formatDate(value: string | null) {
@@ -377,8 +374,8 @@ export default function AdminDisputesPage() {
                     <Info label="Scheduled" value={formatDate(deal.scheduled_at)} />
                     <Info label="Completed" value={formatDate(deal.completed_at)} />
                     <Info label="Release deadline" value={formatDate(deal.release_deadline_at)} />
-                    <Info label="Buyer" value={shortAddress(deal.buyer_address)} />
-                    <Info label="Seller" value={shortAddress(deal.seller_address)} />
+                    <Info label="Buyer" value={truncateAddress(deal.buyer_address)} />
+                    <Info label="Seller" value={truncateAddress(deal.seller_address)} />
                   </div>
 
                   {activeText && (

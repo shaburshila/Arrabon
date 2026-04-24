@@ -1,6 +1,7 @@
 "use client";
 
 import type { DealReadModel } from "@/lib/api/deals";
+import { truncateAddress } from "@/lib/ui/address";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { DetailRow } from "@/components/shared/detail-row";
@@ -10,10 +11,6 @@ interface DealStatusCardProps {
   deal: DealReadModel;
   isAdmin?: boolean;
   role: "buyer" | "seller" | "viewer";
-}
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 function formatDate(iso: string | null) {

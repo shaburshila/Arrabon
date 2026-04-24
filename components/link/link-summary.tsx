@@ -3,6 +3,7 @@
 // Displays public consultation link metadata.
 
 import type { PublicLink } from "@/lib/api/links";
+import { truncateAddress } from "@/lib/ui/address";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { DetailRow } from "@/components/shared/detail-row";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -32,10 +33,6 @@ function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 export function LinkSummary({ link }: LinkSummaryProps) {
