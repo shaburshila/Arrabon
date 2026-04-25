@@ -43,6 +43,7 @@ function makeDeal(overrides: Partial<DealRow> = {}): DealRow {
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
+    risk_status: "Clear",
     resolution_type: null,
     resolved_at: null,
     resolved_by_wallet: null,

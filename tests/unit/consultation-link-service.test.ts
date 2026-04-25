@@ -88,6 +88,7 @@ function makeDeal(overrides: Partial<DealRow> = {}): DealRow {
     buyer_address: '0xBuyerAddress',
     seller_address: '0xExpertAddress',
     status: 'Funded',
+    risk_status: 'Clear',
     funded_at: new Date().toISOString(),
     completed_at: null,
     released_at: null,

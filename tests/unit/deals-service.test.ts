@@ -44,6 +44,7 @@ function makeDeal(overrides: Partial<DealRow> = {}): DealRow {
     buyer_address: "0xBuyer",
     seller_address: "0xExpert",
     status: "Funded",
+    risk_status: "Clear",
     funded_at: null,
     completed_at: null,
     released_at: null,

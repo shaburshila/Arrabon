@@ -12,11 +12,32 @@ export type DealStatus =
   | "Refunded"
   | "Disputed";
 
+export type DealRiskStatus = "Clear" | "Review" | "Blocked";
+
 export type DealResolutionType =
   | "admin_refund"
   | "admin_release"
   | "auto_release"
   | "buyer_confirmed";
+
+export type ComplianceCheckSubjectType = "wallet" | "transaction";
+
+export type ComplianceCheckResult = "Clear" | "Review" | "Blocked";
+
+export type ComplianceReasonCode =
+  | "NO_HIT"
+  | "OFAC_SANCTIONS"
+  | "USDC_BLACKLISTED"
+  | "LOCAL_DENYLIST"
+  | "PROVIDER_UNAVAILABLE"
+  | "FRAUD_SIGNAL";
+
+export type ComplianceProviderId =
+  | "chainalysis_sanctions_oracle"
+  | "usdc_blacklist"
+  | "local_denylist"
+  | "ofac_sdn"
+  | "chainabuse";
 
 export interface UserRow {
   id: string;
@@ -97,6 +118,7 @@ export interface DealRow {
   buyer_address: string;
   seller_address: string;
   status: DealStatus;
+  risk_status: DealRiskStatus;
   funded_at: string | null;
   completed_at: string | null;
   released_at: string | null;
@@ -115,6 +137,7 @@ export interface DealInsert {
   buyer_address: string;
   seller_address: string;
   status: DealStatus;
+  risk_status?: DealRiskStatus;
   funded_at?: string | null;
   completed_at?: string | null;
   released_at?: string | null;
@@ -132,6 +155,7 @@ export interface DealUpdate {
   buyer_address?: string;
   seller_address?: string;
   status?: DealStatus;
+  risk_status?: DealRiskStatus;
   funded_at?: string | null;
   completed_at?: string | null;
   released_at?: string | null;
@@ -216,6 +240,44 @@ export interface ProcessedTransactionUpdate {
   event_type?: string;
   deal_id?: string | null;
   processed_at?: string;
+}
+
+export interface ComplianceCheckRow {
+  id: string;
+  subject_type: ComplianceCheckSubjectType;
+  subject_value: string;
+  provider: ComplianceProviderId;
+  result: ComplianceCheckResult;
+  reason_code: ComplianceReasonCode;
+  raw_summary: Record<string, unknown>;
+  checked_at: string;
+  deal_id: string | null;
+  actor_wallet: string | null;
+}
+
+export interface ComplianceCheckInsert {
+  id?: string;
+  subject_type: ComplianceCheckSubjectType;
+  subject_value: string;
+  provider: ComplianceProviderId;
+  result: ComplianceCheckResult;
+  reason_code: ComplianceReasonCode;
+  raw_summary?: Record<string, unknown>;
+  checked_at?: string;
+  deal_id?: string | null;
+  actor_wallet?: string | null;
+}
+
+export interface ComplianceCheckUpdate {
+  subject_type?: ComplianceCheckSubjectType;
+  subject_value?: string;
+  provider?: ComplianceProviderId;
+  result?: ComplianceCheckResult;
+  reason_code?: ComplianceReasonCode;
+  raw_summary?: Record<string, unknown>;
+  checked_at?: string;
+  deal_id?: string | null;
+  actor_wallet?: string | null;
 }
 
 export type AdminResolutionIntentResolution = "refund" | "release";
@@ -368,6 +430,20 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "processed_transactions_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      compliance_checks: {
+        Row: ComplianceCheckRow;
+        Insert: ComplianceCheckInsert;
+        Update: ComplianceCheckUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "compliance_checks_deal_id_fkey";
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";
