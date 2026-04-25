@@ -36,6 +36,11 @@
 - Meeting URL reveal uses fail-closed audit logging. If audit-log write fails, the reveal endpoint must not return `meeting_url`. This intentionally couples reveal availability to audit-log availability and is accepted as an MVP operational trade-off.
 - If a confirmed `Funded` event arrives after the offchain link has already become effectively terminal (`Cancelled` or time-expired `Open`), backend still persists the confirmed deal because chain remains source of truth for deal state. In that convergence path backend does not force the link record into `Consumed`; this is an intentional MVP deviation from the simpler `funded => Consumed` summary rule.
 - Meeting URL reveal remains unavailable for `Refunded` deals even to participants. This behavior is frozen by `auth-model.md` and `flows.md`; any broader wording elsewhere must not be interpreted as allowing reveal after refund.
+- AML Step 2 uses exactly three MVP screening providers: Chainalysis sanctions oracle, USDC `isBlacklisted(address)`, and local `wallet_denylist`.
+- AML Step 2 treats provider/network failures as fail-closed `Blocked` with `PROVIDER_UNAVAILABLE`; sanctions providers do not return `Review`.
+- AML Step 2 uses positive-only cache with a fixed 5-minute TTL for `Clear` and real hit results; `PROVIDER_UNAVAILABLE` is never cached.
+- AML Step 2 resolves multiple real hits with deterministic priority `OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST`.
+- AML Step 2 introduces `wallet_denylist` as a Step 2 server-side source of truth; runtime lowercase normalization is required at provider boundaries until `deals.*_address` gets DB-level enforcement in a later step.
 
 ---
 

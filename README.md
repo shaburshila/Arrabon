@@ -44,6 +44,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_TREASURY_WALLET=
 NEXT_PUBLIC_BASE_CHAIN_ID=
 NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS=
+NEXT_PUBLIC_USDC_ADDRESS=
 NEXT_PUBLIC_BUILDER_CODE=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -53,6 +54,10 @@ MEETING_URL_ENCRYPTION_KEY=
 CHAIN_SYNC_START_BLOCK=
 CHAIN_SYNC_CONFIRMATIONS=
 CHAIN_SYNC_MAX_RANGE=
+COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS=
+COMPLIANCE_CB_FAILURE_THRESHOLD=
+COMPLIANCE_CB_WINDOW_MS=
+COMPLIANCE_CB_RESET_MS=
 ```
 
 `AUTH_DOMAIN` is the preferred host override for SIWE domain validation. If it is not set, auth falls back to the incoming request host.
@@ -66,6 +71,12 @@ CHAIN_SYNC_MAX_RANGE=
 `CHAIN_SYNC_START_BLOCK`, `CHAIN_SYNC_CONFIRMATIONS`, and `CHAIN_SYNC_MAX_RANGE` configure the background event-sync worker. `CHAIN_SYNC_MAX_RANGE` must be greater than or equal to `1`.
 
 `NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but runtime attribution is still intentionally deferred.
+
+`COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS` points to the on-chain Chainalysis sanctions oracle contract used by AML screening.
+
+`COMPLIANCE_CB_FAILURE_THRESHOLD`, `COMPLIANCE_CB_WINDOW_MS`, and `COMPLIANCE_CB_RESET_MS` configure the per-provider compliance circuit breaker. Positive compliance cache TTL is intentionally fixed in code at 5 minutes for the current MVP.
+
+`NEXT_PUBLIC_USDC_ADDRESS` remains the single source of truth for the USDC contract address and is reused by the compliance blacklist provider.
 
 ## Contract Deployment
 

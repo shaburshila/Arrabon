@@ -33,11 +33,14 @@ export type ComplianceReasonCode =
   | "FRAUD_SIGNAL";
 
 export type ComplianceProviderId =
+  | "composite"
   | "chainalysis_sanctions_oracle"
   | "usdc_blacklist"
   | "local_denylist"
   | "ofac_sdn"
   | "chainabuse";
+
+export type WalletDenylistReason = "fraud" | "abuse" | "sanctions" | "other";
 
 export interface UserRow {
   id: string;
@@ -280,6 +283,30 @@ export interface ComplianceCheckUpdate {
   actor_wallet?: string | null;
 }
 
+export interface WalletDenylistRow {
+  wallet: string;
+  reason: WalletDenylistReason;
+  added_by_wallet: string;
+  added_at: string;
+  notes: string | null;
+}
+
+export interface WalletDenylistInsert {
+  wallet: string;
+  reason: WalletDenylistReason;
+  added_by_wallet: string;
+  added_at?: string;
+  notes?: string | null;
+}
+
+export interface WalletDenylistUpdate {
+  wallet?: string;
+  reason?: WalletDenylistReason;
+  added_by_wallet?: string;
+  added_at?: string;
+  notes?: string | null;
+}
+
 export type AdminResolutionIntentResolution = "refund" | "release";
 
 export interface AdminResolutionIntentRow {
@@ -450,6 +477,12 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      wallet_denylist: {
+        Row: WalletDenylistRow;
+        Insert: WalletDenylistInsert;
+        Update: WalletDenylistUpdate;
+        Relationships: [];
       };
       admin_resolution_intents: {
         Row: AdminResolutionIntentRow;
