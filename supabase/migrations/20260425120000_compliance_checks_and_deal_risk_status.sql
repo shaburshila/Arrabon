@@ -20,8 +20,6 @@ create table if not exists public.compliance_checks (
   actor_wallet text null
 );
 
-alter table public.compliance_checks enable row level security;
-
 create index if not exists idx_compliance_checks_subject_lookup
   on public.compliance_checks (subject_type, subject_value);
 
