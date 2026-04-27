@@ -14,6 +14,7 @@ import {
 } from "../../server/services/deals-admin";
 
 interface DealsAdminMocks {
+  assertDealNotBlocked: (...args: unknown[]) => Promise<unknown>;
   ConsultEscrowConfigError: new (message: string) => Error;
   assertCompliance: (...args: unknown[]) => unknown;
   createAdminResolutionIntent: (...args: unknown[]) => Promise<unknown>;
@@ -46,6 +47,7 @@ function makeActionContext(
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
+    risk_status: "Clear",
     scheduled_at: "2026-04-09T00:00:00.000Z",
     seller_address: "0x0000000000000000000000000000000000000001",
     status: "Disputed",
@@ -93,6 +95,7 @@ function makeScreeningResult(walletAddress: string) {
 }
 
 beforeEach(() => {
+  mocks.assertDealNotBlocked = async () => undefined;
   mocks.assertCompliance = () => {};
   mocks.createAdminResolutionIntent = async () => ({ id: "intent-id-1" });
   mocks.getAdminDealReviewRowById = async () => makeReviewRow();
@@ -316,6 +319,34 @@ describe("prepareAdminResolveForDeal", () => {
       () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
       /blocked/,
     );
+    assert.equal(intentCalls, 0);
+  });
+
+  test("blocks legal-hold deal before recipient screening or intent creation", async () => {
+    let complianceCalls = 0;
+    let intentCalls = 0;
+    let legalHoldDealId: unknown = null;
+
+    mocks.getDealActionContextById = async () => makeActionContext({ risk_status: "Blocked" });
+    mocks.screenWalletForDeal = async () => {
+      complianceCalls += 1;
+      return makeScreeningResult(makeActionContext().seller_address);
+    };
+    mocks.assertDealNotBlocked = async (...args: unknown[]) => {
+      [legalHoldDealId] = args;
+      throw new Error("legal hold");
+    };
+    mocks.createAdminResolutionIntent = async () => {
+      intentCalls += 1;
+      return { id: "intent-id-1" };
+    };
+
+    await assert.rejects(
+      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      /legal hold/,
+    );
+    assert.equal(legalHoldDealId, "deal-id-1");
+    assert.equal(complianceCalls, 0);
     assert.equal(intentCalls, 0);
   });
 });

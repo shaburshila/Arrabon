@@ -32,6 +32,7 @@ class ConsultEscrowConfigError extends Error {
 }
 
 const mocks = {
+  assertDealNotBlocked: async () => {},
   assertCompliance: () => {},
   createAdminResolutionIntent: async () => ({ id: 'intent-id-1' }),
   getAdminDealReviewRowById: async () => null,
@@ -87,6 +88,7 @@ require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
 
 const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
 require.cache[complianceServicePath] = makeEntry(complianceServicePath, {
+  assertDealNotBlocked: (...args) => mocks.assertDealNotBlocked(...args),
   screenWalletForDeal: (...args) => mocks.screenWalletForDeal(...args),
 });
 

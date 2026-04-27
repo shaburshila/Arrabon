@@ -24,6 +24,7 @@ interface DealEventMocks {
   getByTxHash: (...args: unknown[]) => Promise<unknown>;
   insertProcessedTransaction: (...args: unknown[]) => Promise<{ duplicate: boolean; row: unknown }>;
   processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
+  screenWalletsBatch: (...args: unknown[]) => Promise<unknown[]>;
   setConfirmPendingByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
   setDisputedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
   setRefundedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
@@ -123,6 +124,7 @@ beforeEach(() => {
     alreadyProcessed: false,
     dealId: "deal-id-funded",
   });
+  mocks.screenWalletsBatch = async () => [];
   mocks.setConfirmPendingByOnchainDealId = async () => ({ id: "deal-id-completed" });
   mocks.setDisputedByOnchainDealId = async () => ({ id: "deal-id-disputed" });
   mocks.setRefundedByOnchainDealId = async () => ({ id: "deal-id-refunded" });
@@ -134,6 +136,7 @@ describe("deal event idempotency", () => {
     let auditCalls = 0;
     let atomicCalls = 0;
     let capturedInput: unknown = null;
+    let capturedScreeningInput: unknown[] | null = null;
 
     mocks.processConfirmedFundedEventOnce = async (...args: unknown[]) => {
       atomicCalls += 1;
@@ -147,6 +150,10 @@ describe("deal event idempotency", () => {
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
     };
+    mocks.screenWalletsBatch = async (...args: unknown[]) => {
+      capturedScreeningInput = args;
+      return [];
+    };
 
     const result = await processConfirmedFundedEvent(fundedEvent);
 
@@ -157,6 +164,14 @@ describe("deal event idempotency", () => {
     });
     assert.equal(atomicCalls, 1);
     assert.equal(auditCalls, 1);
+    assert.deepEqual(capturedScreeningInput, [
+      [fundedEvent.buyerAddress, fundedEvent.sellerAddress],
+      {
+        action: "post_funding_sync",
+        actorWallet: null,
+        dealId: "deal-id-funded",
+      },
+    ]);
     assert.deepEqual(capturedInput, {
       buyerAddress: fundedEvent.buyerAddress,
       consultationLinkId: "link-id-1",
@@ -172,6 +187,7 @@ describe("deal event idempotency", () => {
 
   test("funded atomic duplicate returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
+    let screeningCalls = 0;
 
     mocks.processConfirmedFundedEventOnce = async () => ({
       alreadyProcessed: true,
@@ -179,6 +195,10 @@ describe("deal event idempotency", () => {
     });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
+    };
+    mocks.screenWalletsBatch = async () => {
+      screeningCalls += 1;
+      return [];
     };
 
     const result = await processConfirmedFundedEvent(fundedEvent);
@@ -188,6 +208,7 @@ describe("deal event idempotency", () => {
       txHash: fundedEvent.txHash,
     });
     assert.equal(auditCalls, 0);
+    assert.equal(screeningCalls, 0);
   });
 
   test("funded unknown link hash is skipped without atomic processing", async () => {
@@ -246,6 +267,52 @@ describe("deal event idempotency", () => {
       sellerAddress: fundedEvent.sellerAddress,
       status: "Funded",
       txHash: fundedEvent.txHash,
+    });
+  });
+
+  test("funded blocked post-funding appends compliance alert audit log", async () => {
+    const auditEntries: Array<Record<string, unknown>> = [];
+
+    mocks.createAuditLogEntry = async (entry: unknown) => {
+      auditEntries.push(entry as Record<string, unknown>);
+    };
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: BUYER_ADDRESS.toLowerCase(),
+        provider: "chainalysis_sanctions_oracle",
+        rawSummary: {},
+        reasonCode: "OFAC_SANCTIONS",
+        result: "Blocked",
+        walletAddress: BUYER_ADDRESS,
+      },
+      {
+        normalizedWallet: SELLER_ADDRESS.toLowerCase(),
+        provider: null,
+        rawSummary: {},
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: SELLER_ADDRESS,
+      },
+    ];
+
+    const result = await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-funded",
+      result: "processed",
+      txHash: fundedEvent.txHash,
+    });
+    assert.equal(auditEntries.length, 2);
+    assert.equal(auditEntries[1].action, "compliance.blocked_post_funding");
+    assert.deepEqual(auditEntries[1].metadata, {
+      block_number: fundedEvent.blockNumber.toString(10),
+      buyer_address: fundedEvent.buyerAddress,
+      consultation_link_id: "link-id-1",
+      event_type: fundedEvent.eventType,
+      log_index: fundedEvent.logIndex,
+      onchain_deal_id: fundedEvent.onchainDealId,
+      seller_address: fundedEvent.sellerAddress,
+      tx_hash: fundedEvent.txHash,
     });
   });
 

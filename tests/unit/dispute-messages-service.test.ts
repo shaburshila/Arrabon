@@ -42,6 +42,7 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
+    risk_status: "Clear",
     scheduled_at: "2026-04-17T10:00:00.000Z",
     seller_address: SELLER,
     status: "Disputed",

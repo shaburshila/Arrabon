@@ -79,6 +79,7 @@ export interface DealActionContextRow {
   id: string;
   onchain_deal_id: string;
   released_at: string | null;
+  risk_status: DealRow["risk_status"];
   scheduled_at: string;
   seller_address: string;
   status: DealRow["status"];
@@ -440,6 +441,7 @@ export async function getDealActionContextById(
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     released_at: deal.released_at,
+    risk_status: deal.risk_status,
     scheduled_at: linkedConsultationLink.scheduled_at,
     seller_address: deal.seller_address,
     status: deal.status,

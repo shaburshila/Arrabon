@@ -18,7 +18,7 @@ import {
   DealsRepositoryError,
   getDealActionContextById,
 } from "@/server/repositories/deals";
-import { screenWalletForDeal } from "@/server/services/compliance";
+import { assertDealNotBlocked, screenWalletForDeal } from "@/server/services/compliance";
 
 export interface PreparedDealLifecycleResult {
   contract_call: PreparedDealLifecycleCall;
@@ -253,6 +253,10 @@ export async function prepareConfirmReleaseForDeal(
     );
   }
 
+  if (context.risk_status === "Blocked") {
+    await assertDealNotBlocked(context.id);
+  }
+
   const screeningContext = {
     action: "lifecycle_release" as const,
     actorWallet: currentUser.wallet_address,
@@ -381,6 +385,10 @@ export async function prepareAutoReleaseForDeal(
       409,
       "AUTO_RELEASE_NOT_AVAILABLE",
     );
+  }
+
+  if (context.risk_status === "Blocked") {
+    await assertDealNotBlocked(context.id);
   }
 
   const screeningContext = {

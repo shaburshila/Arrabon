@@ -4,6 +4,7 @@ import { getAddress } from "viem";
 
 import type { ComplianceCheckRow, DealRow } from "@/lib/db/types";
 import {
+  assertDealNotBlocked,
   ComplianceServiceError,
   recomputeDealRiskStatus,
   screenWalletForDeal,
@@ -17,6 +18,7 @@ interface ComplianceServiceMocks {
     updateRiskStatusById: Array<[string, DealRow["risk_status"]]>;
   };
   createComplianceCheck: (...args: unknown[]) => Promise<unknown>;
+  findBlockedByDeal: (...args: unknown[]) => Promise<ComplianceCheckRow[]>;
   findByDeal: (...args: unknown[]) => Promise<ComplianceCheckRow[]>;
   getById: (...args: unknown[]) => Promise<DealRow | null>;
   provider: {
@@ -270,5 +272,79 @@ describe("recomputeDealRiskStatus", () => {
 
     assert.equal(riskStatus, "Review");
     assert.equal(mocks.calls.updateRiskStatusById.length, 0);
+  });
+});
+
+describe("assertDealNotBlocked", () => {
+  test("returns when no blocked checks exist for the deal", async () => {
+    mocks.findBlockedByDeal = async () => [];
+
+    await assert.doesNotReject(() => assertDealNotBlocked("deal-id-1"));
+  });
+
+  test("raises canonical compliance error using persisted blocking check", async () => {
+    mocks.findBlockedByDeal = async () => [
+      {
+        id: "blocked-1",
+        actor_wallet: null,
+        checked_at: "2026-04-27T01:00:00.000Z",
+        deal_id: "deal-id-1",
+        provider: "local_denylist",
+        raw_summary: {},
+        reason_code: "LOCAL_DENYLIST",
+        result: "Blocked",
+        subject_type: "wallet",
+        subject_value: SELLER.toLowerCase(),
+      },
+    ];
+
+    await assert.rejects(
+      () => assertDealNotBlocked("deal-id-1"),
+      (error) => {
+        assert.equal((error as { name?: string }).name, "ComplianceBlockedError");
+        assert.equal((error as { provider?: string }).provider, "local_denylist");
+        assert.equal((error as { reasonCode?: string }).reasonCode, "LOCAL_DENYLIST");
+        assert.equal((error as { walletAddress?: string }).walletAddress, SELLER.toLowerCase());
+        return true;
+      },
+    );
+  });
+
+  test("prefers higher-priority reason code over recency", async () => {
+    mocks.findBlockedByDeal = async () => [
+      {
+        id: "z-newer",
+        actor_wallet: null,
+        checked_at: "2026-04-27T02:00:00.000Z",
+        deal_id: "deal-id-1",
+        provider: "local_denylist",
+        raw_summary: {},
+        reason_code: "LOCAL_DENYLIST",
+        result: "Blocked",
+        subject_type: "wallet",
+        subject_value: SELLER.toLowerCase(),
+      },
+      {
+        id: "a-older",
+        actor_wallet: null,
+        checked_at: "2026-04-27T01:00:00.000Z",
+        deal_id: "deal-id-1",
+        provider: "chainalysis_sanctions_oracle",
+        raw_summary: {},
+        reason_code: "OFAC_SANCTIONS",
+        result: "Blocked",
+        subject_type: "wallet",
+        subject_value: BUYER.toLowerCase(),
+      },
+    ];
+
+    await assert.rejects(
+      () => assertDealNotBlocked("deal-id-1"),
+      (error) => {
+        assert.equal((error as { reasonCode?: string }).reasonCode, "OFAC_SANCTIONS");
+        assert.equal((error as { walletAddress?: string }).walletAddress, BUYER.toLowerCase());
+        return true;
+      },
+    );
   });
 });

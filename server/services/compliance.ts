@@ -18,6 +18,7 @@ import type {
 import {
   ComplianceChecksRepositoryError,
   createComplianceCheck,
+  findBlockedByDeal,
   findByDeal,
 } from "@/server/repositories/compliance-checks";
 import {
@@ -25,6 +26,8 @@ import {
   getById,
   updateRiskStatusById,
 } from "@/server/repositories/deals";
+import { ComplianceBlockedError } from "@/lib/compliance/error-mapping";
+import type { BlockingReasonCode } from "@/lib/compliance/types";
 
 export class ComplianceServiceError extends Error {
   cause?: unknown;
@@ -58,6 +61,31 @@ function resolveRiskStatusFromChecks(checks: readonly ComplianceCheckRow[]): Dea
   }
 
   return "Clear";
+}
+
+const BLOCKING_REASON_PRIORITY: Record<BlockingReasonCode, number> = {
+  LOCAL_DENYLIST: 2,
+  OFAC_SANCTIONS: 4,
+  PROVIDER_UNAVAILABLE: 1,
+  USDC_BLACKLISTED: 3,
+};
+
+function compareBlockedChecks(left: ComplianceCheckRow, right: ComplianceCheckRow): number {
+  const leftPriority = BLOCKING_REASON_PRIORITY[left.reason_code as BlockingReasonCode] ?? 0;
+  const rightPriority = BLOCKING_REASON_PRIORITY[right.reason_code as BlockingReasonCode] ?? 0;
+
+  if (leftPriority !== rightPriority) {
+    return rightPriority - leftPriority;
+  }
+
+  const leftCheckedAt = new Date(left.checked_at).getTime();
+  const rightCheckedAt = new Date(right.checked_at).getTime();
+
+  if (leftCheckedAt !== rightCheckedAt) {
+    return rightCheckedAt - leftCheckedAt;
+  }
+
+  return right.id.localeCompare(left.id);
 }
 
 function getCompositeProvider() {
@@ -242,4 +270,39 @@ export async function recomputeDealRiskStatus(dealId: string): Promise<DealRiskS
       error,
     );
   }
+}
+
+export async function assertDealNotBlocked(dealId: string): Promise<void> {
+  let blockedChecks: ComplianceCheckRow[];
+
+  try {
+    blockedChecks = await findBlockedByDeal(dealId);
+  } catch (error) {
+    if (error instanceof ComplianceChecksRepositoryError) {
+      throw new ComplianceServiceError(
+        "Failed to load blocked compliance history for deal.",
+        "BLOCKING_CHECK_LOAD_FAILED",
+        error,
+      );
+    }
+
+    throw new ComplianceServiceError(
+      "Failed to load blocked compliance history for deal.",
+      "BLOCKING_CHECK_LOAD_FAILED",
+      error,
+    );
+  }
+
+  if (blockedChecks.length === 0) {
+    return;
+  }
+
+  const [selectedCheck] = [...blockedChecks].sort(compareBlockedChecks);
+
+  throw new ComplianceBlockedError({
+    dealId,
+    provider: selectedCheck.provider,
+    reasonCode: selectedCheck.reason_code as BlockingReasonCode,
+    walletAddress: selectedCheck.subject_value,
+  });
 }

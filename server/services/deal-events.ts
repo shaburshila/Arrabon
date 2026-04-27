@@ -24,6 +24,7 @@ import {
   processConfirmedFundedEventOnce,
   ProcessedTransactionsRepositoryError,
 } from "@/server/repositories/processed-transactions";
+import { screenWalletsBatch } from "@/server/services/compliance";
 
 export class DealEventSyncServiceError extends Error {
   code: string;
@@ -76,6 +77,40 @@ async function appendFundingSyncAuditLog(input: {
     });
   } catch (error) {
     console.error("Failed to append funding sync audit log.", {
+      consultationLinkId: input.consultationLinkId,
+      dealId: input.dealId,
+      error,
+      txHash: input.event.txHash,
+    });
+  }
+}
+
+async function appendBlockedPostFundingAuditLog(input: {
+  buyerAddress: string;
+  consultationLinkId: string;
+  dealId: string;
+  event: NormalizedFundedEvent;
+  sellerAddress: string;
+}) {
+  try {
+    await createAuditLogEntry({
+      action: "compliance.blocked_post_funding",
+      actorAddress: null,
+      entityId: input.dealId,
+      entityType: "deal",
+      metadata: {
+        block_number: input.event.blockNumber.toString(10),
+        buyer_address: input.buyerAddress,
+        consultation_link_id: input.consultationLinkId,
+        event_type: input.event.eventType,
+        log_index: input.event.logIndex,
+        onchain_deal_id: input.event.onchainDealId,
+        seller_address: input.sellerAddress,
+        tx_hash: input.event.txHash,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to append blocked post-funding audit log.", {
       consultationLinkId: input.consultationLinkId,
       dealId: input.dealId,
       error,
@@ -189,6 +224,25 @@ export async function processConfirmedFundedEvent(
     dealId: fundedResult.dealId,
     event,
   });
+
+  const screeningResults = await screenWalletsBatch(
+    [event.buyerAddress, event.sellerAddress],
+    {
+      action: "post_funding_sync",
+      actorWallet: null,
+      dealId: fundedResult.dealId,
+    },
+  );
+
+  if (screeningResults.some((result) => result.result === "Blocked")) {
+    await appendBlockedPostFundingAuditLog({
+      buyerAddress: event.buyerAddress,
+      consultationLinkId: consultationLink.id,
+      dealId: fundedResult.dealId,
+      event,
+      sellerAddress: event.sellerAddress,
+    });
+  }
 
   return {
     dealId: fundedResult.dealId,

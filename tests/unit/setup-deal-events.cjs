@@ -31,6 +31,7 @@ const mocks = {
   getByTxHash: async () => null,
   insertProcessedTransaction: async () => ({ duplicate: false, row: { tx_hash: '0xtx' } }),
   processConfirmedFundedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-1' }),
+  screenWalletsBatch: async () => [],
   setConfirmPendingByOnchainDealId: async () => ({ id: 'deal-id-1' }),
   setDisputedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
   setRefundedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
@@ -71,4 +72,9 @@ require.cache[processedTransactionsRepoPath] = makeEntry(processedTransactionsRe
   getByTxHash: (...args) => mocks.getByTxHash(...args),
   insertProcessedTransaction: (...args) => mocks.insertProcessedTransaction(...args),
   processConfirmedFundedEventOnce: (...args) => mocks.processConfirmedFundedEventOnce(...args),
+});
+
+const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
+require.cache[complianceServicePath] = makeEntry(complianceServicePath, {
+  screenWalletsBatch: (...args) => mocks.screenWalletsBatch(...args),
 });

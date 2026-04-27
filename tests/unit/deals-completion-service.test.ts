@@ -12,6 +12,7 @@ import {
 } from "../../server/services/deals-completion";
 
 interface DealsCompletionMocks {
+  assertDealNotBlocked: (...args: unknown[]) => Promise<unknown>;
   assertCompliance: (...args: unknown[]) => unknown;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
   screenWalletForDeal: (...args: unknown[]) => Promise<unknown>;
@@ -55,6 +56,7 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
+    risk_status: "Clear",
     scheduled_at: SCHEDULED_AT,
     seller_address: SELLER,
     status: "ConfirmPending",
@@ -75,6 +77,7 @@ function makeScreeningResult(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  mocks.assertDealNotBlocked = async () => undefined;
   mocks.assertCompliance = () => {};
   mocks.getDealActionContextById = async () => makeContext();
   mocks.screenWalletForDeal = async () => makeScreeningResult();
@@ -207,6 +210,28 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
       actorWallet: BUYER,
       dealId: "deal-id-1",
     });
+  });
+
+  test("blocks legal-hold deal before recipient screening", async () => {
+    let complianceCalls = 0;
+    let legalHoldDealId: unknown = null;
+
+    mocks.getDealActionContextById = async () => makeContext({ risk_status: "Blocked" });
+    mocks.screenWalletForDeal = async () => {
+      complianceCalls += 1;
+      return makeScreeningResult();
+    };
+    mocks.assertDealNotBlocked = async (...args: unknown[]) => {
+      [legalHoldDealId] = args;
+      throw new Error("legal hold");
+    };
+
+    await assert.rejects(
+      () => prepareConfirmReleaseForDeal(currentUser, { dealId: "deal-id-1" }, DEADLINE),
+      /legal hold/,
+    );
+    assert.equal(legalHoldDealId, "deal-id-1");
+    assert.equal(complianceCalls, 0);
   });
 });
 
@@ -374,6 +399,33 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
       actorWallet: adminUser.wallet_address,
       dealId: "deal-id-1",
     });
+  });
+
+  test("blocks legal-hold deal before recipient screening", async () => {
+    let complianceCalls = 0;
+    let legalHoldDealId: unknown = null;
+
+    mocks.getDealActionContextById = async () => makeContext({ risk_status: "Blocked" });
+    mocks.screenWalletForDeal = async () => {
+      complianceCalls += 1;
+      return makeScreeningResult();
+    };
+    mocks.assertDealNotBlocked = async (...args: unknown[]) => {
+      [legalHoldDealId] = args;
+      throw new Error("legal hold");
+    };
+
+    await assert.rejects(
+      () =>
+        prepareAutoReleaseForDeal(
+          currentUser,
+          { dealId: "deal-id-1" },
+          new Date(DEADLINE.getTime() + 1),
+        ),
+      /legal hold/,
+    );
+    assert.equal(legalHoldDealId, "deal-id-1");
+    assert.equal(complianceCalls, 0);
   });
 
   test("rejects auto-release for non-confirm-pending deals", async () => {

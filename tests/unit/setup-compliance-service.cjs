@@ -56,6 +56,7 @@ const mocks = {
     subject_type: input.subjectType,
     subject_value: input.subjectValue,
   }),
+  findBlockedByDeal: async () => [],
   findByDeal: async () => [],
   getById: async () => ({
     id: 'deal-id-1',
@@ -122,6 +123,7 @@ const mocks = {
       subject_type: input.subjectType,
       subject_value: input.subjectValue,
     });
+    this.findBlockedByDeal = async () => [];
     this.findByDeal = async () => [];
     this.getById = async () => ({
       id: 'deal-id-1',
@@ -183,6 +185,7 @@ require.cache[complianceChecksRepoPath] = makeEntry(complianceChecksRepoPath, {
     mocks.calls.createComplianceCheck.push(args[0]);
     return mocks.createComplianceCheck(...args);
   },
+  findBlockedByDeal: (...args) => mocks.findBlockedByDeal(...args),
   findByDeal: (...args) => mocks.findByDeal(...args),
 });
 

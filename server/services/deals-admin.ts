@@ -23,7 +23,7 @@ import {
   listResolvedDealReviewRows,
   type AdminDealReviewRow,
 } from "@/server/repositories/deals";
-import { screenWalletForDeal } from "@/server/services/compliance";
+import { assertDealNotBlocked, screenWalletForDeal } from "@/server/services/compliance";
 import type { ListPagination } from "@/lib/validators/pagination";
 
 export type AdminResolution = AdminResolveBody["resolution"];
@@ -273,6 +273,10 @@ export async function prepareAdminResolveForDeal(
       409,
       "DEAL_NOT_DISPUTED",
     );
+  }
+
+  if (context.risk_status === "Blocked") {
+    await assertDealNotBlocked(context.id);
   }
 
   const targetWallet =
