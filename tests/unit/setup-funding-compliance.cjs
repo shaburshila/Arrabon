@@ -1,0 +1,130 @@
+'use strict';
+
+const path = require('path');
+
+function makeEntry(id, exports) {
+  return {
+    id,
+    filename: id,
+    loaded: true,
+    exports,
+    paths: [],
+    parent: null,
+    children: [],
+  };
+}
+
+require.cache[require.resolve('server-only')] = makeEntry('server-only', {});
+
+class ConsultationLinksRepositoryError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'ConsultationLinksRepositoryError';
+    this.code = code;
+  }
+}
+
+class DealsRepositoryError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'DealsRepositoryError';
+    this.code = code;
+  }
+}
+
+class ConsultEscrowConfigError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ConsultEscrowConfigError';
+  }
+}
+
+class ComplianceBlockedError extends Error {
+  constructor(input) {
+    super('Compliance blocked');
+    this.name = 'ComplianceBlockedError';
+    this.dealId = input.dealId;
+    this.provider = input.provider;
+    this.reasonCode = input.reasonCode;
+    this.walletAddress = input.walletAddress;
+  }
+}
+
+const mocks = {
+  assertCompliance: (...args) => undefined,
+  getByConsultationLinkId: async () => null,
+  getById: async () => null,
+  prepareCreateAndFundDealCall: (input) => ({
+    args: input,
+    chain_id: 84532,
+    contract_address: '0x0000000000000000000000000000000000000001',
+    function_name: 'createAndFundDeal',
+  }),
+  screenWalletsBatch: async () => [],
+  calls: {
+    assertCompliance: [],
+    prepareCreateAndFundDealCall: [],
+    screenWalletsBatch: [],
+  },
+  reset() {
+    this.assertCompliance = (...args) => undefined;
+    this.getByConsultationLinkId = async () => null;
+    this.getById = async () => null;
+    this.prepareCreateAndFundDealCall = (input) => ({
+      args: input,
+      chain_id: 84532,
+      contract_address: '0x0000000000000000000000000000000000000001',
+      function_name: 'createAndFundDeal',
+    });
+    this.screenWalletsBatch = async () => [];
+    this.calls = {
+      assertCompliance: [],
+      prepareCreateAndFundDealCall: [],
+      screenWalletsBatch: [],
+    };
+  },
+};
+
+global.__fundingComplianceMocks = mocks;
+
+const root = path.resolve(__dirname, '../../');
+
+const consultationLinksRepoPath = path.resolve(root, 'server/repositories/consultation-links.ts');
+require.cache[consultationLinksRepoPath] = makeEntry(consultationLinksRepoPath, {
+  ConsultationLinksRepositoryError,
+  getById: (...args) => mocks.getById(...args),
+});
+
+const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');
+require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
+  DealsRepositoryError,
+  getByConsultationLinkId: (...args) => mocks.getByConsultationLinkId(...args),
+});
+
+const escrowPath = path.resolve(root, 'lib/base/consult-escrow.ts');
+require.cache[escrowPath] = makeEntry(escrowPath, {
+  ConsultEscrowConfigError,
+  prepareCreateAndFundDealCall: (...args) => {
+    mocks.calls.prepareCreateAndFundDealCall.push(args[0]);
+    return mocks.prepareCreateAndFundDealCall(...args);
+  },
+});
+
+const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
+require.cache[complianceServicePath] = makeEntry(complianceServicePath, {
+  screenWalletsBatch: (...args) => {
+    mocks.calls.screenWalletsBatch.push(args);
+    return mocks.screenWalletsBatch(...args);
+  },
+});
+
+const errorMappingPath = path.resolve(root, 'lib/compliance/error-mapping.ts');
+require.cache[errorMappingPath] = makeEntry(errorMappingPath, {
+  ComplianceBlockedError,
+  assertCompliance: (...args) => {
+    mocks.calls.assertCompliance.push(args);
+    return mocks.assertCompliance(...args);
+  },
+  complianceErrorToHttpResponse: () => { throw new Error('not mocked'); },
+  withComplianceErrorHandling: (handler) => handler,
+});

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
+  ComplianceBlockedError,
+  withComplianceErrorHandling,
+} from "@/lib/compliance/error-mapping";
+import {
   ConsultationLinkValidationError,
   parseCreateConsultationLinkInput,
 } from "@/lib/validators/consultation-links";
@@ -46,7 +50,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export const POST = withComplianceErrorHandling(async function POST(request: Request) {
   let payload: unknown;
 
   try {
@@ -62,6 +66,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    if (error instanceof ComplianceBlockedError) {
+      throw error;
+    }
+
     if (error instanceof AuthGuardError) {
       return jsonError(error.message, error.status);
     }
@@ -76,4 +84,4 @@ export async function POST(request: Request) {
 
     return jsonError("Internal server error.", 500);
   }
-}
+});

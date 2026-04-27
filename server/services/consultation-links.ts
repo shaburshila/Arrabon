@@ -12,6 +12,7 @@ import type {
 } from "@/lib/db/types";
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
 import { assertLinkHash, generateLinkHash } from "@/lib/crypto/link-hash";
+import { assertCompliance } from "@/lib/compliance/error-mapping";
 import type { ListPagination } from "@/lib/validators/pagination";
 import type { CreateConsultationLinkInput } from "@/lib/validators/consultation-links";
 import {
@@ -26,6 +27,7 @@ import {
   getByConsultationLinkId,
   getByConsultationLinkIds,
 } from "@/server/repositories/deals";
+import { screenWalletForDeal } from "@/server/services/compliance";
 
 const LINK_HASH_INSERT_RETRY_COUNT = 3;
 type PublicUnavailableStatus = "Cancelled" | "Expired";
@@ -212,6 +214,17 @@ export async function createConsultationLink(
   input: CreateConsultationLinkInput,
 ): Promise<CreateConsultationLinkResult> {
   const meetingUrlEncrypted = encryptMeetingUrl(input.meetingUrl);
+  const screeningContext = {
+    action: "link_create" as const,
+    actorWallet: currentUser.wallet_address,
+    dealId: null,
+  };
+  const screeningResult = await screenWalletForDeal(
+    currentUser.wallet_address,
+    screeningContext,
+  );
+
+  assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
 
   for (let attempt = 0; attempt < LINK_HASH_INSERT_RETRY_COUNT; attempt += 1) {
     const linkHash = assertLinkHash(generateLinkHash());

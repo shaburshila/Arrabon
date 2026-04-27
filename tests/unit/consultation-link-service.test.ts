@@ -25,6 +25,7 @@ import assert from 'node:assert/strict';
 
 import type { ConsultationLinkRow, DealRow } from '../../lib/db/types';
 import {
+  createConsultationLink,
   getPublicConsultationLinkById,
   listMyConsultationLinks,
   ConsultationLinkServiceError,
@@ -33,10 +34,20 @@ import {
 // ── Typed access to the mutable mock state set up by setup-services.cjs ─────
 
 interface ServiceMocks {
+  assertCompliance: (...args: unknown[]) => void;
+  createLink: (...args: unknown[]) => Promise<{ id: string; link_hash: string }>;
   getById: (id: string) => Promise<ConsultationLinkRow | null>;
   getByCreatorUserId: (...args: unknown[]) => Promise<ConsultationLinkRow[]>;
   getByConsultationLinkId: (id: string) => Promise<DealRow | null>;
   getByConsultationLinkIds: (ids: readonly string[]) => Promise<DealRow[]>;
+  screenWalletForDeal: (...args: unknown[]) => Promise<{
+    normalizedWallet: string;
+    provider: string | null;
+    rawSummary: Record<string, unknown>;
+    reasonCode: string;
+    result: string;
+    walletAddress: string;
+  }>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ConsultationLinksRepositoryError: new (message: string, code?: string) => any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,10 +116,23 @@ function makeDeal(overrides: Partial<DealRow> = {}): DealRow {
 // ── Reset mocks before each test ─────────────────────────────────────────────
 
 beforeEach(() => {
+  mocks.assertCompliance = () => undefined;
+  mocks.createLink = async () => ({
+    id: 'link-uuid-created',
+    link_hash: '0x' + 'c'.repeat(64),
+  });
   mocks.getById = async () => null;
   mocks.getByCreatorUserId = async () => [];
   mocks.getByConsultationLinkId = async () => null;
   mocks.getByConsultationLinkIds = async () => [];
+  mocks.screenWalletForDeal = async () => ({
+    normalizedWallet: currentUser.wallet_address.toLowerCase(),
+    provider: null,
+    rawSummary: { providerResults: [] },
+    reasonCode: 'NO_HIT',
+    result: 'Clear',
+    walletAddress: currentUser.wallet_address,
+  });
 });
 
 // ── link not found ────────────────────────────────────────────────────────────
@@ -513,5 +537,165 @@ describe('listMyConsultationLinks', () => {
     assert.equal(result[0].deal_status, null);
     assert.equal(result[0].status, 'Expired');
     assert.equal(result[0].share_url, '/link/link-uuid-001');
+  });
+});
+
+describe('createConsultationLink compliance gate', () => {
+  const createInput = {
+    title: 'Paid consult',
+    description: 'desc',
+    priceUsdc: '100.00',
+    scheduledAt: new Date(FUTURE),
+    timezone: 'UTC',
+    durationMinutes: 30,
+    expiresAt: new Date(FUTURE),
+    meetingUrl: 'https://meet.example.com/room',
+  };
+
+  test('screens once before retry loop with dealId null and creates link on Clear', async () => {
+    const screeningCalls: unknown[][] = [];
+    const assertCalls: unknown[][] = [];
+    let createCalls = 0;
+
+    mocks.screenWalletForDeal = async (...args) => {
+      screeningCalls.push(args);
+      return {
+        normalizedWallet: currentUser.wallet_address.toLowerCase(),
+        provider: null,
+        rawSummary: { providerResults: [] },
+        reasonCode: 'NO_HIT',
+        result: 'Clear',
+        walletAddress: currentUser.wallet_address,
+      };
+    };
+    mocks.assertCompliance = (...args) => {
+      assertCalls.push(args);
+    };
+    mocks.createLink = async () => {
+      createCalls += 1;
+      return {
+        id: 'link-uuid-created',
+        link_hash: '0x' + 'c'.repeat(64),
+      };
+    };
+
+    const result = await createConsultationLink(currentUser, createInput);
+
+    assert.equal(result.id, 'link-uuid-created');
+    assert.equal(screeningCalls.length, 1);
+    assert.equal(assertCalls.length, 1);
+    assert.equal(createCalls, 1);
+    assert.deepEqual(screeningCalls[0], [
+      currentUser.wallet_address,
+      {
+        action: 'link_create',
+        actorWallet: currentUser.wallet_address,
+        dealId: null,
+      },
+    ]);
+  });
+
+  test('does not rescreen when first createLink attempt hits hash collision', async () => {
+    let screeningCalls = 0;
+    let createCalls = 0;
+    const { ConsultationLinksRepositoryError: RepoErr } = mocks;
+
+    mocks.screenWalletForDeal = async () => {
+      screeningCalls += 1;
+      return {
+        normalizedWallet: currentUser.wallet_address.toLowerCase(),
+        provider: null,
+        rawSummary: { providerResults: [] },
+        reasonCode: 'NO_HIT',
+        result: 'Clear',
+        walletAddress: currentUser.wallet_address,
+      };
+    };
+    mocks.createLink = async () => {
+      createCalls += 1;
+      if (createCalls === 1) {
+        throw new RepoErr('duplicate', '23505');
+      }
+
+      return {
+        id: 'link-uuid-created',
+        link_hash: '0x' + 'c'.repeat(64),
+      };
+    };
+
+    const result = await createConsultationLink(currentUser, createInput);
+
+    assert.equal(result.id, 'link-uuid-created');
+    assert.equal(screeningCalls, 1);
+    assert.equal(createCalls, 2);
+  });
+
+  test('stops before createLink when assertCompliance blocks OFAC hit', async () => {
+    let createCalls = 0;
+    const blockedError = new Error('blocked');
+
+    mocks.screenWalletForDeal = async () => ({
+      normalizedWallet: currentUser.wallet_address.toLowerCase(),
+      provider: 'chainalysis_sanctions_oracle',
+      rawSummary: { providerResults: [] },
+      reasonCode: 'OFAC_SANCTIONS',
+      result: 'Blocked',
+      walletAddress: currentUser.wallet_address,
+    });
+    mocks.assertCompliance = () => {
+      throw blockedError;
+    };
+    mocks.createLink = async () => {
+      createCalls += 1;
+      return {
+        id: 'link-uuid-created',
+        link_hash: '0x' + 'c'.repeat(64),
+      };
+    };
+
+    await assert.rejects(() => createConsultationLink(currentUser, createInput), blockedError);
+    assert.equal(createCalls, 0);
+  });
+
+  test('stops before createLink when compliance provider is unavailable', async () => {
+    let createCalls = 0;
+    const blockedError = new Error('provider unavailable');
+
+    mocks.screenWalletForDeal = async () => ({
+      normalizedWallet: currentUser.wallet_address.toLowerCase(),
+      provider: 'chainalysis_sanctions_oracle',
+      rawSummary: { providerResults: [] },
+      reasonCode: 'PROVIDER_UNAVAILABLE',
+      result: 'Blocked',
+      walletAddress: currentUser.wallet_address,
+    });
+    mocks.assertCompliance = () => {
+      throw blockedError;
+    };
+    mocks.createLink = async () => {
+      createCalls += 1;
+      return {
+        id: 'link-uuid-created',
+        link_hash: '0x' + 'c'.repeat(64),
+      };
+    };
+
+    await assert.rejects(() => createConsultationLink(currentUser, createInput), blockedError);
+    assert.equal(createCalls, 0);
+  });
+
+  test('allows defensive Review to pass through', async () => {
+    mocks.screenWalletForDeal = async () => ({
+      normalizedWallet: currentUser.wallet_address.toLowerCase(),
+      provider: 'local_denylist',
+      rawSummary: { providerResults: [] },
+      reasonCode: 'FRAUD_SIGNAL',
+      result: 'Review',
+      walletAddress: currentUser.wallet_address,
+    });
+
+    const result = await createConsultationLink(currentUser, createInput);
+
+    assert.equal(result.status, 'Open');
   });
 });

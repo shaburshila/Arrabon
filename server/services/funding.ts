@@ -5,6 +5,7 @@ import { getAddress } from "viem";
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import type { ConsultationLinkRow, ConsultationLinkStatus } from "@/lib/db/types";
+import { assertCompliance } from "@/lib/compliance/error-mapping";
 import type { PrepareFundingParams } from "@/lib/validators/funding";
 import {
   ConsultEscrowConfigError,
@@ -19,6 +20,7 @@ import {
   ConsultationLinksRepositoryError,
   getById,
 } from "@/server/repositories/consultation-links";
+import { screenWalletsBatch } from "@/server/services/compliance";
 
 type FundingUnavailableStatus = "Cancelled" | "Consumed" | "Expired";
 
@@ -155,6 +157,20 @@ export async function prepareFundingForLink(
       409,
       "DEAL_ALREADY_EXISTS",
     );
+  }
+
+  const screeningContext = {
+    action: "funding_prepare" as const,
+    actorWallet: currentUser.wallet_address,
+    dealId: null,
+  };
+  const screeningResults = await screenWalletsBatch(
+    [currentUser.wallet_address, link.expert_address],
+    screeningContext,
+  );
+
+  for (const result of screeningResults) {
+    assertCompliance(result, result.walletAddress, screeningContext);
   }
 
   try {

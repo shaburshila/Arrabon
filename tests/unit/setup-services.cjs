@@ -10,8 +10,11 @@
  * Modules mocked:
  *   - server-only                          (throws outside Next.js runtime)
  *   - @/lib/crypto/meeting-url             (reads env var at module load time)
+ *   - @/lib/crypto/link-hash
+ *   - @/lib/compliance/error-mapping
  *   - @/server/repositories/consultation-links
  *   - @/server/repositories/deals
+ *   - @/server/services/compliance
  *
  * The error classes and the mutable `getById` / `getByConsultationLinkId`
  * delegates are exposed on `global.__serviceMocks` so individual tests can
@@ -63,10 +66,21 @@ class DealsRepositoryError extends Error {
 // object so swapping the function also updates what the service sees.
 
 const mocks = {
+  assertCompliance: (...args) => undefined,
+  createLink: async () => ({ id: 'link-uuid-created', link_hash: '0x' + 'c'.repeat(64) }),
   getById: async () => null,
   getByCreatorUserId: async () => [],
   getByConsultationLinkId: async () => null,
   getByConsultationLinkIds: async () => [],
+  screenWalletForDeal: async () => ({
+    normalizedWallet: '0xexpertaddress',
+    provider: null,
+    rawSummary: { providerResults: [] },
+    reasonCode: 'NO_HIT',
+    result: 'Clear',
+    walletAddress: '0x00000000000000000000000000000000000000AA',
+  }),
+  screenWalletsBatch: async () => [],
   ConsultationLinksRepositoryError,
   DealsRepositoryError,
 };
@@ -85,6 +99,35 @@ require.cache[meetingUrlPath] = makeEntry(meetingUrlPath, {
   decryptMeetingUrl: () => 'mock-decrypted',
 });
 
+const linkHashPath = path.resolve(root, 'lib/crypto/link-hash.ts');
+require.cache[linkHashPath] = makeEntry(linkHashPath, {
+  assertLinkHash: (value) => value,
+  generateLinkHash: () => '0x' + '1'.repeat(64),
+});
+
+const complianceErrorMappingPath = path.resolve(root, 'lib/compliance/error-mapping.ts');
+require.cache[complianceErrorMappingPath] = makeEntry(complianceErrorMappingPath, {
+  ComplianceBlockedError: class ComplianceBlockedError extends Error {
+    constructor(input) {
+      super('Compliance blocked');
+      this.name = 'ComplianceBlockedError';
+      this.dealId = input.dealId;
+      this.provider = input.provider;
+      this.reasonCode = input.reasonCode;
+      this.walletAddress = input.walletAddress;
+    }
+  },
+  assertCompliance: (...args) => mocks.assertCompliance(...args),
+  complianceErrorToHttpResponse: () => { throw new Error('not mocked in service tests'); },
+  withComplianceErrorHandling: (handler) => handler,
+});
+
+const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
+require.cache[complianceServicePath] = makeEntry(complianceServicePath, {
+  screenWalletForDeal: (...args) => mocks.screenWalletForDeal(...args),
+  screenWalletsBatch: (...args) => mocks.screenWalletsBatch(...args),
+});
+
 // @/server/repositories/consultation-links
 const consultationLinksRepoPath = path.resolve(
   root,
@@ -94,7 +137,7 @@ require.cache[consultationLinksRepoPath] = makeEntry(consultationLinksRepoPath, 
   ConsultationLinksRepositoryError,
   getById: (...args) => mocks.getById(...args),
   getByCreatorUserId: (...args) => mocks.getByCreatorUserId(...args),
-  createLink: async () => { throw new Error('createLink: not mocked in service tests'); },
+  createLink: (...args) => mocks.createLink(...args),
   updateStatus: async () => { throw new Error('updateStatus: not mocked in service tests'); },
   getByLinkHash: async () => { throw new Error('getByLinkHash: not mocked in service tests'); },
 });

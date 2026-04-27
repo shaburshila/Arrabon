@@ -1,0 +1,250 @@
+import { beforeEach, describe, test } from "node:test";
+import assert from "node:assert/strict";
+
+import type { ConsultationLinkRow, DealRow } from "@/lib/db/types";
+import {
+  FundingServiceError,
+  prepareFundingForLink,
+} from "@/server/services/funding";
+
+interface FundingComplianceMocks {
+  assertCompliance: (...args: unknown[]) => void;
+  calls: {
+    assertCompliance: unknown[][];
+    prepareCreateAndFundDealCall: unknown[];
+    screenWalletsBatch: unknown[][];
+  };
+  getByConsultationLinkId: (...args: unknown[]) => Promise<DealRow | null>;
+  getById: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
+  prepareCreateAndFundDealCall: (...args: unknown[]) => unknown;
+  reset: () => void;
+  screenWalletsBatch: (...args: unknown[]) => Promise<Array<{
+    normalizedWallet: string;
+    provider: string | null;
+    rawSummary: Record<string, unknown>;
+    reasonCode: string;
+    result: string;
+    walletAddress: string;
+  }>>;
+}
+
+const mocks = (
+  global as typeof globalThis & { __fundingComplianceMocks: FundingComplianceMocks }
+).__fundingComplianceMocks;
+
+const currentUser = {
+  avatar_url: null,
+  expires_at: "2026-04-27T12:00:00.000Z",
+  id: "user-id-1",
+  is_admin: false,
+  username: null,
+  wallet_address: "0x00000000000000000000000000000000000000AA",
+};
+
+function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLinkRow {
+  return {
+    id: "link-id-1",
+    creator_user_id: "user-id-1",
+    expert_address: "0x00000000000000000000000000000000000000BB",
+    title: "Test Consultation",
+    description: "Desc",
+    price_usdc: "100.00",
+    scheduled_at: "2026-04-28T12:00:00.000Z",
+    timezone: "UTC",
+    expires_at: "2026-04-28T11:00:00.000Z",
+    duration_minutes: 30,
+    meeting_url_encrypted: "encrypted",
+    link_hash: "0x" + "1".repeat(64),
+    status: "Open",
+    created_at: "2026-04-27T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  mocks.reset();
+  mocks.getById = async () => makeLink();
+  mocks.getByConsultationLinkId = async () => null;
+  mocks.screenWalletsBatch = async () => [
+    {
+      normalizedWallet: currentUser.wallet_address.toLowerCase(),
+      provider: null,
+      rawSummary: { providerResults: [] },
+      reasonCode: "NO_HIT",
+      result: "Clear",
+      walletAddress: currentUser.wallet_address,
+    },
+    {
+      normalizedWallet: "0x00000000000000000000000000000000000000bb",
+      provider: null,
+      rawSummary: { providerResults: [] },
+      reasonCode: "NO_HIT",
+      result: "Clear",
+      walletAddress: "0x00000000000000000000000000000000000000BB",
+    },
+  ];
+});
+
+describe("prepareFundingForLink compliance gate", () => {
+  test("screens buyer and seller before calldata generation", async () => {
+    const result = await prepareFundingForLink(currentUser, { linkId: "link-id-1" });
+
+    assert.equal(result.consultation_link_id, "link-id-1");
+    assert.equal(mocks.calls.screenWalletsBatch.length, 1);
+    assert.deepEqual(mocks.calls.screenWalletsBatch[0], [
+      [currentUser.wallet_address, "0x00000000000000000000000000000000000000BB"],
+      {
+        action: "funding_prepare",
+        actorWallet: currentUser.wallet_address,
+        dealId: null,
+      },
+    ]);
+    assert.equal(mocks.calls.assertCompliance.length, 2);
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
+  });
+
+  test("blocked buyer stops flow before calldata generation", async () => {
+    const blocked = new Error("blocked");
+
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: currentUser.wallet_address.toLowerCase(),
+        provider: "chainalysis_sanctions_oracle",
+        rawSummary: { providerResults: [] },
+        reasonCode: "OFAC_SANCTIONS",
+        result: "Blocked",
+        walletAddress: currentUser.wallet_address,
+      },
+      {
+        normalizedWallet: "0x00000000000000000000000000000000000000bb",
+        provider: null,
+        rawSummary: { providerResults: [] },
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: "0x00000000000000000000000000000000000000BB",
+      },
+    ];
+    mocks.assertCompliance = (...args) => {
+      if ((args[0] as { result: string }).result === "Blocked") {
+        throw blocked;
+      }
+    };
+
+    await assert.rejects(
+      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      blocked,
+    );
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+  });
+
+  test("blocked seller stops flow before calldata generation", async () => {
+    const blocked = new Error("blocked seller");
+
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: currentUser.wallet_address.toLowerCase(),
+        provider: null,
+        rawSummary: { providerResults: [] },
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: currentUser.wallet_address,
+      },
+      {
+        normalizedWallet: "0x00000000000000000000000000000000000000bb",
+        provider: "local_denylist",
+        rawSummary: { providerResults: [] },
+        reasonCode: "LOCAL_DENYLIST",
+        result: "Blocked",
+        walletAddress: "0x00000000000000000000000000000000000000BB",
+      },
+    ];
+    mocks.assertCompliance = (...args) => {
+      if ((args[0] as { result: string }).result === "Blocked") {
+        throw blocked;
+      }
+    };
+
+    await assert.rejects(
+      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      blocked,
+    );
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+  });
+
+  test("provider unavailable blocks the flow", async () => {
+    const blocked = new Error("provider unavailable");
+
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: currentUser.wallet_address.toLowerCase(),
+        provider: "chainalysis_sanctions_oracle",
+        rawSummary: { providerResults: [] },
+        reasonCode: "PROVIDER_UNAVAILABLE",
+        result: "Blocked",
+        walletAddress: currentUser.wallet_address,
+      },
+      {
+        normalizedWallet: "0x00000000000000000000000000000000000000bb",
+        provider: null,
+        rawSummary: { providerResults: [] },
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: "0x00000000000000000000000000000000000000BB",
+      },
+    ];
+    mocks.assertCompliance = (...args) => {
+      if ((args[0] as { result: string }).result === "Blocked") {
+        throw blocked;
+      }
+    };
+
+    await assert.rejects(
+      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      blocked,
+    );
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+  });
+
+  test("defensive Review does not block the flow", async () => {
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: currentUser.wallet_address.toLowerCase(),
+        provider: "local_denylist",
+        rawSummary: { providerResults: [] },
+        reasonCode: "FRAUD_SIGNAL",
+        result: "Review",
+        walletAddress: currentUser.wallet_address,
+      },
+      {
+        normalizedWallet: "0x00000000000000000000000000000000000000bb",
+        provider: null,
+        rawSummary: { providerResults: [] },
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: "0x00000000000000000000000000000000000000BB",
+      },
+    ];
+
+    const result = await prepareFundingForLink(currentUser, { linkId: "link-id-1" });
+
+    assert.equal(result.consultation_link_id, "link-id-1");
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
+  });
+
+  test("buyer equals seller rejects before compliance is called", async () => {
+    mocks.getById = async () =>
+      makeLink({ expert_address: currentUser.wallet_address });
+
+    await assert.rejects(
+      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      (error) => {
+        assert.ok(error instanceof FundingServiceError);
+        assert.equal(error.code, "BUYER_EQUALS_SELLER");
+        return true;
+      },
+    );
+
+    assert.equal(mocks.calls.screenWalletsBatch.length, 0);
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+  });
+});
