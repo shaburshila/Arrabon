@@ -136,6 +136,7 @@ export function createCompositeComplianceProvider(
           provider: topHit.provider,
           rawSummary: {
             matches: results,
+            providerResults: results,
             selectedReasonCode: topHit.reasonCode,
           },
         };
@@ -147,6 +148,7 @@ export function createCompositeComplianceProvider(
           ...providerUnavailable,
           rawSummary: {
             provider: providerUnavailable.provider,
+            providerResults: results,
             results,
             selectedReasonCode: providerUnavailable.reasonCode,
           },
@@ -156,7 +158,7 @@ export function createCompositeComplianceProvider(
       return {
         normalizedWallet,
         provider: null,
-        rawSummary: { results },
+        rawSummary: { providerResults: results, results },
         reasonCode: "NO_HIT",
         result: "Clear",
         walletAddress,

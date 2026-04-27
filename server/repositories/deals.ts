@@ -2,6 +2,7 @@ import type {
   ConsultationLinkRow,
   Database,
   DealResolutionType,
+  DealRiskStatus,
   DealRow,
 } from "@/lib/db/types";
 import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
@@ -152,6 +153,24 @@ export async function getByConsultationLinkId(
   return data;
 }
 
+export async function getById(id: string): Promise<DealRow | null> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load deal by id: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
+}
+
 export async function getByConsultationLinkIds(
   consultationLinkIds: readonly string[],
 ): Promise<DealRow[]> {
@@ -188,6 +207,28 @@ export async function getByOnchainDealId(
   if (error) {
     throw new DealsRepositoryError(
       `Failed to load deal by onchain deal id: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
+}
+
+export async function updateRiskStatusById(
+  id: string,
+  riskStatus: DealRiskStatus,
+): Promise<DealRow> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("deals")
+    .update({ risk_status: riskStatus })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to update deal risk status: ${error.message}`,
       error.code,
     );
   }
