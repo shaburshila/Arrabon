@@ -2,8 +2,10 @@
 // All functions throw ApiError on non-2xx responses.
 
 export class ApiError extends Error {
+  code: string | null;
   status: number;
   body: unknown;
+  reason_code: string | null;
 
   constructor(status: number, body: unknown) {
     const message =
@@ -12,8 +14,19 @@ export class ApiError extends Error {
         : `Request failed with status ${status}`;
     super(message);
     this.name = "ApiError";
+    this.code =
+      body && typeof body === "object" && "code" in body && typeof (body as { code?: unknown }).code === "string"
+        ? (body as { code: string }).code
+        : null;
     this.status = status;
     this.body = body;
+    this.reason_code =
+      body &&
+      typeof body === "object" &&
+      "reason_code" in body &&
+      typeof (body as { reason_code?: unknown }).reason_code === "string"
+        ? (body as { reason_code: string }).reason_code
+        : null;
   }
 }
 
