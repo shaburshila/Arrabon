@@ -20,6 +20,7 @@ import { executeFundingCall, waitForTx } from "@/lib/contract/execute-prepared-c
 export type FundingStep =
   | "approve_pending"     // approve tx on chain
   | "approve_signature"   // waiting for approve wallet signature
+  | "compliance_blocked"
   | "failed"
   | "fund_pending"        // fund tx on chain
   | "fund_signature"      // waiting for createAndFundDeal signature
@@ -30,9 +31,69 @@ export type FundingStep =
   | "succeeded";
 
 export interface FundingState {
+  complianceReasonCode: string | null;
+  complianceWallet: Address | null;
   error: string | null;
   step: FundingStep;
   txHash: Hex | null;
+}
+
+function getComplianceWalletAddress(body: unknown): Address | null {
+  if (!body || typeof body !== "object" || !("wallet_address" in body)) {
+    return null;
+  }
+
+  const walletAddress = (body as { wallet_address?: unknown }).wallet_address;
+
+  if (typeof walletAddress !== "string") {
+    return null;
+  }
+
+  try {
+    return getAddress(walletAddress) as Address;
+  } catch {
+    return null;
+  }
+}
+
+export function createInitialFundingState(): FundingState {
+  return {
+    complianceReasonCode: null,
+    complianceWallet: null,
+    error: null,
+    step: "idle",
+    txHash: null,
+  };
+}
+
+export function getFundingErrorState(
+  err: unknown,
+): Pick<FundingState, "complianceReasonCode" | "complianceWallet" | "error" | "step"> {
+  if (
+    err instanceof ApiError &&
+    err.status === 403 &&
+    err.code === "COMPLIANCE_BLOCKED" &&
+    err.reason_code !== "PROVIDER_UNAVAILABLE"
+  ) {
+    return {
+      complianceReasonCode: err.reason_code ?? null,
+      complianceWallet: getComplianceWalletAddress(err.body),
+      error: null,
+      step: "compliance_blocked",
+    };
+  }
+
+  return {
+    complianceReasonCode: null,
+    complianceWallet: null,
+    error:
+      err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Funding failed.",
+    step: "failed",
+  };
 }
 
 export interface FundingFlow {
@@ -56,11 +117,7 @@ export function useFundingFlow(
 ): FundingFlow {
   const config = useConfig();
 
-  const [state, setState] = useState<FundingState>({
-    error: null,
-    step: "idle",
-    txHash: null,
-  });
+  const [state, setState] = useState<FundingState>(createInitialFundingState);
 
   const set = useCallback((partial: Partial<FundingState>) => {
     setState((prev) => ({ ...prev, ...partial }));
@@ -122,7 +179,13 @@ export function useFundingFlow(
   const execute = useCallback(async () => {
     if (state.step !== "idle" && state.step !== "failed") return;
 
-    set({ error: null, step: "preparing", txHash: null });
+    set({
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: null,
+      step: "preparing",
+      txHash: null,
+    });
 
     try {
       // 1. Backend prepare — source of truth for all contract args
@@ -156,17 +219,16 @@ export function useFundingFlow(
       }
 
       startPolling((dealId) => {
-        set({ error: null, step: "succeeded" });
+        set({
+          complianceReasonCode: null,
+          complianceWallet: null,
+          error: null,
+          step: "succeeded",
+        });
         setTimeout(() => onDealIndexed(dealId), 500);
       }, handlePollingTimeout, handleSyncStatus, fundHash);
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Funding failed.";
-      set({ error: message, step: "failed" });
+      set(getFundingErrorState(err));
     }
   }, [
     config,
@@ -181,7 +243,7 @@ export function useFundingFlow(
   ]);
 
   const reset = useCallback(() => {
-    setState({ error: null, step: "idle", txHash: null });
+    setState(createInitialFundingState());
   }, []);
 
   const retryIndexing = useCallback(() => {

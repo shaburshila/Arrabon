@@ -6,7 +6,7 @@
 
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useConfig } from "wagmi";
-import type { Hex } from "viem";
+import { getAddress, type Address, type Hex } from "viem";
 
 import {
   type DealReadModel,
@@ -21,6 +21,7 @@ import { ApiError } from "@/lib/api/auth";
 import { executeLifecycleCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 
 export type ActionStep =
+  | "compliance_blocked"
   | "failed"
   | "idle"
   | "pending_chain"
@@ -31,6 +32,8 @@ export type ActionStep =
   | "succeeded";
 
 export interface ActionState {
+  complianceReasonCode: string | null;
+  complianceWallet: Address | null;
   error: string | null;
   step: ActionStep;
   txHash: Hex | null;
@@ -47,6 +50,64 @@ interface ActionMutex {
   setIsAnyActionInFlight: (value: boolean) => void;
 }
 
+function getComplianceWalletAddress(body: unknown): Address | null {
+  if (!body || typeof body !== "object" || !("wallet_address" in body)) {
+    return null;
+  }
+
+  const walletAddress = (body as { wallet_address?: unknown }).wallet_address;
+
+  if (typeof walletAddress !== "string") {
+    return null;
+  }
+
+  try {
+    return getAddress(walletAddress) as Address;
+  } catch {
+    return null;
+  }
+}
+
+export function createInitialActionState(): ActionState {
+  return {
+    complianceReasonCode: null,
+    complianceWallet: null,
+    error: null,
+    step: "idle",
+    txHash: null,
+  };
+}
+
+export function getActionErrorState(
+  err: unknown,
+): Pick<ActionState, "complianceReasonCode" | "complianceWallet" | "error" | "step"> {
+  if (
+    err instanceof ApiError &&
+    err.status === 403 &&
+    err.code === "COMPLIANCE_BLOCKED" &&
+    err.reason_code !== "PROVIDER_UNAVAILABLE"
+  ) {
+    return {
+      complianceReasonCode: err.reason_code ?? null,
+      complianceWallet: getComplianceWalletAddress(err.body),
+      error: null,
+      step: "compliance_blocked",
+    };
+  }
+
+  return {
+    complianceReasonCode: null,
+    complianceWallet: null,
+    error:
+      err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Action failed.",
+    step: "failed",
+  };
+}
+
 function useSingleAction(
   dealId: string,
   consultationLinkId: string,
@@ -57,11 +118,7 @@ function useSingleAction(
 ): DealAction {
   const config = useConfig();
 
-  const [state, setState] = useState<ActionState>({
-    error: null,
-    step: "idle",
-    txHash: null,
-  });
+  const [state, setState] = useState<ActionState>(createInitialActionState);
 
   const set = useCallback((partial: Partial<ActionState>) => {
     setState((prev) => ({ ...prev, ...partial }));
@@ -141,7 +198,13 @@ function useSingleAction(
 
     mutex.lockRef.current = true;
     mutex.setIsAnyActionInFlight(true);
-    set({ error: null, step: "preparing", txHash: null });
+    set({
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: null,
+      step: "preparing",
+      txHash: null,
+    });
 
     try {
       const prepared = await prepareFn(dealId);
@@ -159,15 +222,14 @@ function useSingleAction(
         return;
       }
 
-      set({ error: null, step: "succeeded" });
+      set({
+        complianceReasonCode: null,
+        complianceWallet: null,
+        error: null,
+        step: "succeeded",
+      });
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Action failed.";
-      set({ error: message, step: "failed" });
+      set(getActionErrorState(err));
     } finally {
       mutex.lockRef.current = false;
       mutex.setIsAnyActionInFlight(false);
@@ -175,7 +237,7 @@ function useSingleAction(
   }, [config, dealId, mutex, prepareFn, state.step, syncUntilConverged, set]);
 
   const reset = useCallback(() => {
-    setState({ error: null, step: "idle", txHash: null });
+    setState(createInitialActionState());
   }, []);
 
   return { execute, reset, state };
