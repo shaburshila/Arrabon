@@ -125,3 +125,22 @@ export async function findBlockedByDeal(dealId: string): Promise<ComplianceCheck
 
   return data ?? [];
 }
+
+export async function findByDealNewestFirst(dealId: string): Promise<ComplianceCheckRow[]> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("compliance_checks")
+    .select("*")
+    .eq("deal_id", dealId)
+    .order("checked_at", { ascending: false })
+    .order("id", { ascending: false });
+
+  if (error) {
+    throw new ComplianceChecksRepositoryError(
+      `Failed to load compliance checks by deal: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data ?? [];
+}

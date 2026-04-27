@@ -6,6 +6,10 @@ import type {
   WalletDenylistRow,
 } from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
+import {
+  normalizeListPagination,
+  type ListPagination,
+} from "@/lib/validators/pagination";
 
 export class WalletDenylistRepositoryError extends Error {
   code?: string;
@@ -92,12 +96,16 @@ export async function remove(wallet: string): Promise<void> {
   }
 }
 
-export async function list(): Promise<WalletDenylistRow[]> {
+export async function list(
+  pagination?: Partial<ListPagination>,
+): Promise<WalletDenylistRow[]> {
+  const { limit, offset } = normalizeListPagination(pagination);
   const db = getServerDbClient().schema("public");
   const { data, error } = await db
     .from("wallet_denylist")
     .select("*")
-    .order("added_at", { ascending: false });
+    .order("added_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     throw new WalletDenylistRepositoryError(

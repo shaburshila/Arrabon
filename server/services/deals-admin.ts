@@ -1,6 +1,7 @@
 import "server-only";
 
 import { assertCompliance } from "@/lib/compliance/error-mapping";
+import type { ComplianceReasonCode, ComplianceCheckRow, DealRiskStatus } from "@/lib/db/types";
 import {
   ConsultEscrowConfigError,
   prepareAdminResolveRefundCall,
@@ -15,6 +16,10 @@ import {
   AdminResolutionIntentsRepositoryError,
   createAdminResolutionIntent,
 } from "@/server/repositories/admin-resolution-intents";
+import {
+  ComplianceChecksRepositoryError,
+  findByDealNewestFirst,
+} from "@/server/repositories/compliance-checks";
 import {
   DealsRepositoryError,
   getAdminDealReviewRowById,
@@ -40,6 +45,7 @@ export interface AdminDealReviewModel {
   price_usdc: string;
   release_deadline_at: string | null;
   released_at: string | null;
+  risk_status: DealRiskStatus;
   resolution_type: AdminDealReviewRow["resolution_type"];
   resolved_at: string | null;
   resolved_by_wallet: string | null;
@@ -50,6 +56,37 @@ export interface AdminDealReviewModel {
   timezone: string;
   title: string;
   tx_hash: string | null;
+}
+
+type SummaryProviderId =
+  | "chainalysis_sanctions_oracle"
+  | "usdc_blacklist"
+  | "local_denylist";
+
+export interface ComplianceSummaryProvider {
+  last_checked_at: string | null;
+  latest_reason_code: ComplianceReasonCode | null;
+  latest_result: ComplianceCheckRow["result"] | null;
+  provider: SummaryProviderId;
+}
+
+export interface ComplianceSummary {
+  checks_count: number;
+  deal_id: string;
+  providers: ComplianceSummaryProvider[];
+  risk_status: DealRiskStatus;
+  wallets: string[];
+}
+
+export interface AdminDealReviewDetailsModel extends AdminDealReviewModel {
+  compliance_summary: ComplianceSummary;
+}
+
+export interface AdminDealComplianceModel {
+  checks: ComplianceCheckRow[];
+  compliance_summary: ComplianceSummary;
+  deal_id: string;
+  risk_status: DealRiskStatus;
 }
 
 export interface AdminResolvedDealReviewModel {
@@ -92,6 +129,12 @@ export class DealAdminServiceError extends Error {
     this.status = status;
   }
 }
+
+const SUMMARY_PROVIDER_IDS: SummaryProviderId[] = [
+  "chainalysis_sanctions_oracle",
+  "usdc_blacklist",
+  "local_denylist",
+];
 
 function computeReleaseDeadline(completedAt: string | null): string | null {
   if (!completedAt) {
@@ -136,6 +179,7 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
     price_usdc: row.price_usdc,
     release_deadline_at: computeReleaseDeadline(row.completed_at),
     released_at: row.released_at,
+    risk_status: row.risk_status,
     resolution_type: row.resolution_type,
     resolved_at: row.resolved_at,
     resolved_by_wallet: row.resolved_by_wallet,
@@ -146,6 +190,85 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
     timezone: row.timezone,
     title: row.title,
     tx_hash: row.tx_hash,
+  };
+}
+
+function buildComplianceSummary(input: {
+  checks: readonly ComplianceCheckRow[];
+  dealId: string;
+  riskStatus: DealRiskStatus;
+}): ComplianceSummary {
+  const providerLatest = new Map<SummaryProviderId, ComplianceCheckRow>();
+
+  for (const provider of SUMMARY_PROVIDER_IDS) {
+    const latestCheck = input.checks.find((check) => check.provider === provider);
+
+    if (latestCheck) {
+      providerLatest.set(provider, latestCheck);
+    }
+  }
+
+  return {
+    checks_count: input.checks.length,
+    deal_id: input.dealId,
+    providers: SUMMARY_PROVIDER_IDS.map((provider) => {
+      const latestCheck = providerLatest.get(provider);
+
+      return {
+        last_checked_at: latestCheck?.checked_at ?? null,
+        latest_reason_code: latestCheck?.reason_code ?? null,
+        latest_result: latestCheck?.result ?? null,
+        provider,
+      };
+    }),
+    risk_status: input.riskStatus,
+    wallets: [...new Set(input.checks.map((check) => check.subject_value))].sort(),
+  };
+}
+
+async function getComplianceChecksForDeal(dealId: string): Promise<ComplianceCheckRow[]> {
+  try {
+    return await findByDealNewestFirst(dealId);
+  } catch (error) {
+    if (error instanceof ComplianceChecksRepositoryError) {
+      throw new DealAdminServiceError(
+        "Failed to load compliance history.",
+        500,
+        error.code ?? "COMPLIANCE_HISTORY_LOAD_FAILED",
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function getAdminDealReviewWithChecks(
+  input: DealRouteParams,
+): Promise<{
+  checks: ComplianceCheckRow[];
+  review: AdminDealReviewDetailsModel;
+}> {
+  let reviewRow: AdminDealReviewRow | null;
+
+  try {
+    reviewRow = await getAdminDealReviewRowById(input.dealId);
+  } catch (error) {
+    mapRepositoryError(error);
+  }
+
+  const review = toReviewModel(reviewRow);
+  const checks = await getComplianceChecksForDeal(review.id);
+
+  return {
+    checks,
+    review: {
+      ...review,
+      compliance_summary: buildComplianceSummary({
+        checks,
+        dealId: review.id,
+        riskStatus: review.risk_status,
+      }),
+    },
   };
 }
 
@@ -242,12 +365,22 @@ export async function listAdminResolvedDeals(
 
 export async function getAdminDealReview(
   input: DealRouteParams,
-): Promise<AdminDealReviewModel> {
-  try {
-    return toReviewModel(await getAdminDealReviewRowById(input.dealId));
-  } catch (error) {
-    mapRepositoryError(error);
-  }
+): Promise<AdminDealReviewDetailsModel> {
+  const { review } = await getAdminDealReviewWithChecks(input);
+  return review;
+}
+
+export async function getAdminDealCompliance(
+  input: DealRouteParams,
+): Promise<AdminDealComplianceModel> {
+  const { checks, review } = await getAdminDealReviewWithChecks(input);
+
+  return {
+    checks,
+    compliance_summary: review.compliance_summary,
+    deal_id: review.id,
+    risk_status: review.risk_status,
+  };
 }
 
 export async function prepareAdminResolveForDeal(

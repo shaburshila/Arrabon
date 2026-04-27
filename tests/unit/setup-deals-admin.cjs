@@ -35,6 +35,7 @@ const mocks = {
   assertDealNotBlocked: async () => {},
   assertCompliance: () => {},
   createAdminResolutionIntent: async () => ({ id: 'intent-id-1' }),
+  findByDealNewestFirst: async () => [],
   getAdminDealReviewRowById: async () => null,
   getDealActionContextById: async () => null,
   listDisputedDealReviewRows: async () => [],
@@ -76,6 +77,18 @@ require.cache[adminResolutionIntentsRepoPath] = makeEntry(adminResolutionIntents
     }
   },
   createAdminResolutionIntent: (...args) => mocks.createAdminResolutionIntent(...args),
+});
+
+const complianceChecksRepoPath = path.resolve(root, 'server/repositories/compliance-checks.ts');
+require.cache[complianceChecksRepoPath] = makeEntry(complianceChecksRepoPath, {
+  ComplianceChecksRepositoryError: class ComplianceChecksRepositoryError extends Error {
+    constructor(message, code) {
+      super(message);
+      this.name = 'ComplianceChecksRepositoryError';
+      this.code = code;
+    }
+  },
+  findByDealNewestFirst: (...args) => mocks.findByDealNewestFirst(...args),
 });
 
 const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');

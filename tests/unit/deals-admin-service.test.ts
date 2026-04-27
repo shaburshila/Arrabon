@@ -8,6 +8,7 @@ import type {
 } from "../../server/repositories/deals";
 import {
   DealAdminServiceError,
+  getAdminDealCompliance,
   getAdminDealReview,
   listAdminDisputedDeals,
   prepareAdminResolveForDeal,
@@ -18,6 +19,7 @@ interface DealsAdminMocks {
   ConsultEscrowConfigError: new (message: string) => Error;
   assertCompliance: (...args: unknown[]) => unknown;
   createAdminResolutionIntent: (...args: unknown[]) => Promise<unknown>;
+  findByDealNewestFirst: (...args: unknown[]) => Promise<unknown[]>;
   getAdminDealReviewRowById: (...args: unknown[]) => Promise<AdminDealReviewRow | null>;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
   listDisputedDealReviewRows: (...args: unknown[]) => Promise<AdminDealReviewRow[]>;
@@ -69,6 +71,7 @@ function makeReviewRow(
     onchain_deal_id: "42",
     price_usdc: "100",
     released_at: null,
+    risk_status: "Clear",
     resolution_type: null,
     resolved_at: null,
     resolved_by_wallet: null,
@@ -98,6 +101,7 @@ beforeEach(() => {
   mocks.assertDealNotBlocked = async () => undefined;
   mocks.assertCompliance = () => {};
   mocks.createAdminResolutionIntent = async () => ({ id: "intent-id-1" });
+  mocks.findByDealNewestFirst = async () => [];
   mocks.getAdminDealReviewRowById = async () => makeReviewRow();
   mocks.getDealActionContextById = async () => makeActionContext();
   mocks.listDisputedDealReviewRows = async () => [makeReviewRow()];
@@ -146,6 +150,94 @@ describe("getAdminDealReview", () => {
         return true;
       },
     );
+  });
+
+  test("returns risk status and fixed compliance summary shape", async () => {
+    mocks.getAdminDealReviewRowById = async () => makeReviewRow({ risk_status: "Blocked" });
+    mocks.findByDealNewestFirst = async () => [
+      {
+        actor_wallet: null,
+        checked_at: "2026-04-27T02:00:00.000Z",
+        deal_id: "deal-id-1",
+        id: "check-2",
+        provider: "chainalysis_sanctions_oracle",
+        raw_summary: {},
+        reason_code: "OFAC_SANCTIONS",
+        result: "Blocked",
+        subject_type: "wallet",
+        subject_value: "0xbuyer",
+      },
+      {
+        actor_wallet: null,
+        checked_at: "2026-04-27T01:00:00.000Z",
+        deal_id: "deal-id-1",
+        id: "check-1",
+        provider: "local_denylist",
+        raw_summary: {},
+        reason_code: "LOCAL_DENYLIST",
+        result: "Blocked",
+        subject_type: "wallet",
+        subject_value: "0xseller",
+      },
+    ];
+
+    const result = await getAdminDealReview({ dealId: "deal-id-1" });
+
+    assert.equal(result.risk_status, "Blocked");
+    assert.deepEqual(result.compliance_summary, {
+      checks_count: 2,
+      deal_id: "deal-id-1",
+      providers: [
+        {
+          last_checked_at: "2026-04-27T02:00:00.000Z",
+          latest_reason_code: "OFAC_SANCTIONS",
+          latest_result: "Blocked",
+          provider: "chainalysis_sanctions_oracle",
+        },
+        {
+          last_checked_at: null,
+          latest_reason_code: null,
+          latest_result: null,
+          provider: "usdc_blacklist",
+        },
+        {
+          last_checked_at: "2026-04-27T01:00:00.000Z",
+          latest_reason_code: "LOCAL_DENYLIST",
+          latest_result: "Blocked",
+          provider: "local_denylist",
+        },
+      ],
+      risk_status: "Blocked",
+      wallets: ["0xbuyer", "0xseller"],
+    });
+  });
+});
+
+describe("getAdminDealCompliance", () => {
+  test("returns checks in newest-first order with shared summary", async () => {
+    mocks.findByDealNewestFirst = async () => [
+      {
+        actor_wallet: null,
+        checked_at: "2026-04-27T02:00:00.000Z",
+        deal_id: "deal-id-1",
+        id: "check-2",
+        provider: "usdc_blacklist",
+        raw_summary: {},
+        reason_code: "USDC_BLACKLISTED",
+        result: "Blocked",
+        subject_type: "wallet",
+        subject_value: "0xbuyer",
+      },
+    ];
+
+    const result = await getAdminDealCompliance({ dealId: "deal-id-1" });
+
+    assert.equal(result.deal_id, "deal-id-1");
+    assert.equal(result.risk_status, "Clear");
+    assert.equal(result.checks.length, 1);
+    assert.equal(result.checks[0].id, "check-2");
+    assert.equal(result.compliance_summary.providers[1].provider, "usdc_blacklist");
+    assert.equal(result.compliance_summary.providers[1].latest_result, "Blocked");
   });
 });
 

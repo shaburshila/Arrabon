@@ -96,6 +96,7 @@ export interface AdminDealReviewRow {
   onchain_deal_id: string;
   price_usdc: string;
   released_at: string | null;
+  risk_status: DealRow["risk_status"];
   resolution_type: DealResolutionType | null;
   resolved_at: string | null;
   resolved_by_wallet: string | null;
@@ -462,6 +463,7 @@ function toAdminDealReviewRow(
     expires_at: linkedConsultationLink.expires_at,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
+    risk_status: deal.risk_status,
     released_at: deal.released_at,
     resolution_type: deal.resolution_type,
     resolved_at: deal.resolved_at,

@@ -16,6 +16,8 @@ function makeEntry(id: string, exports: unknown) {
 
 const dbServerPath = path.resolve(__dirname, "../../lib/db/server.ts");
 
+require.cache[require.resolve("server-only")] = makeEntry("server-only", {});
+
 interface WalletDenylistRepoMocks {
   calls: {
     delete: number;
@@ -23,6 +25,7 @@ interface WalletDenylistRepoMocks {
     from: string[];
     insert: unknown[];
     order: Array<[string, { ascending: boolean }]>;
+    range: Array<[number, number]>;
     schema: string[];
     select: string[];
     single: number;
@@ -40,6 +43,7 @@ const mocks: WalletDenylistRepoMocks = {
     from: [],
     insert: [],
     order: [],
+    range: [],
     schema: [],
     select: [],
     single: 0,
@@ -52,6 +56,7 @@ const mocks: WalletDenylistRepoMocks = {
       from: [],
       insert: [],
       order: [],
+      range: [],
       schema: [],
       select: [],
       single: 0,
@@ -121,6 +126,10 @@ function makeQueryBuilder() {
     },
     order(column: string, options: { ascending: boolean }) {
       mocks.calls.order.push([column, options]);
+      return this;
+    },
+    range(from: number, to: number) {
+      mocks.calls.range.push([from, to]);
       return Promise.resolve(mocks.selectResult);
     },
     async single() {
@@ -190,5 +199,11 @@ describe("wallet-denylist repository", () => {
     await list();
 
     assert.deepEqual(mocks.calls.order, [["added_at", { ascending: false }]]);
+  });
+
+  test("list applies pagination range", async () => {
+    await list({ limit: 10, offset: 20 });
+
+    assert.deepEqual(mocks.calls.range, [[20, 29]]);
   });
 });
