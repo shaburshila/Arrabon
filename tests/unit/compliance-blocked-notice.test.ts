@@ -42,4 +42,16 @@ describe("ComplianceBlockedNotice", () => {
 
     assert.equal(result, null);
   });
+
+  test("renders without a wallet row when wallet address is missing", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComplianceBlockedNotice, {
+        reasonCode: "OFAC_SANCTIONS",
+        walletAddress: null,
+      }),
+    );
+
+    assert.match(html, /Sanctions screening blocked this action/);
+    assert.doesNotMatch(html, /Wallet:/);
+  });
 });

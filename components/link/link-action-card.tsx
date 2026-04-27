@@ -11,6 +11,7 @@ import type { FundingFlow } from "@/hooks/use-funding-flow";
 import type { PublicLink } from "@/lib/api/links";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
+import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
 import { DetailRow } from "@/components/shared/detail-row";
 import { Notice } from "@/components/shared/notice";
 import { FundingProgress } from "@/components/link/funding-progress";
@@ -37,6 +38,7 @@ export function LinkActionCard({
 
   const isFunding =
     fundingState.step !== "idle" &&
+    fundingState.step !== "compliance_blocked" &&
     fundingState.step !== "failed" &&
     fundingState.step !== "indexing_failed" &&
     fundingState.step !== "succeeded";
@@ -115,7 +117,14 @@ export function LinkActionCard({
             </Btn>
           )}
 
-          {fundingState.step !== "idle" && (
+          {fundingState.step === "compliance_blocked" && (
+            <ComplianceBlockedNotice
+              reasonCode={fundingState.complianceReasonCode}
+              walletAddress={fundingState.complianceWallet}
+            />
+          )}
+
+          {fundingState.step !== "idle" && fundingState.step !== "compliance_blocked" && (
             <FundingProgress
               embedded
               error={fundingState.error}

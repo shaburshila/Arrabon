@@ -10,6 +10,7 @@ import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { Btn } from "@/components/shared/btn";
 import { AsyncActionState } from "@/components/shared/async-action-state";
 import { ActionPanel } from "@/components/shared/action-panel";
+import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
 import { Notice } from "@/components/shared/notice";
 
 interface DealActionsCardProps {
@@ -162,6 +163,7 @@ function ActionGroup({
   const { execute, reset, state } = action;
   const backendSyncFailed = state.step === "sync_failed";
   const inFlight =
+    state.step !== "compliance_blocked" &&
     state.step !== "idle" &&
     state.step !== "failed" &&
     state.step !== "sync_failed" &&
@@ -170,6 +172,13 @@ function ActionGroup({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>{description}</p>
+
+      {state.step === "compliance_blocked" && (
+        <ComplianceBlockedNotice
+          reasonCode={state.complianceReasonCode}
+          walletAddress={state.complianceWallet}
+        />
+      )}
 
       {state.step === "succeeded" ? (
         <div
@@ -184,7 +193,7 @@ function ActionGroup({
         >
           Done — backend state is up to date.
         </div>
-      ) : (
+      ) : state.step === "compliance_blocked" ? null : (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Btn
@@ -214,11 +223,13 @@ function ActionGroup({
         </div>
       )}
 
-      <AsyncActionState
-        error={state.error}
-        step={state.step}
-        txHash={state.txHash}
-      />
+      {state.step !== "compliance_blocked" && (
+        <AsyncActionState
+          error={state.error}
+          step={state.step}
+          txHash={state.txHash}
+        />
+      )}
     </div>
   );
 }

@@ -10,7 +10,7 @@ export function ComplianceBlockedNotice({
   walletAddress,
 }: {
   reasonCode: string | null;
-  walletAddress: Address;
+  walletAddress: Address | null;
 }) {
   const display = getComplianceDisplay(reasonCode);
 
@@ -23,9 +23,11 @@ export function ComplianceBlockedNotice({
       message={
         <div style={stackStyle}>
           <p style={paragraphStyle}>{display.message}</p>
-          <p style={metaStyle}>
-            Wallet: <span style={walletStyle}>{truncateAddress(walletAddress)}</span>
-          </p>
+          {walletAddress && (
+            <p style={metaStyle}>
+              Wallet: <span style={walletStyle}>{truncateAddress(walletAddress)}</span>
+            </p>
+          )}
           {display.verificationUrl && display.verificationLabel && (
             <a
               href={display.verificationUrl}

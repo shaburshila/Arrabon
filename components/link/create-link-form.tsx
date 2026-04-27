@@ -5,13 +5,14 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { getAddress, type Address } from "viem";
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
-import { truncateAddress } from "@/lib/ui/address";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
+import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
 import { CopyBtn } from "@/components/shared/copy-btn";
 import { DetailRow } from "@/components/shared/detail-row";
 import { FormField } from "@/components/shared/form-field";
@@ -22,6 +23,7 @@ import { TextArea } from "@/components/shared/text-area";
 import { TextInput } from "@/components/shared/text-input";
 import { TokenAmountRow } from "@/components/shared/token-amount-row";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
+import { truncateAddress } from "@/lib/ui/address";
 
 const DEFAULT_EXPIRATION_OFFSET_MS = 5 * 60 * 1000;
 
@@ -36,6 +38,12 @@ interface FormState {
   timezone: string;
   duration_minutes: string;
   meeting_url: string;
+}
+
+interface CreateLinkComplianceState {
+  isBlocked: boolean;
+  complianceReasonCode: string | null;
+  complianceWallet: Address | null;
 }
 
 type PrimaryAction = {
@@ -59,10 +67,67 @@ const emptyForm: FormState = {
   title: "",
 };
 
+export function createInitialCreateLinkComplianceState(): CreateLinkComplianceState {
+  return {
+    isBlocked: false,
+    complianceReasonCode: null,
+    complianceWallet: null,
+  };
+}
+
+function getComplianceWalletAddress(body: unknown): Address | null {
+  if (!body || typeof body !== "object" || !("wallet_address" in body)) {
+    return null;
+  }
+
+  const walletAddress = (body as { wallet_address?: unknown }).wallet_address;
+
+  if (typeof walletAddress !== "string") {
+    return null;
+  }
+
+  try {
+    return getAddress(walletAddress) as Address;
+  } catch {
+    return null;
+  }
+}
+
+export function getCreateLinkErrorState(err: unknown): {
+  compliance: CreateLinkComplianceState;
+  error: string | null;
+} {
+  if (
+    err instanceof ApiError &&
+    err.code === "COMPLIANCE_BLOCKED" &&
+    err.reason_code !== "PROVIDER_UNAVAILABLE"
+  ) {
+    return {
+      compliance: {
+        isBlocked: true,
+        complianceReasonCode: err.reason_code ?? null,
+        complianceWallet: getComplianceWalletAddress(err.body),
+      },
+      error: null,
+    };
+  }
+
+  return {
+    compliance: createInitialCreateLinkComplianceState(),
+    error:
+      err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Failed to create link.",
+  };
+}
+
 export function CreateLinkForm({ session }: { session: WalletSessionState }) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [compliance, setCompliance] = useState<CreateLinkComplianceState>(createInitialCreateLinkComplianceState);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [expirationAutoFilled, setExpirationAutoFilled] = useState(true);
 
@@ -182,6 +247,7 @@ export function CreateLinkForm({ session }: { session: WalletSessionState }) {
 
     setSubmitting(true);
     setError(null);
+    setCompliance(createInitialCreateLinkComplianceState());
 
     try {
       if (!form.scheduled_date || !form.scheduled_time) {
@@ -233,13 +299,9 @@ export function CreateLinkForm({ session }: { session: WalletSessionState }) {
       setForm(emptyForm);
       setExpirationAutoFilled(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Failed to create link.",
-      );
+      const nextState = getCreateLinkErrorState(err);
+      setCompliance(nextState.compliance);
+      setError(nextState.error);
     } finally {
       setSubmitting(false);
     }
@@ -438,7 +500,12 @@ export function CreateLinkForm({ session }: { session: WalletSessionState }) {
             </FormField>
           </InnerSection>
 
-          {error && (
+          {compliance.isBlocked ? (
+            <ComplianceBlockedNotice
+              reasonCode={compliance.complianceReasonCode}
+              walletAddress={compliance.complianceWallet}
+            />
+          ) : error && (
             <Notice
               message={error}
               title="Could not create link"
