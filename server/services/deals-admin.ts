@@ -1,5 +1,6 @@
 import "server-only";
 
+import { assertCompliance } from "@/lib/compliance/error-mapping";
 import {
   ConsultEscrowConfigError,
   prepareAdminResolveRefundCall,
@@ -22,6 +23,7 @@ import {
   listResolvedDealReviewRows,
   type AdminDealReviewRow,
 } from "@/server/repositories/deals";
+import { screenWalletForDeal } from "@/server/services/compliance";
 import type { ListPagination } from "@/lib/validators/pagination";
 
 export type AdminResolution = AdminResolveBody["resolution"];
@@ -272,6 +274,19 @@ export async function prepareAdminResolveForDeal(
       "DEAL_NOT_DISPUTED",
     );
   }
+
+  const targetWallet =
+    resolution === "release" ? context.seller_address : context.buyer_address;
+  const screeningContext = {
+    action:
+      resolution === "release"
+        ? ("admin_resolve_release" as const)
+        : ("admin_resolve_refund" as const),
+    actorWallet: currentUser.wallet_address,
+    dealId: context.id,
+  };
+  const screeningResult = await screenWalletForDeal(targetWallet, screeningContext);
+  assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
 
   let contractCall: PreparedDealLifecycleCall;
 

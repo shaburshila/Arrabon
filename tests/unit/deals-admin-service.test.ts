@@ -15,10 +15,12 @@ import {
 
 interface DealsAdminMocks {
   ConsultEscrowConfigError: new (message: string) => Error;
+  assertCompliance: (...args: unknown[]) => unknown;
   createAdminResolutionIntent: (...args: unknown[]) => Promise<unknown>;
   getAdminDealReviewRowById: (...args: unknown[]) => Promise<AdminDealReviewRow | null>;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
   listDisputedDealReviewRows: (...args: unknown[]) => Promise<AdminDealReviewRow[]>;
+  screenWalletForDeal: (...args: unknown[]) => Promise<unknown>;
   prepareAdminResolveReleaseCall: (...args: unknown[]) => unknown;
 }
 
@@ -79,11 +81,25 @@ function makeReviewRow(
   };
 }
 
+function makeScreeningResult(walletAddress: string) {
+  return {
+    normalizedWallet: walletAddress.toLowerCase(),
+    provider: "local_denylist",
+    rawSummary: {},
+    reasonCode: "NO_HIT",
+    result: "Clear",
+    walletAddress,
+  };
+}
+
 beforeEach(() => {
+  mocks.assertCompliance = () => {};
   mocks.createAdminResolutionIntent = async () => ({ id: "intent-id-1" });
   mocks.getAdminDealReviewRowById = async () => makeReviewRow();
   mocks.getDealActionContextById = async () => makeActionContext();
   mocks.listDisputedDealReviewRows = async () => [makeReviewRow()];
+  mocks.screenWalletForDeal = async (walletAddress: unknown) =>
+    makeScreeningResult(String(walletAddress));
   mocks.prepareAdminResolveReleaseCall = (dealId: unknown) => ({
     args: { deal_id: dealId },
     chain_id: 8453,
@@ -144,6 +160,25 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(result.contract_call.args.deal_id, "42");
   });
 
+  test("screens seller for release with admin as actor", async () => {
+    let screenedWallet: unknown = null;
+    let screenedContext: unknown = null;
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      [screenedWallet, screenedContext] = args;
+      return makeScreeningResult(makeActionContext().seller_address);
+    };
+
+    await prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release");
+
+    assert.equal(screenedWallet, makeActionContext().seller_address);
+    assert.deepEqual(screenedContext, {
+      action: "admin_resolve_release",
+      actorWallet: ADMIN_WALLET,
+      dealId: "deal-id-1",
+    });
+  });
+
   test("prepares admin refund call for disputed deal", async () => {
     const result = await prepareAdminResolveForDeal(
       adminUser,
@@ -155,6 +190,25 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(result.resolution, "refund");
     assert.equal(result.contract_call.function_name, "adminResolveRefund");
     assert.equal(result.contract_call.args.deal_id, "42");
+  });
+
+  test("screens buyer for refund with admin as actor", async () => {
+    let screenedWallet: unknown = null;
+    let screenedContext: unknown = null;
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      [screenedWallet, screenedContext] = args;
+      return makeScreeningResult(makeActionContext().buyer_address);
+    };
+
+    await prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "refund");
+
+    assert.equal(screenedWallet, makeActionContext().buyer_address);
+    assert.deepEqual(screenedContext, {
+      action: "admin_resolve_refund",
+      actorWallet: ADMIN_WALLET,
+      dealId: "deal-id-1",
+    });
   });
 
   test("rejects resolve for non-disputed deal", async () => {
@@ -243,6 +297,24 @@ describe("prepareAdminResolveForDeal", () => {
         assert.equal(error.code, "CONTRACT_CONFIG_UNAVAILABLE");
         return true;
       },
+    );
+    assert.equal(intentCalls, 0);
+  });
+
+  test("does not create intent when compliance blocks recipient", async () => {
+    let intentCalls = 0;
+
+    mocks.assertCompliance = () => {
+      throw new Error("blocked");
+    };
+    mocks.createAdminResolutionIntent = async () => {
+      intentCalls += 1;
+      return { id: "intent-id-1" };
+    };
+
+    await assert.rejects(
+      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      /blocked/,
     );
     assert.equal(intentCalls, 0);
   });

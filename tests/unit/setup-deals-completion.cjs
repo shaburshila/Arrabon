@@ -32,7 +32,16 @@ class ConsultEscrowConfigError extends Error {
 }
 
 const mocks = {
+  assertCompliance: () => {},
   getDealActionContextById: async () => null,
+  screenWalletForDeal: async () => ({
+    normalizedWallet: '0x0000000000000000000000000000000000000001',
+    provider: 'local_denylist',
+    rawSummary: {},
+    reasonCode: 'NO_HIT',
+    result: 'Clear',
+    walletAddress: '0x0000000000000000000000000000000000000001',
+  }),
   prepareConfirmReleaseCall: (dealId) => ({
     args: { deal_id: dealId },
     chain_id: 8453,
@@ -69,6 +78,29 @@ const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');
 require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
   DealsRepositoryError,
   getDealActionContextById: (...args) => mocks.getDealActionContextById(...args),
+});
+
+const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
+require.cache[complianceServicePath] = makeEntry(complianceServicePath, {
+  screenWalletForDeal: (...args) => mocks.screenWalletForDeal(...args),
+});
+
+class ComplianceBlockedError extends Error {
+  constructor(input) {
+    super(input.reasonCode);
+    this.name = 'ComplianceBlockedError';
+    this.dealId = input.dealId;
+    this.provider = input.provider;
+    this.reasonCode = input.reasonCode;
+    this.walletAddress = input.walletAddress;
+  }
+}
+
+const errorMappingPath = path.resolve(root, 'lib/compliance/error-mapping.ts');
+require.cache[errorMappingPath] = makeEntry(errorMappingPath, {
+  ComplianceBlockedError,
+  assertCompliance: (...args) => mocks.assertCompliance(...args),
+  withComplianceErrorHandling: (handler) => handler,
 });
 
 const escrowPath = path.resolve(root, 'lib/base/consult-escrow.ts');

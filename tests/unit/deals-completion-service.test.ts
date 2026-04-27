@@ -12,7 +12,9 @@ import {
 } from "../../server/services/deals-completion";
 
 interface DealsCompletionMocks {
+  assertCompliance: (...args: unknown[]) => unknown;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
+  screenWalletForDeal: (...args: unknown[]) => Promise<unknown>;
 }
 
 const mocks = (global as typeof globalThis & { __dealsCompletionMocks: DealsCompletionMocks }).__dealsCompletionMocks;
@@ -60,8 +62,22 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
   };
 }
 
+function makeScreeningResult(overrides: Record<string, unknown> = {}) {
+  return {
+    normalizedWallet: SELLER.toLowerCase(),
+    provider: "local_denylist",
+    rawSummary: {},
+    reasonCode: "NO_HIT",
+    result: "Clear",
+    walletAddress: SELLER,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
+  mocks.assertCompliance = () => {};
   mocks.getDealActionContextById = async () => makeContext();
+  mocks.screenWalletForDeal = async () => makeScreeningResult();
 });
 
 describe("prepareMarkCompletedForDeal availability", () => {
@@ -76,6 +92,68 @@ describe("prepareMarkCompletedForDeal availability", () => {
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "markCompleted");
     assert.equal(result.contract_call.args.deal_id, "42");
+  });
+
+  test("screens seller with lifecycle_complete context before preparing call", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    let screenedWallet: unknown = null;
+    let screenedContext: unknown = null;
+    let assertedResult: unknown = null;
+    let assertedWallet: unknown = null;
+    let assertedContext: unknown = null;
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      [screenedWallet, screenedContext] = args;
+      return makeScreeningResult();
+    };
+    mocks.assertCompliance = (...args: unknown[]) => {
+      [assertedResult, assertedWallet, assertedContext] = args;
+    };
+
+    await prepareMarkCompletedForDeal(
+      { ...currentUser, wallet_address: SELLER },
+      { dealId: "deal-id-1" },
+    );
+
+    assert.equal(screenedWallet, SELLER);
+    assert.deepEqual(screenedContext, {
+      action: "lifecycle_complete",
+      actorWallet: SELLER,
+      dealId: "deal-id-1",
+    });
+    assert.deepEqual(assertedResult, makeScreeningResult());
+    assert.equal(assertedWallet, SELLER);
+    assert.deepEqual(assertedContext, screenedContext);
+  });
+
+  test("stops before preparing call when compliance blocks seller", async () => {
+    mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
+
+    let prepareCalls = 0;
+    mocks.assertCompliance = () => {
+      throw new Error("blocked");
+    };
+    (mocks as typeof mocks & { prepareMarkCompletedCall: (dealId: unknown) => unknown }).prepareMarkCompletedCall =
+      (dealId: unknown) => {
+        prepareCalls += 1;
+        return {
+          args: { deal_id: dealId },
+          chain_id: 8453,
+          contract_address: "0x0000000000000000000000000000000000000001",
+          function_name: "markCompleted",
+        };
+      };
+
+    await assert.rejects(
+      () =>
+        prepareMarkCompletedForDeal(
+          { ...currentUser, wallet_address: SELLER },
+          { dealId: "deal-id-1" },
+        ),
+      /blocked/,
+    );
+    assert.equal(prepareCalls, 0);
   });
 });
 
@@ -107,9 +185,49 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
       },
     );
   });
+
+  test("screens seller while keeping buyer as actor", async () => {
+    let screenedWallet: unknown = null;
+    let screenedContext: unknown = null;
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      [screenedWallet, screenedContext] = args;
+      return makeScreeningResult();
+    };
+
+    await prepareConfirmReleaseForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      DEADLINE,
+    );
+
+    assert.equal(screenedWallet, SELLER);
+    assert.deepEqual(screenedContext, {
+      action: "lifecycle_release",
+      actorWallet: BUYER,
+      dealId: "deal-id-1",
+    });
+  });
 });
 
 describe("prepareOpenDisputeForDeal deadline boundary", () => {
+  test("does not invoke compliance screening for dispute", async () => {
+    let complianceCalls = 0;
+
+    mocks.screenWalletForDeal = async () => {
+      complianceCalls += 1;
+      return makeScreeningResult();
+    };
+
+    await prepareOpenDisputeForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      DEADLINE,
+    );
+
+    assert.equal(complianceCalls, 0);
+  });
+
   test("rejects funded dispute before scheduled_at", async () => {
     mocks.getDealActionContextById = async () => makeContext({ status: "Funded" });
 
@@ -233,6 +351,29 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "autoRelease");
     assert.equal(result.contract_call.args.deal_id, "42");
+  });
+
+  test("screens seller while keeping current user as actor", async () => {
+    let screenedWallet: unknown = null;
+    let screenedContext: unknown = null;
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      [screenedWallet, screenedContext] = args;
+      return makeScreeningResult();
+    };
+
+    await prepareAutoReleaseForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      new Date(DEADLINE.getTime() + 1),
+    );
+
+    assert.equal(screenedWallet, SELLER);
+    assert.deepEqual(screenedContext, {
+      action: "lifecycle_auto_release",
+      actorWallet: adminUser.wallet_address,
+      dealId: "deal-id-1",
+    });
   });
 
   test("rejects auto-release for non-confirm-pending deals", async () => {

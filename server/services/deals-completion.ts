@@ -3,6 +3,7 @@ import "server-only";
 import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
+import { assertCompliance } from "@/lib/compliance/error-mapping";
 import type { DealCompletionRouteParams } from "@/lib/validators/deals-completion";
 import {
   ConsultEscrowConfigError,
@@ -17,6 +18,7 @@ import {
   DealsRepositoryError,
   getDealActionContextById,
 } from "@/server/repositories/deals";
+import { screenWalletForDeal } from "@/server/services/compliance";
 
 export interface PreparedDealLifecycleResult {
   contract_call: PreparedDealLifecycleCall;
@@ -189,6 +191,17 @@ export async function prepareMarkCompletedForDeal(
     );
   }
 
+  const screeningContext = {
+    action: "lifecycle_complete" as const,
+    actorWallet: currentUser.wallet_address,
+    dealId: context.id,
+  };
+  const screeningResult = await screenWalletForDeal(
+    context.seller_address,
+    screeningContext,
+  );
+  assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
+
   try {
     // Prepare endpoints only authorize the contract call; confirmed event sync still owns final state.
     return buildPreparedResult(
@@ -239,6 +252,17 @@ export async function prepareConfirmReleaseForDeal(
       "RELEASE_DEADLINE_PASSED",
     );
   }
+
+  const screeningContext = {
+    action: "lifecycle_release" as const,
+    actorWallet: currentUser.wallet_address,
+    dealId: context.id,
+  };
+  const screeningResult = await screenWalletForDeal(
+    context.seller_address,
+    screeningContext,
+  );
+  assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
 
   try {
     return buildPreparedResult(
@@ -358,6 +382,17 @@ export async function prepareAutoReleaseForDeal(
       "AUTO_RELEASE_NOT_AVAILABLE",
     );
   }
+
+  const screeningContext = {
+    action: "lifecycle_auto_release" as const,
+    actorWallet: currentUser.wallet_address,
+    dealId: context.id,
+  };
+  const screeningResult = await screenWalletForDeal(
+    context.seller_address,
+    screeningContext,
+  );
+  assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
 
   try {
     return buildPreparedResult(
