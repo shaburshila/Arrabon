@@ -109,7 +109,6 @@ export function useWalletSession(): WalletSessionState {
       return;
     }
 
-    pingDone.current = true;
     setSiweStatus("loading");
     setSignInError(null);
 
@@ -118,8 +117,10 @@ export function useWalletSession(): WalletSessionState {
         if (s) {
           setSession(s);
           setSiweStatus("authenticated");
+          pingDone.current = true;
         } else {
           setSiweStatus("unauthenticated");
+          pingDone.current = true;
         }
       })
       .catch((error) => {
@@ -128,6 +129,7 @@ export function useWalletSession(): WalletSessionState {
         setSession(null);
         setSiweStatus("unauthenticated");
         setSignInError(message);
+        pingDone.current = true;
       });
   }, [isConnected, address, session]);
 
