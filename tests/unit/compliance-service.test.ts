@@ -180,6 +180,56 @@ describe("screenWalletsBatch", () => {
     );
   });
 
+  test("recomputes deal risk status after persisting batch results for a deal", async () => {
+    mocks.provider.screenWallet = async () =>
+      makeCompositeResult(
+        [
+          makeProviderResult("chainalysis_sanctions_oracle", {
+            reasonCode: "OFAC_SANCTIONS",
+            result: "Blocked",
+            walletAddress: BUYER,
+          }),
+          makeProviderResult("usdc_blacklist", { walletAddress: BUYER }),
+          makeProviderResult("local_denylist", { walletAddress: BUYER }),
+        ],
+        {
+          provider: "chainalysis_sanctions_oracle",
+          reasonCode: "OFAC_SANCTIONS",
+          result: "Blocked",
+          walletAddress: BUYER,
+        },
+      );
+    mocks.getById = async () => ({
+      id: "deal-id-1",
+      consultation_link_id: "link-id-1",
+      onchain_deal_id: "1",
+      buyer_address: BUYER,
+      seller_address: SELLER,
+      status: "Funded",
+      risk_status: "Clear",
+      funded_at: null,
+      completed_at: null,
+      released_at: null,
+      resolution_type: null,
+      resolved_at: null,
+      resolved_by_wallet: null,
+      resolved_from_status: null,
+      tx_hash: null,
+      created_at: "2026-04-27T00:00:00.000Z",
+    });
+    mocks.findByDeal = async () => [makeCheck("Blocked", "OFAC_SANCTIONS")];
+
+    const results = await screenWalletsBatch([BUYER], {
+      action: "post_funding_sync",
+      actorWallet: null,
+      dealId: "deal-id-1",
+    });
+
+    assert.equal(results.length, 1);
+    assert.deepEqual(mocks.calls.getById, ["deal-id-1"]);
+    assert.deepEqual(mocks.calls.updateRiskStatusById, [["deal-id-1", "Blocked"]]);
+  });
+
   test("fails closed on partial audit write failure and skips recompute", async () => {
     let insertCalls = 0;
     const providerResults = [

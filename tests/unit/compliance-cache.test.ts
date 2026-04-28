@@ -6,7 +6,11 @@ import {
   COMPLIANCE_CACHE_TTL_MS,
   ComplianceCache,
 } from "@/lib/compliance/cache";
-import type { CacheableScreeningResult } from "@/lib/compliance/types";
+import type {
+  BlockedScreeningResult,
+  CacheableScreeningResult,
+} from "@/lib/compliance/types";
+import { isCacheableScreeningResult } from "@/lib/compliance/types";
 
 function makeClearResult(
   wallet: `0x${string}` = "0x00000000000000000000000000000000000000AA",
@@ -31,6 +35,20 @@ function makeBlockedResult(
     provider: "usdc_blacklist",
     rawSummary: { source: "test" },
     reasonCode: "USDC_BLACKLISTED",
+    result: "Blocked",
+    walletAddress,
+  };
+}
+
+function makeProviderUnavailableResult(
+  wallet: `0x${string}` = "0x00000000000000000000000000000000000000CC",
+): BlockedScreeningResult {
+  const walletAddress = getAddress(wallet);
+  return {
+    normalizedWallet: walletAddress.toLowerCase(),
+    provider: "chainalysis_sanctions_oracle",
+    rawSummary: { source: "test" },
+    reasonCode: "PROVIDER_UNAVAILABLE",
     result: "Blocked",
     walletAddress,
   };
@@ -71,5 +89,11 @@ describe("ComplianceCache", () => {
 
     assert.equal(cache.get("usdc_blacklist", result.normalizedWallet, 5_001), null);
     assert.equal(cache.get("chainalysis_sanctions_oracle", "0xdeadbeef", 5_001), null);
+  });
+
+  test("treats PROVIDER_UNAVAILABLE as non-cacheable input", () => {
+    const result = makeProviderUnavailableResult();
+
+    assert.equal(isCacheableScreeningResult(result), false);
   });
 });

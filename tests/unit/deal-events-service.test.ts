@@ -272,28 +272,33 @@ describe("deal event idempotency", () => {
 
   test("funded blocked post-funding appends compliance alert audit log", async () => {
     const auditEntries: Array<Record<string, unknown>> = [];
+    let screeningInput: unknown[] | null = null;
 
     mocks.createAuditLogEntry = async (entry: unknown) => {
       auditEntries.push(entry as Record<string, unknown>);
     };
-    mocks.screenWalletsBatch = async () => [
-      {
-        normalizedWallet: BUYER_ADDRESS.toLowerCase(),
-        provider: "chainalysis_sanctions_oracle",
-        rawSummary: {},
-        reasonCode: "OFAC_SANCTIONS",
-        result: "Blocked",
-        walletAddress: BUYER_ADDRESS,
-      },
-      {
-        normalizedWallet: SELLER_ADDRESS.toLowerCase(),
-        provider: null,
-        rawSummary: {},
-        reasonCode: "NO_HIT",
-        result: "Clear",
-        walletAddress: SELLER_ADDRESS,
-      },
-    ];
+    mocks.screenWalletsBatch = async (...args: unknown[]) => {
+      screeningInput = args;
+
+      return [
+        {
+          normalizedWallet: BUYER_ADDRESS.toLowerCase(),
+          provider: "chainalysis_sanctions_oracle",
+          rawSummary: {},
+          reasonCode: "OFAC_SANCTIONS",
+          result: "Blocked",
+          walletAddress: BUYER_ADDRESS,
+        },
+        {
+          normalizedWallet: SELLER_ADDRESS.toLowerCase(),
+          provider: null,
+          rawSummary: {},
+          reasonCode: "NO_HIT",
+          result: "Clear",
+          walletAddress: SELLER_ADDRESS,
+        },
+      ];
+    };
 
     const result = await processConfirmedFundedEvent(fundedEvent);
 
@@ -302,6 +307,14 @@ describe("deal event idempotency", () => {
       result: "processed",
       txHash: fundedEvent.txHash,
     });
+    assert.deepEqual(screeningInput, [
+      [BUYER_ADDRESS, SELLER_ADDRESS],
+      {
+        action: "post_funding_sync",
+        actorWallet: null,
+        dealId: "deal-id-funded",
+      },
+    ]);
     assert.equal(auditEntries.length, 2);
     assert.equal(auditEntries[1].action, "compliance.blocked_post_funding");
     assert.deepEqual(auditEntries[1].metadata, {

@@ -49,14 +49,14 @@ function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLin
     title: "Test Consultation",
     description: "Desc",
     price_usdc: "100.00",
-    scheduled_at: "2026-04-28T12:00:00.000Z",
+    scheduled_at: "2030-04-28T12:00:00.000Z",
     timezone: "UTC",
-    expires_at: "2026-04-28T11:00:00.000Z",
+    expires_at: "2030-04-28T11:00:00.000Z",
     duration_minutes: 30,
     meeting_url_encrypted: "encrypted",
     link_hash: "0x" + "1".repeat(64),
     status: "Open",
-    created_at: "2026-04-27T00:00:00.000Z",
+    created_at: "2030-04-27T00:00:00.000Z",
     ...overrides,
   };
 }
