@@ -8,6 +8,8 @@ import { useConfig } from "wagmi";
 
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
+import type { AdminComplianceCheck, AdminDealCompliance } from "@/lib/api/admin";
+import { fetchAdminDealCompliance } from "@/lib/api/admin";
 import {
   type AdminDealReview,
   type AdminResolution,
@@ -15,12 +17,14 @@ import {
   prepareAdminResolve,
 } from "@/lib/api/admin-deals";
 import { fetchDeal, type DealStatus } from "@/lib/api/deals";
+import type { DealRiskStatus } from "@/lib/db/types";
 import { triggerFundingSync } from "@/lib/api/links";
 import { executeAdminCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 import { truncateAddress } from "@/lib/ui/address";
 import { wait } from "@/lib/ui/async";
 import { formatDate } from "@/lib/ui/date";
 import { AppShell } from "@/components/app/app-shell";
+import { RiskBadge } from "@/components/admin/risk-badge";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
@@ -54,6 +58,41 @@ const emptyResolveState: ResolveState = {
   step: "idle",
   txHash: null,
 };
+
+export function getAdminResolveAvailability(
+  riskStatus: DealRiskStatus,
+  acknowledgedReviewRisk: boolean,
+): {
+  blocked: boolean;
+  disabled: boolean;
+  disabledReason: string | null;
+  requiresAcknowledge: boolean;
+} {
+  if (riskStatus === "Blocked") {
+    return {
+      blocked: true,
+      disabled: true,
+      disabledReason: "Funds are in legal hold.",
+      requiresAcknowledge: false,
+    };
+  }
+
+  if (riskStatus === "Review" && !acknowledgedReviewRisk) {
+    return {
+      blocked: false,
+      disabled: true,
+      disabledReason: "Acknowledge the review risk before resolving this dispute.",
+      requiresAcknowledge: true,
+    };
+  }
+
+  return {
+    blocked: false,
+    disabled: false,
+    disabledReason: null,
+    requiresAcknowledge: riskStatus === "Review",
+  };
+}
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -125,9 +164,11 @@ export default function AdminDisputeDetailPage() {
 
   const session = useWalletSession();
   const [deal, setDeal] = useState<AdminDealReview | null>(null);
+  const [compliance, setCompliance] = useState<AdminDealCompliance | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<AdminResolution | null>(null);
+  const [acknowledgedReviewRisk, setAcknowledgedReviewRisk] = useState(false);
   const [resolveState, setResolveState] = useState<ResolveState>(emptyResolveState);
   const lockRef = useRef(false);
 
@@ -150,6 +191,7 @@ export default function AdminDisputeDetailPage() {
   const loadDeal = useCallback(async () => {
     if (!canLoadAdminDeal || !dealId) {
       setDeal(null);
+      setCompliance(null);
       return;
     }
 
@@ -157,7 +199,14 @@ export default function AdminDisputeDetailPage() {
     setLoadError(null);
 
     try {
-      setDeal(await fetchAdminDeal(dealId));
+      const [loadedDeal, loadedCompliance] = await Promise.all([
+        fetchAdminDeal(dealId),
+        fetchAdminDealCompliance(dealId),
+      ]);
+      setDeal(loadedDeal);
+      setCompliance(loadedCompliance);
+      setAcknowledgedReviewRisk(false);
+      setConfirming(null);
     } catch (error) {
       setLoadError(
         error instanceof ApiError
@@ -167,6 +216,7 @@ export default function AdminDisputeDetailPage() {
             : "Failed to load dispute.",
       );
       setDeal(null);
+      setCompliance(null);
     } finally {
       setLoading(false);
     }
@@ -302,6 +352,8 @@ export default function AdminDisputeDetailPage() {
   );
 
   const activeText = deal && resolveState.dealId === deal.id ? statusText(resolveState) : null;
+  const riskStatus = compliance?.risk_status ?? deal?.risk_status ?? "Clear";
+  const resolveAvailability = getAdminResolveAvailability(riskStatus, acknowledgedReviewRisk);
 
   return (
     <AppShell maxWidth={860} session={session}>
@@ -314,6 +366,9 @@ export default function AdminDisputeDetailPage() {
         <p style={subtitleStyle}>
           Review the full dispute record, conversation, and admin resolution options.
         </p>
+        <Link href="/admin/denylist" style={adminLinkStyle}>
+          Open compliance denylist →
+        </Link>
       </div>
 
       <WalletSessionCard session={session} />
@@ -357,7 +412,10 @@ export default function AdminDisputeDetailPage() {
                     <h2 style={dealTitleStyle}>{deal.title}</h2>
                     <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                   </div>
-                  <StatusPill label="Disputed" size="md" tone="danger" />
+                  <div style={badgeStackStyle}>
+                    <StatusPill label="Disputed" size="md" tone="danger" />
+                    <RiskBadge riskStatus={riskStatus} size="md" />
+                  </div>
                 </div>
 
                 <div style={rowsStyle}>
@@ -368,6 +426,7 @@ export default function AdminDisputeDetailPage() {
                   />
                   <DetailRow label="Price" value={`${deal.price_usdc} USDC`} />
                   <DetailRow label="Status" value={deal.status} />
+                  <DetailRow label="Risk status" value={riskStatus} />
                   <DetailRow
                     label="Buyer"
                     value={<DetailValue mono>{truncateAddress(deal.buyer_address)}</DetailValue>}
@@ -466,6 +525,22 @@ export default function AdminDisputeDetailPage() {
                   </p>
                 </div>
 
+                {riskStatus === "Blocked" && (
+                  <Notice
+                    message="Funds in legal hold. Do not resolve this dispute until cleared by counsel. Both release and refund may constitute an OFAC violation."
+                    title="Legal hold"
+                    tone="danger"
+                  />
+                )}
+
+                {riskStatus === "Review" && (
+                  <Notice
+                    message="This deal is flagged for review. Acknowledge the risk before resolving the dispute."
+                    title="Manual review required"
+                    tone="warning"
+                  />
+                )}
+
                 {activeText && (
                   <Notice
                     message={
@@ -480,6 +555,17 @@ export default function AdminDisputeDetailPage() {
                   />
                 )}
 
+                {riskStatus === "Review" && (
+                  <label style={acknowledgeLabelStyle}>
+                    <input
+                      checked={acknowledgedReviewRisk}
+                      onChange={(event) => setAcknowledgedReviewRisk(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>I understand the compliance review risk and want to continue.</span>
+                  </label>
+                )}
+
                 {confirming ? (
                   <div style={confirmStyle}>
                     <p style={confirmTextStyle}>
@@ -489,7 +575,10 @@ export default function AdminDisputeDetailPage() {
                     </p>
                     <div style={actionsStyle}>
                       <Btn
-                        disabled={isResolving}
+                        disabled={isResolving || resolveAvailability.disabled}
+                        disabledReason={
+                          !isResolving ? resolveAvailability.disabledReason ?? undefined : undefined
+                        }
                         onClick={() => resolveDeal(deal, confirming)}
                         variant={confirming === "release" ? "primary" : "danger"}
                       >
@@ -507,20 +596,45 @@ export default function AdminDisputeDetailPage() {
                 ) : (
                   <div style={actionsStyle}>
                     <Btn
-                      disabled={isResolving}
+                      disabled={isResolving || resolveAvailability.disabled}
+                      disabledReason={
+                        !isResolving ? resolveAvailability.disabledReason ?? undefined : undefined
+                      }
                       onClick={() => setConfirming("release")}
                       variant="primary"
                     >
                       Release to seller
                     </Btn>
                     <Btn
-                      disabled={isResolving}
+                      disabled={isResolving || resolveAvailability.disabled}
+                      disabledReason={
+                        !isResolving ? resolveAvailability.disabledReason ?? undefined : undefined
+                      }
                       onClick={() => setConfirming("refund")}
                       variant="danger"
                     >
                       Refund to buyer
                     </Btn>
                   </div>
+                )}
+              </ActionPanel>
+
+              <ActionPanel as="section" style={sectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h2 style={sectionTitleStyle}>Compliance checks</h2>
+                  <p style={sectionDescriptionStyle}>
+                    Review provider results, wallets, and timestamps before taking an admin action.
+                  </p>
+                </div>
+
+                {compliance && compliance.checks.length > 0 ? (
+                  <div style={checksListStyle}>
+                    {compliance.checks.map((check) => (
+                      <ComplianceCheckItem key={check.id} check={check} />
+                    ))}
+                  </div>
+                ) : (
+                  <Notice message="No compliance checks recorded for this deal." tone="muted" />
                 )}
               </ActionPanel>
 
@@ -536,6 +650,28 @@ export default function AdminDisputeDetailPage() {
         </>
       )}
     </AppShell>
+  );
+}
+
+function ComplianceCheckItem({ check }: { check: AdminComplianceCheck }) {
+  return (
+    <div style={checkCardStyle}>
+      <DetailRow label="Provider" value={check.provider} />
+      <DetailRow label="Result" value={check.result} />
+      <DetailRow label="Reason" value={check.reason_code} />
+      <DetailRow
+        label="Checked at"
+        value={formatDate(check.checked_at, {
+          fallback: "Not set",
+          showTimeZoneName: true,
+        })}
+      />
+      <DetailRow
+        bordered={false}
+        label="Wallet"
+        value={<DetailValue mono>{truncateAddress(check.subject_value)}</DetailValue>}
+      />
+    </div>
   );
 }
 
@@ -572,6 +708,14 @@ const subtitleStyle = {
   margin: 0,
 } as const;
 
+const adminLinkStyle = {
+  alignSelf: "flex-start",
+  color: "var(--accent)",
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: "none",
+} as const;
+
 const toolbarStyle = {
   alignItems: "center",
   display: "flex",
@@ -604,6 +748,13 @@ const dealHeaderStyle = {
   gap: 14,
   justifyContent: "space-between",
   marginBottom: 16,
+} as const;
+
+const badgeStackStyle = {
+  alignItems: "flex-end",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 8,
 } as const;
 
 const dealTitleStyle = {
@@ -665,4 +816,25 @@ const actionsStyle = {
   display: "flex",
   flexWrap: "wrap" as const,
   gap: 10,
+} as const;
+
+const acknowledgeLabelStyle = {
+  alignItems: "center",
+  color: "var(--muted)",
+  display: "inline-flex",
+  fontSize: 13,
+  gap: 8,
+} as const;
+
+const checksListStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 12,
+} as const;
+
+const checkCardStyle = {
+  background: "var(--panel-muted)",
+  border: "1px solid var(--border)",
+  borderRadius: 8,
+  padding: 12,
 } as const;

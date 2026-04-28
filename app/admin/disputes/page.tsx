@@ -22,6 +22,7 @@ import { truncateAddress } from "@/lib/ui/address";
 import { wait } from "@/lib/ui/async";
 import { formatDate } from "@/lib/ui/date";
 import { AppShell } from "@/components/app/app-shell";
+import { RiskBadge } from "@/components/admin/risk-badge";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
@@ -63,6 +64,13 @@ const VIEW_OPTIONS = [
   { label: "Resolved history", value: "resolved" },
 ] as const;
 type AdminDisputesView = (typeof VIEW_OPTIONS)[number]["value"];
+
+export function shouldShowFlaggedDeal(
+  riskStatus: "Blocked" | "Clear" | "Review",
+  showOnlyFlagged: boolean,
+): boolean {
+  return !showOnlyFlagged || riskStatus !== "Clear";
+}
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -117,6 +125,7 @@ export default function AdminDisputesPage() {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
   const [confirming, setConfirming] = useState<{
     dealId: string;
     resolution: AdminResolution;
@@ -325,7 +334,16 @@ export default function AdminDisputesPage() {
     [config, isResolving, loadDeals, syncUntilConverged],
   );
 
-  const visibleCount = view === "resolved" ? resolvedDeals.length : deals.length;
+  const visibleOpenDeals = useMemo(
+    () => deals.filter((deal) => shouldShowFlaggedDeal(deal.risk_status, showOnlyFlagged)),
+    [deals, showOnlyFlagged],
+  );
+  const visibleResolvedDeals = useMemo(
+    () =>
+      resolvedDeals.filter((deal) => shouldShowFlaggedDeal(deal.risk_status, showOnlyFlagged)),
+    [resolvedDeals, showOnlyFlagged],
+  );
+  const visibleCount = view === "resolved" ? visibleResolvedDeals.length : visibleOpenDeals.length;
 
   return (
     <AppShell maxWidth={860} session={session}>
@@ -334,6 +352,9 @@ export default function AdminDisputesPage() {
         <p style={subtitleStyle}>
           Review disputed escrow deals and prepare the admin resolution transaction.
         </p>
+        <Link href="/admin/denylist" style={adminLinkStyle}>
+          Open compliance denylist →
+        </Link>
       </div>
 
       <WalletSessionCard session={session} />
@@ -364,7 +385,18 @@ export default function AdminDisputesPage() {
           />
 
           <div style={toolbarStyle}>
-            <span style={countStyle}>Page {page + 1} · {visibleCount} shown</span>
+            <div style={toolbarLeftStyle}>
+              <span style={countStyle}>Page {page + 1} · {visibleCount} shown</span>
+              <label style={filterLabelStyle}>
+                <input
+                  checked={showOnlyFlagged}
+                  disabled={loading}
+                  onChange={(event) => setShowOnlyFlagged(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>Show only flagged</span>
+              </label>
+            </div>
             <button
               disabled={loading || isResolving}
               onClick={loadDeals}
@@ -383,17 +415,17 @@ export default function AdminDisputesPage() {
             <Notice message={loadError} tone="danger" />
           )}
 
-          {!loading && !loadError && view === "open" && deals.length === 0 && (
+          {!loading && !loadError && view === "open" && visibleOpenDeals.length === 0 && (
             <Notice message="No open disputes." tone="muted" />
           )}
 
-          {!loading && !loadError && view === "resolved" && resolvedDeals.length === 0 && (
+          {!loading && !loadError && view === "resolved" && visibleResolvedDeals.length === 0 && (
             <Notice message="No resolved disputes yet." tone="muted" />
           )}
 
           {view === "open" && (
             <div style={listStyle}>
-              {deals.map((deal) => {
+              {visibleOpenDeals.map((deal) => {
               const activeForDeal = resolveState.dealId === deal.id;
               const activeText = activeForDeal ? statusText(resolveState) : null;
               const confirmForDeal = confirming?.dealId === deal.id ? confirming : null;
@@ -408,10 +440,14 @@ export default function AdminDisputesPage() {
                         View dispute
                       </Link>
                     </div>
-                    <StatusPill label="Disputed" size="md" tone="danger" />
+                    <div style={badgeStackStyle}>
+                      <StatusPill label="Disputed" size="md" tone="danger" />
+                      <RiskBadge riskStatus={deal.risk_status} size="md" />
+                    </div>
                   </div>
 
                   <div style={gridStyle}>
+                    <Info label="Risk" value={deal.risk_status} />
                     <Info label="Price" value={`${deal.price_usdc} USDC`} />
                     <Info
                       label="Scheduled"
@@ -512,21 +548,25 @@ export default function AdminDisputesPage() {
 
           {view === "resolved" && (
             <div style={listStyle}>
-              {resolvedDeals.map((deal) => (
+              {visibleResolvedDeals.map((deal) => (
                 <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
                   <div style={dealHeaderStyle}>
                     <div>
                       <h2 style={dealTitleStyle}>{deal.title}</h2>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                     </div>
-                    <StatusPill
-                      label={deal.status === "Released" ? "Released" : "Refunded"}
-                      size="md"
-                      tone={deal.status === "Released" ? "success" : "accent"}
-                    />
+                    <div style={badgeStackStyle}>
+                      <StatusPill
+                        label={deal.status === "Released" ? "Released" : "Refunded"}
+                        size="md"
+                        tone={deal.status === "Released" ? "success" : "accent"}
+                      />
+                      <RiskBadge riskStatus={deal.risk_status} size="md" />
+                    </div>
                   </div>
 
                   <div style={gridStyle}>
+                    <Info label="Risk" value={deal.risk_status} />
                     <Info label="Price" value={`${deal.price_usdc} USDC`} />
                     <Info
                       label="Decision"
@@ -659,6 +699,14 @@ const subtitleStyle = {
   margin: 0,
 };
 
+const adminLinkStyle = {
+  alignSelf: "flex-start",
+  color: "var(--accent)",
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: "none",
+};
+
 const toolbarStyle = {
   alignItems: "center",
   display: "flex",
@@ -666,10 +714,25 @@ const toolbarStyle = {
   gap: 12,
 };
 
+const toolbarLeftStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: 12,
+};
+
 const countStyle = {
   color: "var(--muted)",
   fontSize: 13,
   fontWeight: 600,
+};
+
+const filterLabelStyle = {
+  alignItems: "center",
+  color: "var(--muted)",
+  display: "inline-flex",
+  fontSize: 13,
+  gap: 8,
 };
 
 const listStyle = {
@@ -696,6 +759,13 @@ const dealHeaderStyle = {
   display: "flex",
   gap: 12,
   justifyContent: "space-between",
+};
+
+const badgeStackStyle = {
+  alignItems: "flex-end",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 8,
 };
 
 const dealTitleStyle = {
