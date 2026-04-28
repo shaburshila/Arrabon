@@ -1,5 +1,10 @@
 # QA Scenarios — Base Consult Link (ТЗ v1.2)
 
+> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.2: исправлены QA-061…063 — удалён несуществующий reason_code LEGAL_HOLD; заменён на canonical reason_code из compliance_checks.
+> Изменения v1.1: добавлен §15 Compliance (QA-057…QA-068); обновлена таблица Critical Invariants (I-14…I-20).
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+
 Формат: Given / When / Then
 Уровни: **[CONTRACT]** — onchain, **[API]** — backend, **[UI]** — frontend
 
@@ -395,6 +400,82 @@
 
 ---
 
+## 15. Compliance
+
+### QA-057 Создание ссылки — seller wallet заблокирован (sanctions)
+**[API]**
+- Given: seller wallet присутствует в Chainalysis sanctions oracle
+- When: seller вызывает `POST /api/links` с валидными полями
+- Then: HTTP 403 `{"error": "COMPLIANCE_BLOCKED", "reason_code": "OFAC_SANCTIONS"}`; запись в `consultation_links` не создаётся; `compliance_checks` для этой попытки не сохраняются (сделки нет)
+
+### QA-058 Подготовка funding — buyer wallet заблокирован (USDC blacklist)
+**[API]**
+- Given: buyer wallet присутствует в USDC blacklist (`isBlacklisted == true`)
+- When: buyer вызывает `POST /api/links/:id/funding/prepare`
+- Then: HTTP 403 `{"error": "COMPLIANCE_BLOCKED", "reason_code": "USDC_BLACKLISTED"}`; calldata не генерируется; ссылка остаётся Open
+
+### QA-059 Провайдер недоступен — fail-closed
+**[API]**
+- Given: Chainalysis oracle недоступен (network timeout / 5xx)
+- When: любая из трёх gate-точек вызывает screenWallet
+- Then: HTTP 403 `{"error": "COMPLIANCE_BLOCKED", "reason_code": "PROVIDER_UNAVAILABLE"}`; действие не выполняется; `PROVIDER_UNAVAILABLE` не сохраняется в address-кэш
+
+### QA-060 Post-funding rescreening → Blocked → legal hold
+**[API]**
+- Given: funding успешно завершён (deal.status == Funded); в процессе post-funding rescreening один из адресов возвращает Blocked
+- When: indexer обрабатывает подтверждённый Funded event
+- Then: `deal.status` остаётся `Funded`; `deal.risk_status` обновляется до `Blocked`; запись в audit log; последующий вызов любого payout-path endpoint → 403 `COMPLIANCE_BLOCKED`
+
+### QA-061 Payout заблокирован legal hold — confirmRelease
+**[API]**
+- Given: deal.status == ConfirmPending; deal.risk_status == Blocked (например, из-за OFAC_SANCTIONS при post-funding rescreening)
+- When: buyer вызывает `POST /api/deals/:id/release`
+- Then: HTTP 403 `{"code": "COMPLIANCE_BLOCKED", "reason_code": "OFAC_SANCTIONS"}`; `reason_code` отражает highest-priority blocked compliance_check сделки (OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST); calldata не генерируется; deal.status и risk_status не изменяются
+
+### QA-062 Payout заблокирован legal hold — autoRelease
+**[API]**
+- Given: deal.status == ConfirmPending; deal.risk_status == Blocked; 48h window истёк
+- When: backend или anyone вызывает `POST /api/deals/:id/auto-release`
+- Then: HTTP 403 `{"code": "COMPLIANCE_BLOCKED", "reason_code": "<highest-priority blocked check>"}`; `LEGAL_HOLD` не является самостоятельным reason_code; calldata не генерируется; deal остаётся ConfirmPending
+
+### QA-063 Admin resolve заблокирован legal hold
+**[API]**
+- Given: deal.status == Disputed; deal.risk_status == Blocked
+- When: admin вызывает `POST /api/admin/deals/:id/resolve`
+- Then: HTTP 403 `{"code": "COMPLIANCE_BLOCKED", "reason_code": "<highest-priority blocked check>"}`; `assertDealNotBlocked` читает compliance_checks, выбирает worst-case reason_code; calldata не генерируется; deal остаётся Disputed
+
+### QA-064 Denylist — добавление и блокировка funding
+**[API]**
+- Given: wallet X не присутствует в denylist; wallet X не попадает под sanctions oracle / USDC blacklist
+- When: admin добавляет wallet X через `POST /api/admin/denylist`; затем wallet X пытается получить funding calldata
+- Then: добавление возвращает 201; последующий `funding/prepare` с wallet X возвращает 403 `COMPLIANCE_BLOCKED`, `reason_code: LOCAL_DENYLIST`
+
+### QA-065 Denylist — удаление разблокирует funding
+**[API]**
+- Given: wallet X присутствует в `wallet_denylist`; wallet X не под sanctions / USDC blacklist
+- When: admin удаляет wallet X через `DELETE /api/admin/denylist/:wallet`; затем wallet X запрашивает funding/prepare
+- Then: удаление возвращает 200; последующий funding/prepare с wallet X возвращает 200 calldata (при условии, что deal.risk_status ≠ Blocked)
+
+### QA-066 PROVIDER_UNAVAILABLE не кэшируется
+**[API]**
+- Given: первый вызов к sanctions oracle вернул ошибку (PROVIDER_UNAVAILABLE); второй вызов к тому же провайдеру выполнен через 1 секунду
+- When: второй запрос к тому же провайдеру выполнен успешно
+- Then: второй запрос выполняется полностью без использования кешированного PROVIDER_UNAVAILABLE результата; возвращает актуальный результат провайдера
+
+### QA-067 Frontend — compliance blocked → in-place notice
+**[UI]**
+- Given: пользователь на странице ссылки или funding flow; backend возвращает 403 COMPLIANCE_BLOCKED
+- When: UI получает 403 ответ
+- Then: на странице отображается `ComplianceBlockedNotice` (inline); редиректа на глобальную страницу ошибки нет; пользователь остаётся в текущем контексте
+
+### QA-068 Priority resolution — множественные hits
+**[API]**
+- Given: buyer wallet присутствует одновременно в Chainalysis oracle (OFAC_SANCTIONS) и в local denylist (LOCAL_DENYLIST)
+- When: `POST /api/links/:id/funding/prepare`
+- Then: HTTP 403; `reason_code == "OFAC_SANCTIONS"` (высший приоритет: OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST > PROVIDER_UNAVAILABLE); обе записи сохраняются в `compliance_checks`
+
+---
+
 ## Summary: Critical Invariants
 
 | # | Инвариант | Уровень |
@@ -412,3 +493,20 @@
 | I-11 | fee snapshot фиксируется при funding | CONTRACT |
 | I-12 | admin actions не спонсируются | CONTRACT |
 | I-13 | meeting_url при deal.status == Refunded → 409; intentional product + security decision | API |
+| I-14 | Создание ссылки с заблокированным seller → 403 COMPLIANCE_BLOCKED; ссылка не создаётся | API |
+| I-15 | funding/prepare с заблокированным buyer или seller → 403; calldata не генерируется | API |
+| I-16 | Provider failure → fail-closed Blocked; PROVIDER_UNAVAILABLE не кэшируется | API |
+| I-17 | Post-funding rescreening: deal.status не меняется; только risk_status обновляется | API |
+| I-18 | deal.risk_status == Blocked → legal hold на все payout-path endpoints | API |
+| I-19 | risk_status == Blocked — sticky; автоматический возврат в Clear/Review запрещён | API |
+| I-20 | Multiple sanctions hits: priority OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST > PROVIDER_UNAVAILABLE | API |
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск; QA-001…QA-056; Critical Invariants I-1…I-13 |
+| 1.1 | 2026-04-28 | Добавлен §15 Compliance (QA-057…QA-068); расширена таблица Critical Invariants (I-14…I-20) |
+| 1.2 | 2026-04-28 | QA-061…063: заменён несуществующий reason_code LEGAL_HOLD на canonical reason_code из compliance_checks |

@@ -1,6 +1,8 @@
 # Auth Model — Base Consult Link
 
-> Version: 1.0 | Based on: ТЗ v1.2 | Date: 2026-03-25
+> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.2: исправлена формулировка A-04 — убрано ошибочное "и сделок"; GET /api/deals/:id явно указан как требующий SIWE.
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
 
@@ -23,7 +25,7 @@
 | A-01 | Единственный auth-механизм для приватных HTTP endpoint'ов: `Sign-In With Ethereum (SIWE)` |
 | A-02 | Login выполняется wallet-адресом пользователя, без email, password, OAuth, magic links |
 | A-03 | Session хранится в `HttpOnly` cookie, привязанной к wallet address |
-| A-04 | SIWE нужна только для backend endpoints; публичное чтение ссылок и сделок не требует login |
+| A-04 | SIWE нужна только для приватных backend endpoints; публичное чтение ссылок (`GET /api/links/:id`) не требует login; чтение данных сделок (`GET /api/deals/:id`) требует SIWE |
 | A-05 | Reveal `meeting_url` разрешён только участнику сделки: buyer или seller |
 | A-06 | Auth model не управляет funds custody: право на release/dispute/admin определяется контрактом |
 | A-07 | Одна wallet session = один actor context; backend не поддерживает role switching внутри одной сессии |
@@ -39,20 +41,49 @@
 SIWE не требуется:
 
 - `GET /api/links/:id`
-- `GET /api/deals/:id`
-- read-only статусные endpoints для UI
+- `GET /api/health`
 
 ### Private endpoints
 
-SIWE обязательна:
+SIWE обязательна (cookie сессии + wallet binding):
 
+**Auth:**
 - `POST /api/auth/siwe/nonce`
 - `POST /api/auth/siwe/verify`
 - `POST /api/auth/logout`
+- `GET /api/private/ping`
+
+**Links:**
 - `POST /api/links`
 - `POST /api/links/:id/cancel`
+- `POST /api/links/:id/funding/prepare`
+- `POST /api/links/:id/funding/sync`
+
+**Deals:**
+- `GET /api/deals/:id`
 - `GET /api/deals/:id/meeting-url`
-- admin read/write endpoints
+- `GET /api/me/deals`
+- `GET /api/deals/:id/dispute-messages`
+- `POST /api/deals/:id/dispute-messages`
+
+**Lifecycle:**
+- `POST /api/deals/:id/complete`
+- `POST /api/deals/:id/release`
+- `POST /api/deals/:id/dispute`
+- `POST /api/deals/:id/auto-release`
+
+**Admin (дополнительно требует `is_admin = true`):**
+- `GET /api/admin/deals`
+- `GET /api/admin/deals/:id`
+- `GET /api/admin/deals/:id/compliance`
+- `POST /api/admin/deals/:id/resolve`
+- `GET /api/admin/denylist`
+- `POST /api/admin/denylist`
+- `DELETE /api/admin/denylist/:wallet`
+
+### Internal endpoints (не SIWE)
+
+- `POST /api/internal/deal-events/sync` — защищён `x-internal-sync-secret` header; вызывается только планировщиком/воркером, не браузером.
 
 ---
 
@@ -94,11 +125,23 @@ Client wallet                Frontend                  Backend
 
 ### Session fields
 
-- `session_id`
+Поля хранимой сессии (`sessions` table):
+
+- `id` — session UUID
+- `wallet` — wallet address (lowercase)
+- `is_admin` — флаг admin allowlist; используется во всех admin-route guards
+- `session_token_hash` — bcrypt hash токена; plaintext токен не хранится
+- `expires_at` — TTL сессии
+- `created_at`
+- `revoked_at` — null для активных сессий; устанавливается при logout
+
+Session context, доступный в route handlers (`CurrentUserContext`):
+
 - `wallet_address`
-- `issued_at`
+- `is_admin`
 - `expires_at`
-- `nonce_id` or replay marker
+- `id` (user UUID)
+- `username`, `avatar_url` (из таблицы `users`)
 
 ### Session invariants
 
@@ -147,14 +190,25 @@ Client wallet                Frontend                  Backend
 
 ## 9. Stage-1 Interfaces
 
-Перед началом кода auth-related агент обязан считать замороженными следующие интерфейсы:
+Следующие интерфейсы заморожены:
 
 - `POST /api/auth/siwe/nonce` → returns nonce payload
 - `POST /api/auth/siwe/verify` → validates signature, sets session cookie
 - `POST /api/auth/logout` → clears session
-- session context shape:
-  - `wallet_address`
-  - `is_admin`
-  - `expires_at`
+- `GET /api/private/ping` → session probe: returns `{ ok, wallet_address, is_admin, expires_at }`
+- session context shape (доступен в route handlers):
+  - `wallet_address: string`
+  - `is_admin: boolean`
+  - `expires_at: string`
 
-Любое изменение этих интерфейсов после старта этапа 2 требует согласования.
+Любое изменение этих интерфейсов требует согласования.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Добавлен is_admin в session fields; исправлена классификация GET /api/deals/:id (приватный); расширен список приватных endpoints; добавлена секция Internal endpoints |
+| 1.2 | 2026-04-28 | Исправлена формулировка A-04: убрано ошибочное "и сделок"; GET /api/deals/:id явно указан как требующий SIWE |

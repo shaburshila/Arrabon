@@ -1,6 +1,8 @@
 # Decisions — Base Consult Link
 
-> Version: 1.0 | Based on: ТЗ v1.2 | Date: 2026-03-25
+> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.1: добавлены §3 строки AML (risk_status, legal hold, in-place notice), §3.1 Frozen Compliance Invariants C-06…C-15.
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
 
@@ -41,6 +43,18 @@
 - AML Step 2 uses positive-only cache with a fixed 5-minute TTL for `Clear` and real hit results; `PROVIDER_UNAVAILABLE` is never cached.
 - AML Step 2 resolves multiple real hits with deterministic priority `OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST`.
 - AML Step 2 introduces `wallet_denylist` as a Step 2 server-side source of truth; runtime lowercase normalization is required at provider boundaries until `deals.*_address` gets DB-level enforcement in a later step.
+- AML Step 2 models compliance independently from lifecycle state: `deals.risk_status` is a separate axis and does not create any new `deal.status`.
+- AML Step 2 puts `risk_status = Blocked` deals into legal hold for all payout-path prepare endpoints.
+- AML Step 2 requires frontend to render `403 COMPLIANCE_BLOCKED` as an in-place notice rather than redirecting to the global error page.
+
+## 3.1 Frozen Compliance Invariants
+
+- `C-06` Provider failure for any shipped sanctions gate is fail-closed `Blocked` with `reason_code: PROVIDER_UNAVAILABLE`.
+- `C-11` Every payout-path backend prepare endpoint (`confirmRelease`, `autoRelease`, `adminResolveRelease`, `adminResolveRefund`) must include a compliance gate before calldata preparation.
+- `C-12` A deal with `risk_status = Blocked` is in legal hold. Backend must not prepare payout-path calldata until a manual legal override happens outside the normal MVP flow.
+- `C-13` `risk_status = Blocked` is sticky during normal operation; automatic transition back to `Clear`/`Review` is not allowed.
+- `C-14` `PROVIDER_UNAVAILABLE` is never address-cached. Provider protection uses the circuit breaker, not negative cache.
+- `C-15` `403 COMPLIANCE_BLOCKED` is a single canonical API shape formed by one backend mapping path and consumed by frontend as a stable contract.
 
 ---
 
@@ -109,3 +123,12 @@
 - `qa-scenarios.md`
 
 Пока любой из этих документов отсутствует или пустой, implementation agents не должны писать код.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Добавлены §3 строки AML (risk_status, legal hold, in-place notice); добавлены Frozen Compliance Invariants C-06…C-15 |

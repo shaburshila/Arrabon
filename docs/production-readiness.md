@@ -1,5 +1,8 @@
 # Production Readiness Checklist
 
+> Version: 1.0 | Status: Актуален | Date: 2026-04-28
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+
 This document tracks work and configuration that must be completed before a production launch.
 
 It is intentionally separate from testnet validation notes. Testnet/dev may allow temporary settings that must not accidentally ship to production.
@@ -68,3 +71,11 @@ It is intentionally separate from testnet validation notes. Testnet/dev may allo
 - [ ] Verify production error messages do not expose secrets or internal stack traces.
 - [ ] Verify funding, indexing, lifecycle actions, and meeting URL reveal manually on production-like infrastructure.
 - [ ] Confirm monitoring/logging exists for failed sync runs and auth failures.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-04-28 | Первичный выпуск |

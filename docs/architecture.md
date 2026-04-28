@@ -1,6 +1,8 @@
 # Architecture — Base Consult Link
 
-> Version: 1.0 | Based on: ТЗ v1.2 | Date: 2026-03-25
+> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.1: исправлен технологический стек backend (Next.js App Router вместо Hono), расширена схема БД до 10 таблиц, обновлены модули frontend/backend, добавлены внешние сервисы compliance.
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
 
@@ -13,50 +15,43 @@
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ HTTPS
                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND (Next.js)                        │
-│                                                                   │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │  Link Page  │  │  Deal Page   │  │  Expert Dashboard      │  │
-│  │  (public)   │  │  (buyer UX)  │  │  (private, SIWE)       │  │
-│  └──────┬──────┘  └──────┬───────┘  └────────────┬───────────┘  │
-│         │                │                        │              │
-│  ┌──────▼────────────────▼────────────────────────▼───────────┐  │
-│  │              wagmi + viem layer                             │  │
-│  │   Base Account connect · contract calls · paymaster proxy   │  │
-│  └─────────────────────────────┬───────────────────────────────┘  │
-└────────────────────────────────┼────────────────────────────────┘
-                                 │ RPC / UserOp
-          HTTPS API              │
-┌─────────────────┐              │
-│   BACKEND API   │◄─────────────┘ (paymaster proxy, SIWE, reveal)
-│   (Node/Hono)   │
-│                 │
-│ ┌─────────────┐ │    ┌──────────────────────────────────────┐
-│ │  Auth/SIWE  │ │    │          BASE CHAIN (L2)              │
-│ │  Service    │ │    │                                       │
-│ ├─────────────┤ │    │  ┌─────────────────────────────────┐ │
-│ │  Link CRUD  │ │    │  │   ConsultEscrow.sol              │ │
-│ │  Service    │◄├────┼──┤   createAndFundDeal()            │ │
-│ ├─────────────┤ │    │  │   markCompleted()                │ │
-│ │  Deal Sync  │◄├────┼──┤   confirmRelease()               │ │
-│ │  (indexer)  │ │    │  │   openDispute()                  │ │
-│ ├─────────────┤ │    │  │   autoRelease()                  │ │
-│ │  Paymaster  │ │    │  │   adminResolveRelease/Refund()   │ │
-│ │  Proxy      ├─┼────┼─►│                                 │ │
-│ ├─────────────┤ │    │  └─────────────────────────────────┘ │
-│ │  Meeting    │ │    │                                       │
-│ │  URL Reveal │ │    │  USDC (ERC-20, Base mainnet)         │
-│ ├─────────────┤ │    └──────────────────────────────────────┘
-│ │  Analytics  │ │
-│ │  Service    │ │    ┌──────────────────────────────────────┐
-│ └─────────────┘ │    │  EXTERNAL SERVICES                   │
-│                 │    │  · Coinbase Paymaster (sponsored tx)  │
-│ ┌─────────────┐ │    │  · Base RPC (Alchemy / public)       │
-│ │  PostgreSQL │ │    │  · Base Build / base.dev (Builder)   │
-│ └─────────────┘ │    └──────────────────────────────────────┘
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│              NEXT.JS APPLICATION (App Router, single process)        │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  FRONTEND  (React, wagmi + viem)                              │  │
+│  │  /link/[id]  /deal/[id]  /my-links  /my-deals                 │  │
+│  │  /create  /admin/disputes  /admin/denylist                    │  │
+│  │  ────────────────────────────────────────────────────────     │  │
+│  │  Base Account connect · contract calls · paymaster proxy      │  │
+│  └─────────────────────────────┬─────────────────────────────────┘  │
+│                                │                                     │
+│  ┌─────────────────────────────▼─────────────────────────────────┐  │
+│  │  BACKEND  (Next.js Route Handlers — app/api/**)               │  │
+│  │                                                               │  │
+│  │  auth/siwe    links      deals       admin                    │  │
+│  │  reveal       indexer    paymaster   compliance               │  │
+│  └─────────────────────────────┬─────────────────────────────────┘  │
+└───────────────────────────────┬┘                                     │
+                                │                    └─────────────────┘
+          DB               Compliance                   Chain / RPC
+          │                providers                        │
+          ▼                    │                            ▼
+┌──────────────┐  ┌────────────▼──────────┐   ┌───────────────────────┐
+│  Supabase    │  │  Chainalysis Oracle   │   │   BASE CHAIN (L2)     │
+│  PostgreSQL  │  │  USDC isBlacklisted() │   │   ConsultEscrow.sol   │
+│  (Supabase   │  │  local wallet_denylist│   │   USDC (ERC-20)       │
+│   hosted)    │  └───────────────────────┘   └───────────────────────┘
+└──────────────┘
+                 EXTERNAL SERVICES
+                 · Coinbase Paymaster (sponsored tx)
+                 · Base RPC — Alchemy (primary) / public (fallback)
+                 · Base Build / base.dev (Builder Code)
 ```
+
+**Рисунок 1 — Общая архитектура системы.**
+
+Ключевой архитектурный факт: frontend и backend являются частями одного Next.js процесса. Backend API реализован через Next.js App Router Route Handlers (`app/api/**`), а не как отдельный сервер. Supabase предоставляет PostgreSQL как managed service.
 
 ---
 
@@ -66,27 +61,37 @@
 
 | Module | Responsibility | Auth |
 |---|---|---|
-| `app/link/[id]` | Public link page — отображение слота, CTA оплаты | Public |
-| `app/deal/[id]` | Buyer deal view — статус, confirm/dispute | SIWE session |
-| `app/dashboard` | Expert view — создание ссылок, список сделок | SIWE session |
-| `lib/wagmi` | wagmi config, Base Account connector, chain setup | — |
-| `lib/contracts` | Типизированные ABI-обёртки, адреса контрактов | — |
-| `lib/paymaster` | UserOp построение, отправка через backend proxy | — |
-| `lib/siwe` | SIWE sign/verify utils, session management | — |
-| `components/ui` | Переиспользуемые UI-компоненты (mobile-first, 44px touch) | — |
+| `app/page.tsx` | Home + create link entry surface | Public / SIWE |
+| `app/create` | Создание consultation link | SIWE session |
+| `app/link/[id]` | Public link page — слот, compliance notice, CTA funding | Public |
+| `app/deal/[id]` | Deal lifecycle — confirm/dispute, meeting URL reveal | SIWE session |
+| `app/my-links` | Expert view — список своих ссылок | SIWE session |
+| `app/my-deals` | Buyer recovery — список своих сделок | SIWE session |
+| `app/admin/disputes` | Admin list — disputed deals, risk badges | SIWE + is_admin |
+| `app/admin/disputes/[id]` | Admin detail — compliance history, resolve | SIWE + is_admin |
+| `app/admin/denylist` | Admin — denylist CRUD | SIWE + is_admin |
+| `lib/base` | wagmi config, Base Account connector, ABI, chain setup | — |
+| `lib/contract` | execute-prepared-call, USDC approve | — |
+| `lib/wallet` | SIWE sign/verify utils, session management | — |
+| `components/shared` | Переиспользуемые UI-компоненты (mobile-first, 44px touch) | — |
 
 ### 2.2 Backend Modules
 
-| Module | Responsibility |
-|---|---|
-| `server/auth` | Nonce generation, SIWE validation, session cookie |
-| `server/links` | CRUD consultation_links, валидация инвариантов времени |
-| `server/deals` | Чтение статуса сделок, синхронизация с chain |
-| `server/reveal` | Encrypted meeting_url decrypt + access control |
-| `server/paymaster` | Proxy к Coinbase Paymaster, allowlist методов |
-| `server/indexer` | Event listener, обновление DB после confirmed tx |
-| `server/admin` | Whitelist-only endpoints для dispute resolution |
-| `server/analytics` | Агрегация метрик из DB |
+Backend реализован как Next.js Route Handlers (`app/api/**`) с вспомогательными модулями в `lib/`.
+
+| Module | Location | Responsibility |
+|---|---|---|
+| Auth / SIWE | `app/api/auth/**`, `lib/auth/` | Nonce generation, SIWE validation, session cookie |
+| Links | `app/api/links/**`, `lib/validators/consultation-links.ts` | CRUD consultation_links, валидация инвариантов времени |
+| Deals | `app/api/deals/**`, `lib/validators/deals*.ts` | Чтение статуса сделок, lifecycle prepare endpoints |
+| Meeting URL Reveal | `app/api/deals/[id]/meeting-url/` | Decrypt + access control |
+| Deal Sync (Indexer) | `app/api/internal/deal-events/sync/` | Event processing, обновление DB после confirmed tx |
+| Admin | `app/api/admin/**`, `lib/validators/deals-admin.ts` | Allowlist-only endpoints — dispute resolution, compliance |
+| Compliance | `lib/compliance/` | Wallet screening через 3 провайдера, audit logging, cache, circuit breaker |
+| Funding Sync | `app/api/links/[id]/funding/sync/` | Post-funding link state sync |
+| Paymaster Proxy | `lib/base/` | Proxy к Coinbase Paymaster, allowlist методов |
+
+Примечание: модуль Analytics не реализован в MVP.
 
 ### 2.3 Smart Contract Module
 
@@ -96,32 +101,83 @@
 
 ### 2.4 Database Schema (ключевые таблицы)
 
+Полная схема в `supabase/migrations/`. TypeScript-типы в `lib/db/types.ts`.
+
 ```
-consultation_links       deals
-──────────────────       ──────────────────────────
-id PK                    id PK
-expert_address           consultation_link_id UNIQUE FK
-title                    onchain_deal_id UNIQUE
-description              buyer_address
-price_usdc               status (Funded|ConfirmPending|Released|Refunded|Disputed)
-scheduled_at (UTC)       funded_at
-expires_at (UTC)         completed_at
-duration_minutes         released_at
-meeting_url_encrypted    tx_hash
-link_hash UNIQUE         created_at
-status (Draft|Open|Expired|Cancelled|Consumed)
+consultation_links                deals
+──────────────────────────────    ──────────────────────────────────────
+id PK                             id PK
+creator_user_id FK → users        consultation_link_id UNIQUE FK
+expert_address                    onchain_deal_id UNIQUE
+title                             buyer_address
+description                       seller_address
+price_usdc                        status (Funded|ConfirmPending|
+scheduled_at (UTC)                        Released|Refunded|Disputed)
+expires_at (UTC)                  risk_status (Clear|Review|Blocked)
+timezone                          funded_at
+duration_minutes                  completed_at
+meeting_url_encrypted             released_at
+link_hash UNIQUE                  resolution_type
+status (Draft|Open|Expired|       resolved_at
+        Cancelled|Consumed)       resolved_by_wallet
+created_at                        resolved_from_status
+                                  tx_hash
+                                  created_at
+
+users                             sessions
+─────────────────────             ─────────────────────────────
+id PK                             id PK
+wallet UNIQUE                     wallet
+username                          is_admin
+avatar_url                        session_token_hash UNIQUE
+created_at                        expires_at
+                                  created_at
+                                  revoked_at
+
+auth_nonces                       processed_transactions
+───────────────────               ──────────────────────────
+id PK                             tx_hash PK
+wallet                            event_type
+nonce                             deal_id FK
+expires_at                        processed_at
+used_at
 created_at
 
-processed_transactions   audit_log
-──────────────────────   ─────────────────
-tx_hash UNIQUE PK        id PK (append-only)
-event_type               entity_type
-deal_id FK               entity_id
-processed_at             action
-                         actor_address
-                         metadata JSONB
-                         created_at
+compliance_checks (append-only)   wallet_denylist
+──────────────────────────────    ─────────────────────────────
+id PK                             wallet PK (lowercase)
+subject_type (wallet)             reason (fraud|abuse|sanctions|other)
+subject_value (lowercase)         added_by_wallet
+provider                          added_at
+result (Clear|Review|Blocked)     notes
+reason_code
+raw_summary JSONB
+checked_at
+deal_id FK nullable
+actor_wallet nullable
+
+admin_resolution_intents          deal_dispute_messages
+────────────────────────────      ──────────────────────────────
+id PK                             id PK
+deal_id FK                        deal_id FK
+onchain_deal_id                   author_wallet
+resolution (release|refund)       author_role (buyer|seller|admin)
+admin_wallet                      body (1–3000 chars)
+created_at                        evidence_url nullable
+consumed_at nullable              created_at
+
+audit_log (append-only)
+─────────────────────────
+id PK
+entity_type
+entity_id
+action
+actor_address nullable
+metadata JSONB
+created_at
 ```
+
+**Рисунок 2 — Схема базы данных.**
 
 ---
 
@@ -247,6 +303,7 @@ Backend is source of truth for link metadata and meeting_url.
 | F-18 | **`markCompleted` доступен продавцу сразу после funding** | Buyer release/dispute decision and 48h window protect payout |
 | F-19 | **Лимиты сделки $10–$1000 USDC** | Enforced в контракте при `createAndFundDeal` |
 | F-20 | **mobile-first, Base App built-in browser** — primary target | Все UI решения принимаются с этим ограничением |
+| F-21 | **`deals.risk_status` — отдельная ось** от `deal.status` | Compliance не создаёт новых lifecycle-статусов; `risk_status = Blocked` влечёт legal hold без изменения `deal.status`. Подробнее: `decisions.md` §3.1 |
 
 ---
 
@@ -309,3 +366,12 @@ Buyer                        │                    │                     │
 | Reentrancy | `ReentrancyGuard` on all state-changing methods |
 | Time manipulation | All time checks in contract use `block.timestamp` |
 | Paymaster abuse | Backend proxy enforces method allowlist before forwarding |
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Исправлена системная диаграмма (Next.js App Router вместо Hono); обновлены модули frontend/backend; расширена DB schema до 10 таблиц; добавлен F-21 (risk_status как отдельная ось) |

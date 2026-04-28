@@ -1,6 +1,8 @@
 # Threat Model — Base Consult Link
 
-> Version: 1.0 | Based on: ТЗ v1.2 | Date: 2026-03-25
+> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.1: добавлены T-08 (sanctions evasion), T-09 (payout to blocked recipient), T-10 (admin bypass of legal hold).
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
 
@@ -25,6 +27,8 @@ MVP должен гарантировать:
 - `meeting_url`
 - SIWE sessions
 - admin allowlist
+- `risk_status` / legal hold state
+- `compliance_checks` audit trail
 - `link_hash`
 - chain event processing state
 
@@ -38,6 +42,7 @@ MVP должен гарантировать:
 | Frontend ↔ Contract | wrong calldata, wrong chain, replay assumptions |
 | Backend ↔ Paymaster | sponsorship abuse |
 | Backend ↔ Database | unauthorized reveal or broken idempotency |
+| Backend ↔ Compliance providers | false clears, provider outages, malformed provider responses |
 | Chain ↔ Indexer | duplicate event processing, reorg handling |
 
 ---
@@ -106,6 +111,42 @@ MVP должен гарантировать:
   - contract allowlist on admin methods
   - admin tx not sponsored
 
+### T-08 Sanctions evasion through blocked wallets
+
+- Attack: sanctioned buyer or seller attempts to create, fund, or settle through the platform
+- Impact: legal and regulatory exposure from facilitating prohibited transfers
+- Mitigation:
+  - seller screening on link creation
+  - buyer + seller screening during funding prepare
+  - canonical `403 COMPLIANCE_BLOCKED`
+
+### T-09 Payout to a blocked recipient after funding
+
+- Attack: buyer or seller becomes blocked after funds are already escrowed, then a payout path is attempted
+- Impact: illegal release/refund from escrow
+- Mitigation:
+  - post-funding rescreening on confirmed `Funded`
+  - `deals.risk_status = Blocked`
+  - legal hold on all payout-path backend prepare endpoints
+
+### T-10 Admin bypass of legal hold
+
+- Attack: admin attempts to resolve a blocked deal despite legal hold
+- Impact: manual payout to a prohibited wallet
+- Mitigation:
+  - backend blocks `prepareAdminResolve*` when `risk_status = Blocked`
+  - admin UI disables resolve actions for blocked deals
+  - compliance history remains visible to admin
+
+### T-11 Provider outage causing unsafe fail-open behavior
+
+- Attack: sanctions provider outage is treated as `Clear`
+- Impact: prohibited activity slips through during provider downtime
+- Mitigation:
+  - fail-closed `PROVIDER_UNAVAILABLE`
+  - no negative address cache for provider failures
+  - per-provider circuit breaker
+
 ---
 
 ## 5. Must-Fix Before Coding
@@ -134,6 +175,7 @@ MVP должен гарантировать:
 | Manual admin dispute resolution | MVP deliberately avoids full arbitration system |
 | Backend stores encrypted meeting URL | Privacy acceptable for MVP with encryption at rest |
 | Backend helper can call autoRelease for UX | Not trusted for correctness; chain remains source of truth |
+| Funds already in escrow may become legally frozen post-funding | Accepted MVP trade-off; release/refund stays blocked pending manual legal review |
 
 ---
 
@@ -152,3 +194,12 @@ Security assumptions опираются на неизменность следу
 - `POST /api/auth/siwe/verify`
 
 Если эти интерфейсы меняются, threat model должен быть пересмотрен.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Добавлены T-08 (sanctions evasion), T-09 (payout to blocked recipient after funding), T-10 (admin bypass of legal hold) |

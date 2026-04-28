@@ -1,35 +1,28 @@
 # Frontend MVP Architecture — Base Consult Link
 
-> Status: Approved and locked
-> Scope: Frontend MVP architecture only
-> Implementation status: Blocked pending backend navigation dependency
+> Version: 2.0 | Status: Implemented | Date: 2026-04-28
+> Replaces: v1.0 (pre-implementation architecture draft)
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
 
 ## 1. Purpose
 
-Этот документ фиксирует утверждённую архитектуру MVP фронтенда для Base Consult Link.
+Этот документ фиксирует реализованную архитектуру MVP фронтенда Base Consult Link.
 
-Документ описывает только:
+Документ описывает:
 
-- route architecture;
-- screen/layout architecture;
+- реализованную route-структуру;
+- архитектуру страниц и компонентов;
 - frontend layering;
-- frontend state model;
-- action flows;
-- wallet / role handling;
-- loading / error UX;
-- folder structure;
-- out-of-scope boundaries;
-- текущий blocker перед стартом реализации.
+- модель состояния и данных;
+- compliance UI integration;
+- обработку ролей пользователя;
+- архитектуру action flows;
+- error / loading UX;
+- реальную структуру папок.
 
-Документ не является реализацией и не меняет:
-
-- backend endpoints;
-- contract flow;
-- state machine;
-- security boundaries;
-- product scope.
+Документ не является ТЗ и не задаёт новые требования. Он отражает принятые решения в реализованном коде.
 
 ---
 
@@ -41,379 +34,214 @@
 - Frontend не строит escrow calldata самостоятельно.
 - Frontend использует backend prepare endpoints как единственный разрешённый способ подготовки contract calls.
 - Frontend не делает optimistic business-state mutations.
-- MVP должен оставаться mobile-first.
-- MVP должен оставаться small and practical, без лишних route-ов и глобальной сложности.
+- MVP остаётся mobile-first.
+- Адреса кошельков сравниваются только через `getAddress(...)` из viem; raw string equality запрещён.
 
 ---
 
-## 3. MVP Route Structure
+## 3. Реализованная Route Structure
 
-### Required routes
+### 3.1 Публичные routes
 
-- `/`
-- `/link/[id]`
-- `/deal/[id]`
+| Route | Файл | Назначение |
+|---|---|---|
+| `/` | `app/page.tsx` | Главная страница + форма создания ссылки |
+| `/link/[id]` | `app/link/[id]/page.tsx` | Публичная страница ссылки — просмотр слота и funding |
+| `/deal/[id]` | `app/deal/[id]/page.tsx` | Страница сделки — lifecycle actions, meeting URL reveal |
 
-### Route responsibilities
+### 3.2 Приватные routes (SIWE session required)
 
-#### `/`
+| Route | Файл | Назначение |
+|---|---|---|
+| `/create` | `app/create/page.tsx` | Отдельная страница создания consultation link |
+| `/my-links` | `app/my-links/page.tsx` | Список ссылок эксперта |
+| `/my-deals` | `app/my-deals/page.tsx` | Список сделок покупателя |
 
-Минимальная seller entry surface для:
+### 3.3 Admin routes (SIWE session + `is_admin = true`)
 
-- создания consultation link;
-- получения share URL;
-- копирования / шаринга ссылки.
-
-Важно:
-
-- seller entry surface обязан включать тот же wallet connection + SIWE session flow, что и buyer-side action surfaces;
-- это обязательно, потому что `POST /api/links` является private SIWE endpoint.
-
-#### `/link/[id]`
-
-Главная user-flow surface MVP.
-
-Этот route отвечает за:
-
-- публичное отображение consultation link;
-- wallet connect;
-- SIWE session bootstrap для приватных действий;
-- funding start;
-- pre-funding и funding-pending UX;
-- post-funding ожидание индексации сделки.
-
-Именно `/link/[id]` остаётся основной точкой входа в buyer flow.
-
-#### `/deal/[id]`
-
-Нужен для post-funding lifecycle.
-
-Этот route отвечает за:
-
-- отображение статуса сделки;
-- reveal meeting URL;
-- seller complete action;
-- buyer release action;
-- buyer dispute action.
-
-### Route minimization decision
-
-В MVP не нужны дополнительные product pages:
-
-- без dashboard;
-- без admin UI;
-- без отдельной analytics surface;
-- без дополнительных промежуточных flow pages.
+| Route | Файл | Назначение |
+|---|---|---|
+| `/admin/disputes` | `app/admin/disputes/page.tsx` | Список disputed сделок с compliance badges |
+| `/admin/disputes/[id]` | `app/admin/disputes/[id]/page.tsx` | Детальный просмотр спора + compliance history + resolve |
+| `/admin/denylist` | `app/admin/denylist/page.tsx` | Управление compliance denylist |
 
 ---
 
-## 4. Main Page Architecture
+## 4. Архитектура страниц
 
-### 4.1 `/link/[id]`
+### 4.1 `/` — Home / Create Link
 
-Mobile-first layout: одна вертикальная колонка карточек.
+Entry point для эксперта. Включает:
 
-#### Section: `LinkSummary`
+- wallet connect + SIWE session bootstrap;
+- форму создания consultation link (`CreateLinkForm`);
+- compliance-blocked notice при `403 COMPLIANCE_BLOCKED` на `POST /api/links`.
 
-Показывает:
+Compliance note: `POST /api/links` является SIWE-приватным endpoint'ом и выполняет seller screening.
 
-- title;
-- description;
-- price;
-- scheduled time;
-- timezone;
-- duration;
-- expiry;
-- seller address;
-- public link status.
+### 4.2 `/link/[id]` — Link Page
 
-#### Section: `ConnectionState`
+Основная точка входа в buyer flow. Single-column mobile-first layout.
 
-Показывает:
+Секции:
 
-- wallet connection status;
-- current wallet address;
-- correct chain / wrong chain state;
-- SIWE session state;
-- role hint на основе normalized wallet comparison.
+- **`LinkSummary`** — title, description, price, scheduled_at, timezone, duration, expires_at, seller address, link status;
+- **`WalletSessionCard`** — wallet connection status, chain validation, SIWE session state;
+- **`LinkActionCard`** — единая CTA-зона: connect → sign → approve → fund. При `step = "compliance_blocked"` показывает `ComplianceBlockedNotice` вместо `FundingProgress`;
+- **`StatusNotice`** — отдельно обрабатывает: expired, cancelled, consumed, unavailable, not found.
 
-#### Section: `PrimaryActionCard`
+### 4.3 `/deal/[id]` — Deal Page
 
-Единая CTA-зона для главного действия.
+Post-funding lifecycle. Single-column mobile-first layout.
 
-Состояния:
+Секции:
 
-- connect wallet;
-- sign in with SIWE;
-- approve token if needed;
-- fund consultation;
-- disabled / unavailable state.
+- **`DealStatusCard`** — текущий статус, buyer/seller addresses, scheduled time, completed time, release deadline;
+- **`MeetingUrlCard`** — reveal UX через `GET /api/deals/:id/meeting-url`; недоступен без SIWE, для не-участников, в `Refunded`;
+- **`DealActionsCard`** — lifecycle actions (complete/release/dispute); при `step = "compliance_blocked"` показывает `ComplianceBlockedNotice` вместо кнопок;
+- **`DisputeThread`** — dispute messages для buyer/seller/admin;
+- **`KeyTimes`** — scheduled time, completion eligibility, completed_at, dispute/release deadline.
 
-#### Section: `FundingProgress`
+### 4.4 `/my-links` — Expert Dashboard
 
-Показывает:
+Список consultation links эксперта. Включает:
 
-- prepare in progress;
-- signature requested;
-- tx submitted;
-- tx hash;
-- waiting for chain confirmation;
-- waiting for backend indexing.
+- `WalletSessionCard` для auth-gating;
+- список карточек ссылок с `ListPagination`;
+- навигацию к `/create` для создания новой ссылки.
 
-#### Section: `StatusNotice`
+### 4.5 `/my-deals` — Buyer Deal History
 
-Отдельно обрабатывает:
+Список сделок покупателя. Recovery path после закрытия страницы сделки.
 
-- expired;
-- cancelled;
-- consumed;
-- unavailable;
-- not found.
+### 4.6 `/admin/disputes` — Admin Dispute List
 
-### 4.2 `/deal/[id]`
+Требует `is_admin = true`. Включает:
 
-Тоже mobile-first single-column layout.
+- вкладку Open / Resolved через `view=` query parameter;
+- `RiskBadge` на каждой карточке (`Clear/Review/Blocked`);
+- checkbox "Show only flagged deals" для фильтрации по `risk_status !== "Clear"`;
+- ссылку "Open compliance denylist →".
 
-#### Section: `DealStatusHeader`
+### 4.7 `/admin/disputes/[id]` — Admin Dispute Detail
 
-Показывает:
+Требует `is_admin = true`. Включает:
 
-- current deal status;
-- seller / buyer addresses;
-- scheduled time;
-- completed time;
-- release deadline if available.
+- `DealStatusCard` + полная compliance history (`AdminComplianceCheck` items);
+- Legal hold banner при `risk_status = Blocked` (красный, блокирует resolve);
+- Review warning + acknowledge checkbox при `risk_status = Review`;
+- Resolve flow: `getAdminResolveAvailability(riskStatus, acknowledgedReviewRisk)` — 4 состояния;
+- Resolve confirm: кнопка disabled при `risk_status = Blocked` даже в confirm-state.
 
-#### Section: `MeetingUrlCard`
+### 4.8 `/admin/denylist` — Compliance Denylist
 
-Отвечает только за reveal UX.
+Требует `is_admin = true`. Включает:
 
-Должен явно учитывать:
-
-- reveal доступен только через backend endpoint;
-- reveal не доступен без SIWE;
-- reveal не доступен не-участникам;
-- reveal не доступен в `Refunded`;
-- reveal не должен предполагаться доступным для всех terminal states.
-
-#### Section: `ActionCard`
-
-Показывает только доступные lifecycle actions:
-
-- seller: complete;
-- buyer: release;
-- buyer: dispute.
-
-#### Section: `Timeline / KeyTimes`
-
-Показывает:
-
-- scheduled time;
-- completion eligibility;
-- completed at;
-- dispute/release deadline.
+- форму добавления записи (wallet, reason select, notes);
+- список текущих записей с `ListPagination`;
+- inline remove flow: mandatory TextArea комментарий + confirm (без `window.prompt`);
+- guard `canSubmitDenylistRemoval(comment)` перед API-вызовом.
 
 ---
 
 ## 5. Frontend Layer Architecture
 
-### 5.1 Page layer
+### 5.1 Page layer (`app/`)
 
-Route-level composition only.
+Route-level composition.
 
-Responsibilities:
+Обязанности:
+- загрузка начальных данных страницы;
+- сборка секций;
+- подключение route params к hooks;
+- handling route-level loading / not-found.
 
-- load initial page data;
-- assemble sections;
-- connect route params to hooks;
-- handle route-level loading / not-found presentation.
+Не содержит business logic по lifecycle transitions.
 
-Page layer не должен содержать business logic по lifecycle transitions.
+### 5.2 Component layer (`components/`)
 
-### 5.2 Feature / component layer
+| Директория | Назначение |
+|---|---|
+| `components/app/` | AppShell, TopNav, WalletStatusPill |
+| `components/link/` | CreateLinkForm, LinkActionCard, LinkSummary, FundingProgress, StatusNotice |
+| `components/deal/` | DealActionsCard, DealGuidanceCard, DealStatusCard, DisputeThread, KeyTimes, MeetingUrlCard |
+| `components/admin/` | RiskBadge |
+| `components/shared/` | ActionPanel, AsyncActionState, Btn, ComplianceBlockedNotice, CopyBtn, DetailRow, EmptyState, FormField, InnerSection, ListPagination, LiveBadge, Notice, ProgressSteps, SectionLabel, SegmentedTabs, StatusPill, TextArea, TextInput, ThemeToggle, TokenAmountRow, WalletAuthStatePanel, WalletSessionCard |
 
-Состоит из small reusable sections:
+### 5.3 Hooks layer (`hooks/`)
 
-- link summary components;
-- wallet/session components;
-- funding card;
-- deal status card;
-- meeting URL card;
-- lifecycle action card;
-- async action feedback UI.
+Главный coordination layer.
 
-Components отвечают за rendering и local UI composition, а не за orchestration flow.
+| Hook | Обязанности |
+|---|---|
+| `use-wallet-session.ts` | wallet connect, chain validation, SIWE session state |
+| `use-link-page.ts` | link data loading, polling for deal_id after funding |
+| `use-deal-page.ts` | deal data loading, participant role detection |
+| `use-funding-flow.ts` | funding flow orchestration: prepare → sign → submit → sync |
+| `use-deal-action.ts` | lifecycle action orchestration: complete / release / dispute |
 
-### 5.3 Hooks / orchestration layer
+### 5.4 API integration layer (`lib/api/`)
 
-Главный coordination layer MVP.
+Типизированные wrappers вокруг backend REST endpoints.
 
-Responsibilities:
+| Файл | Endpoints |
+|---|---|
+| `auth.ts` | SIWE nonce, verify, logout |
+| `links.ts` | GET link, POST link, cancel, funding prepare |
+| `deals.ts` | GET deal, GET me/deals, meeting-url reveal, lifecycle prepares |
+| `dispute-messages.ts` | GET/POST dispute messages |
+| `admin-deals.ts` | GET admin deals, GET admin deal, POST admin resolve |
+| `admin.ts` | GET/POST/DELETE admin denylist, GET admin compliance detail |
 
-- link page data orchestration;
-- deal page data orchestration;
-- wallet + SIWE coordination;
-- funding flow orchestration;
-- deal action orchestration;
-- loading / retry / refetch sequencing.
+### 5.5 Contract interaction layer (`lib/contract/`)
 
-Именно этот слой управляет последовательностью:
-
-- prepare endpoint;
-- wallet tx execution;
-- waiting states;
-- backend refetch after tx.
-
-### 5.4 API integration layer
-
-Тонкие typed wrappers around backend REST endpoints.
-
-Responsibilities:
-
-- request/response typing;
-- basic error normalization;
-- no duplicated business rules.
-
-### 5.5 Wallet / contract interaction layer
-
-Responsibilities:
-
-- wallet connection;
-- chain validation;
-- token approval checks if needed;
-- execution of backend-prepared contract calls.
-
-Boundary:
-
-- frontend не генерирует escrow calldata самостоятельно;
-- frontend исполняет `contract_call`, полученный от backend;
-- frontend не придумывает новые action shapes.
+| Файл | Обязанности |
+|---|---|
+| `execute-prepared-call.ts` | Исполняет `contract_call` от backend через wagmi; не генерирует calldata |
+| `usdc.ts` | USDC `approve` перед funding |
 
 ---
 
-## 6. Data / State Architecture
+## 6. Compliance UI Integration
 
-### 6.1 Public link state
+### 6.1 Компоненты
 
-Нужные поля:
+**`ComplianceBlockedNotice`** (`components/shared/compliance-blocked-notice.tsx`)
+- Props: `reasonCode: ComplianceReasonCode | null`, `walletAddress: Address | null`
+- Рендерит null если `reasonCode === "PROVIDER_UNAVAILABLE"` (не блокирует UI при outage)
+- Wallet row условный: отображается только если `walletAddress !== null`
 
-- `id`
-- `title`
-- `description`
-- `price_usdc`
-- `scheduled_at`
-- `timezone`
-- `duration_minutes`
-- `expires_at`
-- `status`
-- `seller_address`
-- `deal_id` when backend dependency is implemented
+**`RiskBadge`** (`components/admin/risk-badge.tsx`)
+- Props: `riskStatus: DealRiskStatus`
+- Маппинг: `Clear → success`, `Review → warning`, `Blocked → danger`
+- Тонкая обёртка над `StatusPill`
 
-### 6.2 Deal state
+### 6.2 Три точки блокировки
 
-Нужные поля:
+| UI-точка | Условие | Компонент |
+|---|---|---|
+| Funding (`/link/[id]`) | `fundingState.step === "compliance_blocked"` | `ComplianceBlockedNotice` вместо `FundingProgress` |
+| Lifecycle actions (`/deal/[id]`) | `state.step === "compliance_blocked"` | `ComplianceBlockedNotice`; кнопки скрыты |
+| Link creation (`/` или `/create`) | `compliance.isBlocked === true` | `ComplianceBlockedNotice` вместо `Notice` |
 
-- `id`
-- `consultation_link_id`
-- `onchain_deal_id`
-- `status`
-- `buyer_address`
-- `seller_address`
-- `scheduled_at`
-- `completed_at`
-- `release_deadline_at`
-- `tx_hash`
+### 6.3 `PROVIDER_UNAVAILABLE` — отдельный путь
 
-### 6.3 Role-awareness state
-
-Нужные derived values:
-
-- `isSeller`
-- `isBuyer`
-- `isViewer`
-- `isParticipant`
-
-Frozen rule:
-
-- frontend должен сравнивать адреса только в нормализованной форме через `getAddress(...)`;
-- raw string equality запрещён.
-
-### 6.4 Wallet / auth state
-
-Нужные поля:
-
-- `isConnected`
-- `walletAddress`
-- `chainId`
-- `isCorrectChain`
-- `siweSessionStatus`
-- `sessionWalletAddress` if available
-
-### 6.5 Transaction state
-
-Для каждого действия нужен отдельный minimal async state:
-
-- `idle`
-- `preparing`
-- `awaiting_signature`
-- `submitting`
-- `pending_chain`
-- `waiting_backend_sync`
-- `succeeded`
-- `failed`
-
-Additional fields:
-
-- `txHash`
-- `error`
-- `lastAction`
-
-### 6.6 UI state
-
-Нужны:
-
-- route loading state;
-- action loading state;
-- backend error message;
-- disabled reason;
-- reveal loading state.
+`PROVIDER_UNAVAILABLE` — fail-closed на backend: возвращает `403 COMPLIANCE_BLOCKED` с `reason_code = "PROVIDER_UNAVAILABLE"`. Frontend обрабатывает это через стандартный error flow (не notice), чтобы пользователь мог попробовать снова при восстановлении провайдера.
 
 ---
 
 ## 7. User Role Handling
 
-Frontend различает только три UI-role состояния:
+Frontend различает три UI-role состояния:
 
-- seller;
-- buyer;
-- viewer.
+| Роль | Определение |
+|---|---|
+| `seller` | `getAddress(session.wallet) === getAddress(deal.seller_address)` |
+| `buyer` | `getAddress(session.wallet) === getAddress(deal.buyer_address)` |
+| `viewer` | любой, кто не seller и не buyer |
+| `admin` | `session.is_admin === true` (отдельный admin route guard) |
 
-### Seller
-
-Определяется как wallet/session address, совпадающий с `seller_address` после нормализации через `getAddress(...)`.
-
-### Buyer
-
-Определяется как wallet/session address, совпадающий с `buyer_address` после нормализации через `getAddress(...)`.
-
-### Viewer
-
-Любой пользователь, который:
-
-- не подключил wallet;
-- не имеет SIWE session;
-- либо не совпадает ни с buyer, ни с seller.
-
-### Security boundary
-
-Role-based UI gating является только convenience layer.
-
-Она не является security boundary.
-
-Настоящее разрешение действий определяется:
-
-- backend SIWE checks;
-- contract permissions.
+**Security boundary:** role-based UI gating — только convenience layer. Авторизация определяется backend SIWE checks и contract permissions.
 
 ---
 
@@ -421,82 +249,52 @@ Role-based UI gating является только convenience layer.
 
 ### 8.1 Funding
 
-Flow:
+1. `/link/[id]` loads link data
+2. wallet connect → SIWE session
+3. `POST /api/links/:id/funding/prepare` → compliance gate
+4. execute `createAndFundDeal` contract call
+5. tx pending state
+6. polling `GET /api/links/:id` до появления `deal_id`
+7. navigate to `/deal/[deal_id]`
 
-1. load `/link/[id]`
-2. connect wallet
-3. establish SIWE session
-4. call `POST /api/links/:id/funding/prepare`
-5. execute returned `createAndFundDeal` contract call
-6. show tx pending state
-7. refetch backend read model until indexed deal becomes available
-8. navigate to `/deal/[deal_id]` once available
+Compliance: шаг 3 может вернуть `403 COMPLIANCE_BLOCKED` → `step: "compliance_blocked"`.
 
-Frozen rule:
+### 8.2 Link Creation
 
-- `POST /api/links/:id/funding/prepare` must be explicitly treated as a private SIWE endpoint.
+1. form submit → `POST /api/links`
+2. compliance gate seller wallet
+3. success → show shareable URL
+4. `403 COMPLIANCE_BLOCKED` → `compliance.isBlocked = true` → `ComplianceBlockedNotice`
 
-Additional rule:
+### 8.3 Lifecycle Actions (complete / release / dispute)
 
-- frontend must not build funding calldata independently.
+1. call prepare endpoint (`/complete`, `/release`, `/dispute`, `/auto-release`)
+2. execute returned contract call
+3. refetch deal state
 
-### 8.2 Reveal
+Release / auto-release: шаг 1 может вернуть `403 COMPLIANCE_BLOCKED` → `step: "compliance_blocked"`.
 
-Flow:
+### 8.4 Admin Resolve
 
-1. load `/deal/[id]`
-2. ensure SIWE session
-3. call `GET /api/deals/:id/meeting-url`
-4. render URL only after successful backend response
+1. `getAdminResolveAvailability(riskStatus, acknowledgedReviewRisk)` определяет disabled-состояние
+2. confirm dialog (disabled при `risk_status = Blocked`)
+3. `POST /api/admin/deals/:id/resolve`
+4. execute returned contract call
+5. reload deal
 
-Frozen rule:
+### 8.5 Reveal Meeting URL
 
-- `Refunded` must be modelled explicitly as reveal-unavailable state, including for participants.
+1. ensure SIWE session
+2. `GET /api/deals/:id/meeting-url`
+3. render URL только после успешного ответа
 
-### 8.3 Complete
-
-Flow:
-
-1. seller opens `/deal/[id]`
-2. frontend shows CTA only when seller UI gating passes
-3. call `POST /api/deals/:id/complete`
-4. execute returned `markCompleted` call
-5. refetch deal state from backend
-
-### 8.4 Release
-
-Flow:
-
-1. buyer opens `/deal/[id]`
-2. call `POST /api/deals/:id/release`
-3. execute returned `confirmRelease` call
-4. refetch deal state from backend
-
-### 8.5 Dispute
-
-Flow:
-
-1. buyer opens `/deal/[id]`
-2. call `POST /api/deals/:id/dispute`
-3. execute returned `openDispute` call
-4. refetch deal state from backend
-
-### 8.6 Auto-release
-
-Не включается в MVP frontend action surface.
-
-Причина:
-
-- prepare endpoint for frontend auto-release action currently does not exist;
-- frontend architecture must not invent direct calldata construction for it.
+Refunded — reveal недоступен. Это intentional product decision.
 
 ---
 
-## 9. Error / Loading UX Architecture
+## 9. Error / Loading UX
 
 ### Loading states
-
-Нужны минимальные loading states:
 
 - route loading;
 - action preparing;
@@ -504,178 +302,133 @@ Flow:
 - reveal loading;
 - backend sync waiting.
 
-### Disabled states
+### Transaction state steps
 
-Каждая CTA должна иметь:
+```
+idle → preparing → awaiting_signature → submitting
+     → pending_chain → waiting_backend_sync → succeeded
+                                            ↘ failed
+                                            ↘ compliance_blocked
+```
 
-- boolean disabled state;
-- one explicit disabled reason visible to user.
+### Error display rules
 
-### Tx pending states
-
-После submit:
-
-- action button lock;
-- repeated taps blocked;
-- tx hash shown if available;
-- state switches to waiting-for-chain and then waiting-for-backend-sync.
-
-### Backend errors
-
-Backend errors должны отображаться inline в соответствующей action area.
-
-Frontend не должен:
-
-- silently swallow errors;
-- подменять backend gating собственными бизнес-правилами.
-
-### Duplicate-click prevention
-
-Для каждой action card:
-
-- один in-flight action at a time;
-- duplicate clicks ignored until current action resolves or fails.
+- Backend errors отображаются inline в соответствующей action area.
+- `compliance_blocked` рендерит `ComplianceBlockedNotice`, не `Notice`.
+- `PROVIDER_UNAVAILABLE` рендерит стандартный error с возможностью retry.
+- Frontend не подменяет backend gating своими бизнес-правилами.
+- Duplicate clicks игнорируются пока текущее action не завершится.
 
 ### No optimistic business-state mutations
 
-Frontend не переводит link/deal status локально после tx.
-
-Изменение business state происходит только после backend refetch.
+Business state меняется только после backend refetch.
 
 ---
 
 ## 10. State Management Strategy
 
-### Recommendation
-
-Для MVP использовать:
-
 - React hooks;
 - route-local state;
-- minimal shared provider/context only for wallet plumbing.
+- minimal shared provider/context только для wallet plumbing (`providers.tsx`).
 
-### Explicit decision
-
-Не использовать global state manager для business state MVP.
-
-Причины:
-
-- мало route-ов;
+Global state manager для business state не используется:
+- мало routes;
 - state mostly route-scoped;
-- backend already acts as source of truth;
-- extra global complexity is not justified.
+- backend already acts as source of truth.
 
 ---
 
-## 11. Recommended Folder Structure
+## 11. Реализованная структура папок
 
-```text
+```
 app/
-  page.tsx
-  link/[id]/page.tsx
-  deal/[id]/page.tsx
+  page.tsx                           — home + create link entry
+  create/page.tsx                    — dedicated create link page
+  link/[id]/page.tsx                 — public link + funding
+  deal/[id]/page.tsx                 — deal lifecycle
+  my-links/page.tsx                  — expert link list
+  my-deals/page.tsx                  — buyer deal history
+  admin/
+    disputes/page.tsx                — admin dispute list
+    disputes/[id]/page.tsx           — admin dispute detail + compliance
+    denylist/page.tsx                — compliance denylist management
+  api/...                            — Next.js Route Handlers (см. api-contract.md)
 
 components/
+  app/
+    app-shell.tsx
+    top-nav.tsx
+    wallet-status-pill.tsx
   link/
-    link-summary.tsx
+    create-link-form.tsx
+    funding-progress.tsx
     link-action-card.tsx
+    link-summary.tsx
+    status-notice.tsx
   deal/
-    deal-status-card.tsx
     deal-actions-card.tsx
+    deal-guidance-card.tsx
+    deal-status-card.tsx
+    dispute-thread.tsx
+    key-times.tsx
     meeting-url-card.tsx
+  admin/
+    risk-badge.tsx
   shared/
+    action-panel.tsx        async-action-state.tsx  btn.tsx
+    compliance-blocked-notice.tsx   copy-btn.tsx    detail-row.tsx
+    empty-state.tsx         form-field.tsx          inner-section.tsx
+    list-pagination.tsx     live-badge.tsx          notice.tsx
+    progress-steps.tsx      section-label.tsx       segmented-tabs.tsx
+    status-pill.tsx         text-area.tsx           text-input.tsx
+    theme-toggle.tsx        token-amount-row.tsx    wallet-auth-state-panel.tsx
     wallet-session-card.tsx
-    async-action-state.tsx
+  providers.tsx
 
 hooks/
-  use-link-page.ts
-  use-deal-page.ts
-  use-wallet-session.ts
-  use-funding-flow.ts
   use-deal-action.ts
+  use-deal-page.ts
+  use-funding-flow.ts
+  use-link-page.ts
+  use-wallet-session.ts
 
 lib/
   api/
-    links.ts
-    deals.ts
-    auth.ts
+    admin-deals.ts   admin.ts   auth.ts
+    deals.ts         dispute-messages.ts   links.ts
+  base/
+    chains.ts   config.ts   consult-escrow-abi.ts
+    consult-escrow.ts   wagmi.ts
+  compliance/
+    cache.ts   circuit-breaker.ts   composite.ts   config.ts
+    display.ts   error-mapping.ts   public-client.ts   types.ts
+    providers/
+      chainalysis-oracle.ts   local-denylist.ts   usdc-blacklist.ts
   contract/
-    execute-prepared-call.ts
-    usdc.ts
+    execute-prepared-call.ts   usdc.ts
+  crypto/
+    link-hash.ts   meeting-url.ts   timing-safe-secret.ts
+  db/
+    client.ts   server.ts   types.ts
+  ui/
+    address.ts   async.ts   date.ts   deal-status.ts
+  validators/
+    admin-denylist.ts   consultation-links.ts   deals-admin.ts
+    deals-completion.ts   deals.ts   dispute-messages.ts
+    funding.ts   pagination.ts
   wallet/
-    connect.ts
     siwe.ts
+  auth/
+    config.ts   cookies.ts   guards.ts   session.ts   siwe.ts
+  constants/
+    consultation-links.ts   deals.ts
 ```
 
-Структура должна оставаться small and practical.
-
-Никакого design-system overengineering в MVP не требуется.
-
 ---
 
-## 12. Out-of-Scope
+## Лист регистрации изменений
 
-В frontend MVP architecture не входят:
-
-- dashboards;
-- admin UI;
-- analytics UI;
-- notifications;
-- advanced polling infrastructure;
-- realtime subscriptions;
-- speculative pages;
-- multi-link management;
-- chat;
-- marketplace surfaces;
-- design-system overengineering;
-- любые дополнительные product features вне утверждённого core flow.
-
----
-
-## 13. Blocker / Dependency
-
-Перед началом frontend MVP implementation остаётся один blocker:
-
-- backend navigation dependency after funding.
-
-### Required backend change
-
-Нужно добавить:
-
-- `deal_id: string | null`
-
-в ответ:
-
-- `GET /api/links/:id`
-
-### Required behavior
-
-- до создания / индексации сделки endpoint возвращает `deal_id: null`
-- после появления сделки endpoint возвращает реальный backend UUID сделки
-
-### Why this is required
-
-После funding frontend знает `link.id`, но post-funding routes и private deal endpoints завязаны на backend `deal.id`.
-
-Без этого фронтенд не может надёжно перейти с `/link/[id]` на `/deal/[id]` после индексации.
-
-### Intended frontend usage after backend fix
-
-`/link/[id]`:
-
-- выполняет funding;
-- показывает pending / waiting-for-indexing state;
-- polling-ом запрашивает `GET /api/links/:id`;
-- при появлении `deal_id` редиректит на `/deal/[deal_id]`.
-
-Пока это backend-изменение не реализовано и не проверено, frontend MVP implementation не должен начинаться.
-
----
-
-## 14. Final Status
-
-Статус документа:
-
-- architecture approved;
-- clarifications locked;
-- implementation blocked by backend dependency only.
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Pre-implementation draft; описывал планируемое состояние |
+| 2.0 | 2026-04-28 | Полная переработка; документирует реализованное состояние: 9 routes, директории компонентов, хуки, Compliance UI (ComplianceBlockedNotice, RiskBadge) |

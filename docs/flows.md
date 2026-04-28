@@ -1,14 +1,19 @@
 # Flows — Base Consult Link (ТЗ v1.2)
 
+> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.1: добавлен §8 Compliance Flows (6 subsections); обновлён §1 (добавлен Compliance Service).
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+
 ## 1. Акторы
 
 | Актор | Роль |
 |---|---|
 | Expert | Создаёт ссылку, проводит консультацию, вызывает `markCompleted` |
 | Client | Открывает ссылку, оплачивает, подтверждает или открывает dispute |
-| Admin | Разрешает dispute через `adminResolveRelease` / `adminResolveRefund` |
+| Admin | Разрешает dispute через `adminResolveRelease` / `adminResolveRefund`; управляет denylist |
 | Anyone | Permissionless вызов `autoRelease` (любой адрес) |
 | Backend | Индексирует events, вызывает `autoRelease` для UX (не обязательно) |
+| Compliance Service | Проверяет wallet адреса через трёх провайдеров; управляет `risk_status` на уровне сделки |
 
 ---
 
@@ -463,3 +468,206 @@ offchain state синхронизируется с onchain.
 Builder Code передаётся через dataSuffix (не auto attribution).
 SIWE и wallet connect работают через wagmi.
 ```
+
+---
+
+## 8. Compliance Flows
+
+Три точки проверки соответствуют трём gate-точкам из ТЗ §24.1. Провайдеры: Chainalysis Sanctions Oracle (on-chain), USDC `isBlacklisted(address)` (on-chain), local `wallet_denylist` (DB). Fail-closed: недоступность любого провайдера → `Blocked / PROVIDER_UNAVAILABLE`.
+
+### 8.1 Блокировка при создании ссылки
+
+**Точка:** `POST /api/links`
+
+```
+Expert                       Backend
+  │                            │
+  │─── POST /api/links ───────►│
+  │    (title, price,          │
+  │     scheduled_at, ...)     │
+  │                            │ screenWallet(seller_wallet)
+  │                            │   → Chainalysis oracle
+  │                            │   → USDC isBlacklisted
+  │                            │   → local wallet_denylist
+  │                            │
+  │                            ├── [result: Blocked]
+  │◄─── 403 COMPLIANCE_BLOCKED ┤
+  │     reason_code:           │
+  │     OFAC_SANCTIONS /       │
+  │     USDC_BLACKLISTED /     │
+  │     LOCAL_DENYLIST         │
+  │                            │
+  │                            ├── [result: Clear]
+  │◄─── 201 Created ───────────┤
+  │     link created, Open     │
+```
+
+**Инвариант:** ссылка не создаётся, если seller wallet заблокирован. `compliance_checks` запись не сохраняется при блокировке на этой точке (сделки ещё нет).
+
+---
+
+### 8.2 Блокировка при подготовке funding
+
+**Точка:** `POST /api/links/:id/funding/prepare`
+
+```
+Client (buyer)               Backend
+  │                            │
+  │─── POST /funding/prepare ─►│
+  │    (link_id, buyer_wallet) │
+  │                            │ screenWalletsBatch([buyer, seller])
+  │                            │   → 3 провайдера × 2 кошелька
+  │                            │
+  │                            ├── [любой из 6 checks: Blocked]
+  │◄─── 403 COMPLIANCE_BLOCKED ┤
+  │     reason_code: ...       │   calldata не генерируется
+  │                            │
+  │                            ├── [все 6 checks: Clear]
+  │◄─── 200 calldata ──────────┤
+  │     (abi-encoded           │
+  │      createAndFundDeal)    │
+```
+
+**Инвариант:** при наличии хотя бы одного `Blocked` результата среди buyer или seller — calldata не возвращается. Множественные hits разрешаются по приоритету: `OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST > PROVIDER_UNAVAILABLE`.
+
+---
+
+### 8.3 Post-funding rescreening и legal hold
+
+После подтверждения `Funded` event на блокчейне backend автоматически выполняет повторную проверку:
+
+```
+Indexer worker               Backend / Compliance Service
+  │                            │
+  │  confirmed Funded event    │
+  ├───────────────────────────►│
+  │                            │ processConfirmedFundedEventOnce()
+  │                            │   → insert deal (risk_status = 'Clear' по умолчанию)
+  │                            │   → appendFundingSyncAuditLog()
+  │                            │
+  │                            │ screenWalletsBatch(
+  │                            │   [buyerAddress, sellerAddress],
+  │                            │   { action: "post_funding_sync", dealId }
+  │                            │ )
+  │                            │   → persistProviderResults()
+  │                            │     (compliance_checks rows)
+  │                            │   → recomputeDealRiskStatus(dealId)
+  │                            │     (resolves worst-case из всех checks)
+  │                            │     → updateRiskStatusById(dealId, newStatus)
+  │                            │
+  │                            ├── [newStatus: Blocked]
+  │                            │   appendBlockedPostFundingAuditLog()
+  │                            │   deal.status = Funded (не меняется)
+  │                            │   deal.risk_status = Blocked → legal hold
+  │                            │
+  │                            ├── [newStatus: Clear / Review]
+  │                            │   deal.risk_status обновлён
+  │                            │   lifecycle продолжается нормально
+```
+
+**Инварианты:**
+- `deal.status` остаётся `Funded` независимо от результата rescreening;
+- `deal.risk_status = Blocked` → legal hold: все payout-path endpoints (`confirmRelease`, `autoRelease`, `adminResolveRelease`, `adminResolveRefund`) возвращают `403 COMPLIANCE_BLOCKED`;
+- `risk_status = Blocked` — sticky; автоматический переход обратно в `Clear` запрещён (C-13).
+
+---
+
+### 8.4 Payout blocked (legal hold)
+
+**Точки:** `POST /api/deals/:id/release`, `POST /api/deals/:id/auto-release`, `POST /api/admin/deals/:id/resolve`
+
+```
+User / Admin                  Backend
+  │                            │
+  │─── POST /release ─────────►│
+  │    (или auto-release,      │
+  │     или admin resolve)     │
+  │                            │ assertDealNotBlocked(dealId)
+  │                            │   → reads compliance_checks
+  │                            │   → any check with result=Blocked?
+  │                            │
+  │                            ├── [yes: deal.risk_status = Blocked]
+  │◄─── 403 COMPLIANCE_BLOCKED ┤
+  │     reason_code:           │   calldata не генерируется
+  │     LEGAL_HOLD             │   deal.status не меняется
+  │                            │
+  │                            ├── [no: all Clear / Review]
+  │                            │   screenWallet(recipient)
+  │                            │   → свежая проверка получателя
+  │                            │
+  │                            ├── [recipient Blocked]
+  │◄─── 403 COMPLIANCE_BLOCKED ┤
+  │                            │
+  │                            ├── [recipient Clear]
+  │◄─── 200 calldata ──────────┤
+```
+
+**Инвариант:** два уровня gate: (1) `assertDealNotBlocked` проверяет исторические checks сделки; (2) свежая проверка recipient wallet. Оба уровня должны пройти.
+
+---
+
+### 8.5 Admin compliance review flow
+
+```
+Admin                         Backend                   Frontend
+  │                            │                           │
+  │  GET /admin/disputes       │                           │
+  ├───────────────────────────►│                           │
+  │◄── список сделок ──────────┤                           │
+  │    с RiskBadge (risk_status│                           │
+  │    Clear/Review/Blocked)   │                           │
+  │                            │                           │
+  │  GET /admin/disputes/[id]  │                           │
+  ├───────────────────────────►│                           │
+  │◄── deal detail ────────────┤                           │
+  │    compliance_checks list  │                           │
+  │    legal hold banner       │                           │
+  │    (если Blocked)          │                           │
+  │                            │                           │
+  │  [Blocked → снятие hold]   │                           │
+  │  Выполняется вне MVP вручную через backend DB          │
+  │  (автоматический путь снятия Blocked отсутствует)      │
+  │                            │                           │
+  │  [Review → acknowledge]    │                           │
+  │  Admin проверяет и         │                           │
+  │  подтверждает осведомлённость                         │
+  │  → adminResolveRelease /   │                           │
+  │    adminResolveRefund      │                           │
+  │  (при условии risk_status  │                           │
+  │   ≠ Blocked)               │                           │
+```
+
+---
+
+### 8.6 Denylist management
+
+**Точки:** `GET /api/admin/denylist`, `POST /api/admin/denylist`, `DELETE /api/admin/denylist/:wallet`
+
+```
+Admin                         Backend
+  │                            │
+  │─── POST /admin/denylist ──►│
+  │    { wallet: "0x..." }     │ runtime lowercase normalization
+  │                            │ → insert into wallet_denylist
+  │◄─── 201 Created ───────────┤
+  │                            │
+  │─── DELETE /admin/denylist/ │
+  │         :wallet ──────────►│
+  │                            │ → delete from wallet_denylist
+  │◄─── 200 OK ────────────────┤
+```
+
+**Инварианты:**
+- все wallet адреса нормализуются в lowercase при записи и при сравнении;
+- удаление из denylist не влияет на уже существующие `compliance_checks` записи;
+- удаление из denylist не меняет автоматически `risk_status` сделок в Blocked — требует ручного действия;
+- `wallet_denylist` является server-side source of truth; онchain аналога нет.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Добавлен §8 Compliance Flows (6 subsections); расширена таблица акторов (Compliance Service) |

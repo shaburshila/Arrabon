@@ -1,5 +1,8 @@
 # Deployments — Base Consult Link
 
+> Version: 1.0 | Status: Актуален | Date: 2026-04-10
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+
 ## Base Sepolia (testnet)
 
 ### ConsultEscrow — 2026-04-10
@@ -26,3 +29,11 @@
 |---|---|
 | Contract | `0x21C95255228939ce6CBE0c20FD491bd281f83bfD` |
 | Статус | **Не использовать** — байткод без гарда admins |
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-04-10 | Первичный выпуск; деплой ConsultEscrow на Base Sepolia (0xA39...39fe) |

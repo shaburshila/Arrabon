@@ -1,5 +1,9 @@
 # ТЗ v1.2 — Base Consult Link
 
+> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.2: исправлено противоречие fee_snapshot в §6.2, исправлен paymaster fallback в §14, добавлен §24 AML/Compliance Screening, добавлено описание dispute messages в §9.
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+
 ## 1. Продукт
 
 **Base Consult Link** — standard web app для Base App.
@@ -127,9 +131,8 @@ Funding = contract call через wagmi/viem + paymaster
 - amount
 - scheduled_at
 - duration
-- fee params snapshot
 
-Примечание: `fee_snapshot` намеренно исключён из ABI в текущей фазе. Для этого спринта `docs/decisions.md` имеет приоритет над данной секцией.
+Примечание: `fee_snapshot` намеренно исключён из ABI в текущей фазе — fee-логика является автономной контрактной логикой. Замороженное решение: `decisions.md` F-08.
 
 Гарантии:
 
@@ -206,11 +209,21 @@ Backend:
 - no-show
 - проблема с услугой
 
-Методы:
+Onchain методы:
 
 - `openDispute(dealId)`
 - `adminResolveRelease`
 - `adminResolveRefund`
+
+### 9.1 Dispute messages (offchain)
+
+После перехода сделки в `Disputed` доступен offchain dispute thread:
+
+- видим buyer, seller и admin одновременно;
+- участники могут добавлять текстовые сообщения (1–3000 символов);
+- поддерживаются внешние evidence links (max 2048 символов); загрузка файлов в MVP не поддерживается;
+- thread становится read-only после `Released` или `Refunded`;
+- endpoint: `GET/POST /api/deals/:id/dispute-messages` (SIWE обязателен).
 
 ## 10. Контракт
 
@@ -300,8 +313,8 @@ Endpoint требования:
 
 ### Fallback
 
-- user-paid optional
-- иначе error
+- user-paid fallback отсутствует в MVP
+- если paymaster недоступен — UI показывает ошибку, tx не отправляется, состояние не меняется
 
 ### Paymaster
 
@@ -394,6 +407,44 @@ Backend обязан:
 - Dispute + admin
 - Base polish + deploy
 
+## 24. AML / Compliance Screening
+
+Платформа выполняет sanctions screening на трёх уровнях. Детальный анализ: `docs/compliance-aml-analysis.md`. Замороженные инварианты: `decisions.md` §3.1.
+
+### 24.1 Три check points
+
+| Точка | Кто проверяется | Действие при блокировке |
+|---|---|---|
+| `POST /api/links` (create) | seller wallet | `403 COMPLIANCE_BLOCKED`; ссылка не создаётся |
+| `POST /api/links/:id/funding/prepare` | buyer + seller | `403 COMPLIANCE_BLOCKED`; calldata не готовится |
+| Payout-path prepares (`/release`, `/auto-release`, `/admin/deals/:id/resolve`) | получатель выплаты | `403 COMPLIANCE_BLOCKED`; calldata не готовится |
+
+### 24.2 Три MVP-провайдера
+
+- Chainalysis Sanctions Oracle (on-chain, Base)
+- USDC `isBlacklisted(address)` (on-chain)
+- Local `wallet_denylist` (admin-managed DB table)
+
+### 24.3 Поведение при сбое провайдера
+
+Fail-closed: недоступность провайдера → `Blocked / PROVIDER_UNAVAILABLE`. Не кэшируется по адресу.
+
+### 24.4 `risk_status` — отдельная ось
+
+`deals.risk_status` (`Clear | Review | Blocked`) — независима от `deal.status`. Не создаёт новых lifecycle-статусов. `risk_status = Blocked` → legal hold: все payout-path endpoints блокированы до ручного юридического разрешения вне MVP.
+
+### 24.5 Frontend
+
+`403 COMPLIANCE_BLOCKED` отображается как in-place notice (`ComplianceBlockedNotice`) без редиректа на глобальную страницу ошибки.
+
+### 24.6 Admin compliance UI
+
+- `GET /admin/disputes` — `RiskBadge` на каждой карточке сделки
+- `GET /admin/disputes/[id]` — compliance history, legal hold banner, acknowledge flow для `Review`
+- `GET /admin/denylist` — CRUD для `wallet_denylist`
+
+---
+
 ## Финальный итог
 
 Это:
@@ -410,3 +461,13 @@ Backend обязан:
 А:
 
 👉 простой инструмент продажи одного консультационного слота через escrow.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-01 | Промежуточные правки (детали не зафиксированы) |
+| 1.2 | 2026-04-28 | Исправлено противоречие fee_snapshot в §6.2; исправлен paymaster fallback в §14; добавлен §24 AML/Compliance Screening; добавлен §9.1 dispute messages |

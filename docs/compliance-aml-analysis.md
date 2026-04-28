@@ -1,5 +1,9 @@
 # Compliance / AML — Анализ и архитектура для MVP
 
+> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.1: добавлено примечание о type stubs (ofac_sdn, chainabuse) в "Что отложено после MVP".
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+
 Документ содержит полный анализ минимального compliance-слоя для Base Consult Link: архитектурные решения, ответы на policy questions, рекомендованную последовательность реализации.
 
 ---
@@ -16,10 +20,11 @@ Base Consult Link — это crypto escrow на публичном блокче�
 
 ### 1. Fail-closed или fail-open при недоступности провайдера?
 
-Рекомендация: **fail-open для Clear-провайдеров, fail-closed для sanction-провайдеров.**
+Реализованное решение для MVP: **fail-closed для всех трёх shipped screening providers.**
 
-- Если OFAC list sync или Chainalysis sanctions API недоступны — блокировать действие и маршрутизировать в Review. Sanction-hit — это юридическая ответственность, а не бизнес-риск.
-- Если Chainabuse недоступен — допустить транзакцию с пометкой Review. Это fraud signal, не sanctions.
+- Если Chainalysis sanctions oracle, USDC blacklist check или local denylist provider недоступен — действие блокируется как `Blocked / PROVIDER_UNAVAILABLE`.
+- `PROVIDER_UNAVAILABLE` не кэшируется по адресу и не превращается в `Review`.
+- Fraud-only review providers вроде Chainabuse не входят в реализованный MVP scope.
 
 ### 2. Достаточно ли sanctions-only MVP перед public pilot?
 
@@ -97,7 +102,7 @@ Chainalysis Free Sanctions Screening API (off-chain REST) — доступен �
 
 ### Принципы
 
-- Compliance — это **gate**, не опция. Каждый lifecycle action идёт через compliance check.
+- Compliance — это **gate**, не опция. Seller screening на создании ссылки, funding prepare и все payout-path prepare endpoints идут через compliance check.
 - Все checks логируются с полным raw response — для audit trail.
 - Provider interface изолирован, чтобы менять провайдеров без изменений бизнес-логики.
 - MVP использует только sync/pre-check модель (проверить до действия), не stream monitoring.
@@ -106,34 +111,33 @@ Chainalysis Free Sanctions Screening API (off-chain REST) — доступен �
 
 ```typescript
 interface ComplianceProvider {
-  screenWallet(address: string): Promise<WalletScreeningResult>;
-  screenTransaction(txHash: string): Promise<TransactionScreeningResult>;
+  screenWallet(address: string): Promise<ScreeningResult>;
 }
 ```
 
 MVP — composite provider из:
 - `ChainalysisSanctionsOracleProvider` — on-chain call
 - `UsdcBlacklistProvider` — on-chain call
-- `OfacLocalListProvider` — local sync
 - `LocalDenylistProvider` — admin-managed DB table
-- `ChainabuseProvider` — optional, Review-only signal
+
+Transaction-level screening в shipped MVP не используется. Источник истины для deal-level compliance — wallet-screening history в `compliance_checks` и derived поле `deals.risk_status`.
 
 ### Результаты проверки
 
 - `Clear` — hits нет
-- `Review` — подозрительные сигналы или provider unavailable
-- `Blocked` — sanctions hit, USDC blacklist hit, local denylist hit
+- `Review` — зарезервировано для несанкционных/manual review сигналов и не используется текущим MVP trio providers
+- `Blocked` — sanctions hit, USDC blacklist hit, local denylist hit, либо `PROVIDER_UNAVAILABLE`
 
 ### Таблица `compliance_checks`
 
 | Поле | Тип | Описание |
 |---|---|---|
 | `id` | uuid | PK |
-| `subject_type` | `wallet` \| `transaction` | Тип субъекта проверки |
-| `subject_value` | string | Address или tx hash |
+| `subject_type` | `wallet` | Тип субъекта проверки в shipped MVP |
+| `subject_value` | string | Wallet address |
 | `provider` | string | Идентификатор провайдера |
 | `result` | `Clear` \| `Review` \| `Blocked` | Итог проверки |
-| `reason_code` | string | Код причины: `OFAC_SDN_HIT`, `USDC_BLACKLISTED`, и т.д. |
+| `reason_code` | string | Код причины: `OFAC_SANCTIONS`, `USDC_BLACKLISTED`, `LOCAL_DENYLIST`, `PROVIDER_UNAVAILABLE` и т.д. |
 | `raw_summary` | JSON | Оригинальный ответ провайдера |
 | `checked_at` | timestamp | Время проверки |
 | `deal_id` | uuid nullable | FK к сделке |
@@ -141,7 +145,7 @@ MVP — composite provider из:
 
 ### Deal-level risk state
 
-Добавить к сделке поле `risk_status`: `Clear` | `Review` | `Blocked`
+У сделки есть поле `risk_status`: `Clear` | `Review` | `Blocked`
 
 Это **derived/denormalized копия** worst-case результата всех compliance_checks связанных со сделкой. Обновляется при каждой проверке. Хранить отдельно от `deal_status` — это разные оси состояния.
 
@@ -152,42 +156,63 @@ MVP — composite provider из:
 - USDC `isBlacklisted(address)` — on-chain, мгновенный
 - Local admin denylist — таблица в БД
 
-**Уровень 2 — Желательные (результат Review):**
-- OFAC SDN list local sync — скачивать XML раз в 24h
-- Chainabuse API — при достаточном signal threshold
+**Отложено после MVP:**
+- OFAC SDN list local sync — XML sync как дополнительный fallback, не часть shipped trio
+- Chainabuse API — external fraud signal, не реализован в MVP
 
 ### Check Points
 
-**Before funding prepare** (`POST /api/links/:id/prepare`):
+**Before funding prepare** (`POST /api/links/:id/funding/prepare`):
 - Проверить buyer wallet через все L1 и L2 провайдеры
 - Проверить seller wallet через все L1 провайдеры
 - Если buyer или seller = `Blocked` — вернуть 403, не готовить calldata
-- Если `Review` — логировать, разрешить продолжить (fail-open для Review на этапе до funding)
 
 **After funding sync** (когда backend обнаруживает on-chain funding):
 - Проверить buyer wallet
 - Проверить seller wallet
-- Проверить tx hash через Chainabuse / TRM если доступно
 - Установить `deal.risk_status`
-- Если `Blocked` обнаружен post-factum — заморозить deal, маршрутизировать в manual review
+- Если `Blocked` обнаружен post-factum — сделка уходит в legal hold через `risk_status = Blocked`, без изменения `deal.status`
 
 **Before payout/lifecycle** (`confirmRelease`, `autoRelease`, `adminResolveRelease`, `adminResolveRefund`):
 - Проверить получателя выплаты (seller для release, buyer для refund)
-- Если `Blocked` — fail-closed, не генерировать calldata, маршрутизировать к admin
-- Если `Review` — отправить в manual review очередь, требовать admin approval
+- Если `Blocked` — fail-closed, не генерировать calldata
+- Если сама сделка уже имеет `risk_status = Blocked` — legal hold блокирует любой payout-path независимо от свежего recipient-screening
 
 ### Admin UI — что показывать
 
 В dispute view и deal detail:
 - `Risk Status` badge (Clear / Review / Blocked) на уровне сделки
 - Список всех compliance_checks связанных со сделкой: provider, result, reason_code, timestamp
-- Warning banner перед любым release/refund если risk_status != Clear
-- Кнопка "Add to denylist" для конкретного wallet
-- Manual override с обязательным audit comment
+- Legal hold banner при `Blocked`
+- Warning banner и acknowledge перед admin resolve при `Review`
+- Отдельная admin denylist page для add/remove denylist entries
 
 ---
 
-## Рекомендуемая последовательность реализации
+## Что реализовано в MVP
+
+- 3 screening providers: Chainalysis sanctions oracle, USDC `isBlacklisted(address)`, local `wallet_denylist`
+- unified compliance service + append-only `compliance_checks`
+- `risk_status` на уровне сделки
+- pre-money seller/buyer gates
+- post-funding rescreening + legal hold
+- payout-path legal hold для lifecycle и admin resolve
+- canonical `403 COMPLIANCE_BLOCKED`
+- frontend in-place compliance notice без redirect
+- admin compliance detail и denylist UI
+
+## Что отложено после MVP
+
+- OFAC SDN local sync
+- Chainabuse / external fraud-review providers
+- IP geoblocking sanctioned jurisdictions
+- enterprise KYT / indirect exposure screening
+- velocity / pattern transaction monitoring
+- KYC для fiat/banking expansions
+
+**Примечание о type stubs:** Идентификаторы `ofac_sdn` и `chainabuse` зарезервированы в type системе (`ComplianceProviderId` union и `isProviderAuditId` guard в `lib/compliance/types.ts`), но ни одного активного provider implementation для них в MVP нет. Наличие этих идентификаторов в типах не означает, что провайдеры работают; они являются placeholders для будущей реализации.
+
+## Историческая последовательность реализации
 
 **Шаг 1 — On-chain gates (1-2 дня разработки):**
 - USDC `isBlacklisted()` check перед prepare
@@ -196,11 +221,11 @@ MVP — composite provider из:
 
 **Шаг 2 — Local lists (1 день):**
 - Local denylist таблица + admin UI для управления
-- OFAC SDN list sync job (cron, раз в 24h)
+- OFAC SDN list sync job (cron, раз в 24h) — отложено после MVP
 
 **Шаг 3 — Lifecycle gates (1 день):**
 - Подключить compliance check к confirmRelease / adminResolve endpoints
-- Review queue для admin
+- Legal hold для `risk_status = Blocked`
 
 **Шаг 4 — Admin UI (1 день):**
 - Risk status в deal view
@@ -211,3 +236,12 @@ MVP — composite provider из:
 - Drafted Terms of Service
 - IP geoblocking для sanctioned jurisdictions (nginx/Cloudflare rule)
 - Privacy policy с disclosure о wallet screening
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-04-01 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Добавлено примечание о type stubs (ofac_sdn, chainabuse) в секции "Что отложено после MVP"; добавлен version header |

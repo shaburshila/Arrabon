@@ -1,6 +1,9 @@
 # State Machine — Base Consult Link
 
-> Version: 1.0 | Based on: ТЗ v1.2 | Date: 2026-03-25
+> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Изменения v1.2: добавлено примечание к §9.1 и §9.4 — Review недостижим в текущем MVP через shipped провайдеры.
+> Изменения v1.1: добавлен §9 Risk Status State Machine (deals.risk_status как отдельная ось).
+> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
 
@@ -163,3 +166,77 @@ Backend не имеет права придумывать новые deal transi
 | Time-window ambiguity | Разные трактовки `48h` и момента completion | Completion timestamp fixed by contract event |
 | Link/deal desync | Offchain status обновлён без подтверждённого tx | Indexer writes after confirmed event only |
 | Scope creep | Появляются новые промежуточные статусы | Forbidden changes list blocks expansion |
+
+---
+
+## 9. Risk Status State Machine
+
+`deals.risk_status` — отдельная ось, независимая от `deal.status`. Управляется Compliance Service. Не создаёт новых lifecycle-статусов сделки.
+
+### 9.1 States
+
+- `Clear` — все проверки пройдены; payout-path доступен
+- `Review` — минимум один provider вернул suspicious result; payout-path доступен с acknowledgement. **Примечание:** три shipped MVP-провайдера (Chainalysis oracle, USDC blacklist, local denylist) возвращают только `Clear` или `Blocked`; `Review` в текущем MVP не достигается в нормальном flow. Состояние зарезервировано в типах для будущих провайдеров (например, Chainabuse).
+- `Blocked` — минимум одна активная sanctions hit; legal hold на все payout-path endpoints
+
+Значение по умолчанию: `Clear` (при создании записи о сделке).
+
+### 9.2 Transitions
+
+```
+           [deal создаётся]
+                 │
+            [Clear] ◄────── умолчание при insert
+                 │
+     post-funding rescreening
+                 │
+        ┌────────┼────────────────────┐
+        │        │                    │
+      [Clear] [Review]           [Blocked]
+                 │                    │
+        rescreen / new check   sticky: автоматический
+                 │             возврат запрещён
+              [Clear]          (только manual override
+                               вне MVP)
+```
+
+| From | To | Trigger | Owner |
+|---|---|---|---|
+| — | Clear | deal insert | Compliance Service (default) |
+| Clear | Clear | rescreening → все Clear | Compliance Service |
+| Clear | Review | rescreening → минимум один Review | Compliance Service |
+| Clear | Blocked | rescreening → минимум один Blocked | Compliance Service |
+| Review | Clear | повторная проверка → все Clear | Compliance Service |
+| Review | Blocked | повторная проверка → минимум один Blocked | Compliance Service |
+| Blocked | Clear / Review | **запрещено автоматически**; только ручное DB-override вне MVP | — |
+
+### 9.3 Invariants
+
+- `risk_status` изменяется только Compliance Service через `recomputeDealRiskStatus`;
+- `risk_status = Blocked` — sticky; `resolveRiskStatusFromChecks` выбирает worst-case из всех исторических `compliance_checks` записей для сделки;
+- `risk_status` не влияет на переходы `deal.status`; `deal.status` не влияет на `risk_status`;
+- все payout-path prepare endpoints вызывают `assertDealNotBlocked(dealId)` до генерации calldata;
+- `assertDealNotBlocked` читает `compliance_checks` напрямую, не полагается на кешированное поле `risk_status`.
+
+### 9.4 Отношение к deal.status
+
+| deal.status | risk_status | Интерпретация |
+|---|---|---|
+| Funded | Clear | Нормальный путь; payout-path доступен после transition |
+| Funded | Review | Подозрительный адрес; admin должен рассмотреть перед resolve. В текущем MVP не достигается shipped провайдерами. |
+| Funded | Blocked | Legal hold; payout заморожен до ручного override |
+| ConfirmPending | Blocked | Legal hold сохраняется; `confirmRelease` / `autoRelease` → 403 |
+| Disputed | Blocked | Legal hold сохраняется; `adminResolveRelease` / `adminResolveRefund` → 403 |
+| Released / Refunded | Blocked | Payout уже совершён; `risk_status` сохраняет последнее значение для audit trail |
+
+Любая комбинация `deal.status × risk_status` технически возможна. Таблица выше описывает практически значимые случаи.
+
+---
+
+## Лист регистрации изменений
+
+| Версия | Дата | Изменения |
+|---|---|---|
+| 1.0 | 2026-03-25 | Первичный выпуск |
+| 1.1 | 2026-04-28 | Добавлен §9 Risk Status State Machine (states, transitions, invariants, матрица deal.status × risk_status) |
+| 1.2 | 2026-04-28 | §9.1 и §9.4: Review помечен как недостижимый в MVP через shipped провайдеры |
