@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
+import { shouldShowFlaggedDeal } from "@/app/admin/disputes/ui";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import {
@@ -64,13 +65,6 @@ const VIEW_OPTIONS = [
   { label: "Resolved history", value: "resolved" },
 ] as const;
 type AdminDisputesView = (typeof VIEW_OPTIONS)[number]["value"];
-
-export function shouldShowFlaggedDeal(
-  riskStatus: "Blocked" | "Clear" | "Review",
-  showOnlyFlagged: boolean,
-): boolean {
-  return !showOnlyFlagged || riskStatus !== "Clear";
-}
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -238,7 +232,7 @@ export default function AdminDisputesPage() {
           };
         });
 
-        if (!syncResult.ok && syncResult.status === "fatal") {
+        if (!syncResult.ok && syncResult.status === "fatal" && syncResult.code !== "DEAL_NOT_FOUND_FOR_TX") {
           setResolveState((prev) => ({
             ...prev,
             error: "Transaction confirmed, but backend indexing is unavailable. Refresh later.",

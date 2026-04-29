@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
+import { getAdminResolveAvailability } from "@/app/admin/disputes/[id]/ui";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import type { AdminComplianceCheck, AdminDealCompliance } from "@/lib/api/admin";
@@ -58,41 +59,6 @@ const emptyResolveState: ResolveState = {
   step: "idle",
   txHash: null,
 };
-
-export function getAdminResolveAvailability(
-  riskStatus: DealRiskStatus,
-  acknowledgedReviewRisk: boolean,
-): {
-  blocked: boolean;
-  disabled: boolean;
-  disabledReason: string | null;
-  requiresAcknowledge: boolean;
-} {
-  if (riskStatus === "Blocked") {
-    return {
-      blocked: true,
-      disabled: true,
-      disabledReason: "Funds are in legal hold.",
-      requiresAcknowledge: false,
-    };
-  }
-
-  if (riskStatus === "Review" && !acknowledgedReviewRisk) {
-    return {
-      blocked: false,
-      disabled: true,
-      disabledReason: "Acknowledge the review risk before resolving this dispute.",
-      requiresAcknowledge: true,
-    };
-  }
-
-  return {
-    blocked: false,
-    disabled: false,
-    disabledReason: null,
-    requiresAcknowledge: riskStatus === "Review",
-  };
-}
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -255,7 +221,7 @@ export default function AdminDisputeDetailPage() {
           };
         });
 
-        if (!syncResult.ok && syncResult.status === "fatal") {
+        if (!syncResult.ok && syncResult.status === "fatal" && syncResult.code !== "DEAL_NOT_FOUND_FOR_TX") {
           setResolveState((prev) => ({
             ...prev,
             error: "Transaction confirmed, but backend indexing is unavailable. Refresh later.",

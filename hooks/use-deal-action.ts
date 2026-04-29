@@ -137,7 +137,7 @@ function useSingleAction(
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         const syncResult = consultationLinkId
-          ? await triggerFundingSync(consultationLinkId).catch((error) => {
+          ? await triggerFundingSync(consultationLinkId, txHash).catch((error) => {
             console.warn("Lifecycle sync trigger failed after confirmed tx.", {
               attempt,
               dealId,
@@ -154,7 +154,12 @@ function useSingleAction(
           })
           : null;
 
-        if (syncResult && !syncResult.ok && syncResult.status === "fatal") {
+        if (
+          syncResult &&
+          !syncResult.ok &&
+          syncResult.status === "fatal" &&
+          syncResult.code !== "DEAL_NOT_FOUND_FOR_TX"
+        ) {
           set({
             error: "Transaction confirmed, but backend indexing is unavailable. Please do not retry the transaction; refresh later.",
             step: "sync_failed",

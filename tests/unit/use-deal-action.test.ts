@@ -8,7 +8,8 @@ import {
 } from "@/hooks/use-deal-action";
 
 // Note: lifecycle convergence polling lives inside a hook closure and is
-// verified manually on the dev stand; this file only covers exported helpers.
+// verified manually on the dev stand; this file only covers exported helpers,
+// including the lifecycle-specific DEAL_NOT_FOUND_FOR_TX regression boundary.
 describe("useDealAction helpers", () => {
   test("creates an idle state with cleared compliance fields", () => {
     assert.deepEqual(createInitialActionState(), {

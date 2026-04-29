@@ -1,7 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { shouldShowFlaggedDeal } from "@/app/admin/disputes/page";
+import { shouldShowFlaggedDeal } from "@/app/admin/disputes/ui";
 
 describe("admin disputes ui helpers", () => {
   test("shows all deals when flagged filter is off", () => {
