@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to verify SIWE message.";
-    return jsonError(message, 401);
+    console.error("[siwe/verify]", error);
+    return jsonError("Authentication failed.", 401);
   }
 }
