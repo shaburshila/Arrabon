@@ -15,7 +15,7 @@ import {
   Plus,
 } from "lucide-react";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyLinks, type MyLink } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
@@ -87,7 +87,7 @@ const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
 };
 
 export default function MyLinksPage() {
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const isAuthenticated =
     session.isConnected &&
     session.isCorrectChain &&
@@ -175,7 +175,7 @@ export default function MyLinksPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={672} session={session}>
+      <AppShell maxWidth={672}>
         <WalletAuthStatePanel
           icon={<Link2 size={40} />}
           messages={MY_LINKS_AUTH_MESSAGES}
@@ -186,7 +186,7 @@ export default function MyLinksPage() {
   }
 
   return (
-    <AppShell maxWidth={672} session={session}>
+    <AppShell maxWidth={672}>
       <div style={pageHeaderStyle}>
         <h1 style={h1Style}>My links</h1>
         {createLinkAction}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { ApiError } from "@/lib/api/auth";
 import {
   addAdminDenylistEntry,
@@ -53,7 +53,7 @@ export function canSubmitDenylistRemoval(comment: string): boolean {
 }
 
 export default function AdminDenylistPage() {
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const [entries, setEntries] = useState<AdminDenylistEntry[]>([]);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -177,7 +177,7 @@ export default function AdminDenylistPage() {
   }
 
   return (
-    <AppShell maxWidth={860} session={session}>
+    <AppShell maxWidth={860}>
       <div style={headerStyle}>
         <h1 style={h1Style}>Compliance denylist</h1>
         <p style={subtitleStyle}>

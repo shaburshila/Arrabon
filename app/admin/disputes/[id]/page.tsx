@@ -7,7 +7,7 @@ import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
 import { getAdminResolveAvailability } from "@/app/admin/disputes/[id]/ui";
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { ApiError } from "@/lib/api/auth";
 import type { AdminComplianceCheck, AdminDealCompliance } from "@/lib/api/admin";
 import { fetchAdminDealCompliance } from "@/lib/api/admin";
@@ -128,7 +128,7 @@ export default function AdminDisputeDetailPage() {
   const config = useConfig();
   const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
 
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const [deal, setDeal] = useState<AdminDealReview | null>(null);
   const [compliance, setCompliance] = useState<AdminDealCompliance | null>(null);
   const [loading, setLoading] = useState(false);
@@ -322,7 +322,7 @@ export default function AdminDisputeDetailPage() {
   const resolveAvailability = getAdminResolveAvailability(riskStatus, acknowledgedReviewRisk);
 
   return (
-    <AppShell maxWidth={860} session={session}>
+    <AppShell maxWidth={860}>
       <Link href="/admin/disputes" style={backLinkStyle}>
         ← Back to disputes
       </Link>

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { WalletStatusPill } from "@/components/app/wallet-status-pill";
 
@@ -14,7 +13,7 @@ const navItems = [
   { href: "/my-deals", key: "my-deals", label: "My deals" },
 ] as const;
 
-export function TopNav({ session }: { session: WalletSessionState }) {
+export function TopNav() {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -50,7 +49,7 @@ export function TopNav({ session }: { session: WalletSessionState }) {
         </nav>
         <div style={rightSideStyle}>
           <ThemeToggle />
-          <WalletStatusPill session={session} />
+          <WalletStatusPill />
         </div>
       </div>
     </header>

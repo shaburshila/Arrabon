@@ -6,7 +6,7 @@ import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
 import { shouldShowFlaggedDeal } from "@/app/admin/disputes/ui";
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { ApiError } from "@/lib/api/auth";
 import {
   type AdminDealReview,
@@ -111,7 +111,7 @@ function resolveNoticeTone(
 
 export default function AdminDisputesPage() {
   const config = useConfig();
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const [view, setView] = useState<AdminDisputesView>("open");
   const [deals, setDeals] = useState<AdminDealReview[]>([]);
   const [resolvedDeals, setResolvedDeals] = useState<AdminResolvedDealReview[]>([]);
@@ -340,7 +340,7 @@ export default function AdminDisputesPage() {
   const visibleCount = view === "resolved" ? visibleResolvedDeals.length : visibleOpenDeals.length;
 
   return (
-    <AppShell maxWidth={860} session={session}>
+    <AppShell maxWidth={860}>
       <div style={headerStyle}>
         <h1 style={h1Style}>Disputes</h1>
         <p style={subtitleStyle}>

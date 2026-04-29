@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { truncateAddress } from "@/lib/ui/address";
 
-export function WalletStatusPill({ session }: { session: WalletSessionState }) {
+export function WalletStatusPill() {
+  const session = useWalletSessionContext();
   const state = getWalletStatus(session);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);

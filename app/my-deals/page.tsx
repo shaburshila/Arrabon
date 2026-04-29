@@ -12,7 +12,7 @@ import {
   User,
 } from "lucide-react";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
@@ -62,7 +62,7 @@ function matchDealFilter(deal: MyDeal, filter: DealFilter): boolean {
 }
 
 export default function MyDealsPage() {
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const isAuthenticated =
     session.isConnected &&
     session.isCorrectChain &&
@@ -134,7 +134,7 @@ export default function MyDealsPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={672} session={session}>
+      <AppShell maxWidth={672}>
         <WalletAuthStatePanel
           icon={<Briefcase size={40} />}
           messages={MY_DEALS_AUTH_MESSAGES}
@@ -145,7 +145,7 @@ export default function MyDealsPage() {
   }
 
   return (
-    <AppShell maxWidth={672} session={session}>
+    <AppShell maxWidth={672}>
       <div style={pageHeaderStyle}>
         <h1 style={h1Style}>My deals</h1>
       </div>

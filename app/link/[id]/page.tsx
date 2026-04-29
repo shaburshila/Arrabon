@@ -7,7 +7,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { useLinkPage } from "@/hooks/use-link-page";
 import { useFundingFlow } from "@/hooks/use-funding-flow";
 
@@ -21,7 +21,7 @@ export default function LinkPage() {
   const linkId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
   const router = useRouter();
 
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const linkPage = useLinkPage(linkId, session.address);
   const consumedIndexingPollingStartedRef = useRef(false);
 

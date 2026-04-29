@@ -6,7 +6,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { useDealPage } from "@/hooks/use-deal-page";
 import { useDealActions } from "@/hooks/use-deal-action";
 
@@ -69,7 +69,7 @@ export default function DealPage() {
   const params = useParams();
   const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
 
-  const session = useWalletSession();
+  const session = useWalletSessionContext();
   const dealPage = useDealPage(dealId, session.address, session.siweStatus);
   const actions = useDealActions(
     dealId,
@@ -82,7 +82,7 @@ export default function DealPage() {
   });
 
   return (
-    <AppShell maxWidth={480} session={session}>
+    <AppShell maxWidth={480}>
       {dealPage.status === "ready" && dealPage.deal && isDealStatusPollable(dealPage.deal.status) && (
         <div style={pageHeaderStyle}>
           <LiveBadge />
