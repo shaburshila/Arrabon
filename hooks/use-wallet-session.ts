@@ -80,10 +80,41 @@ export function useWalletSession(): WalletSessionState {
   const [session, setSession] = useState<SiweSession | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [visibilityVersion, setVisibilityVersion] = useState(0);
   const pingDone = useRef(false);
   const autoSignAttempted = useRef(false);
 
   const isCorrectChain = chainId === baseRuntimeConfig.chainId;
+
+  const refreshSessionFromPing = useCallback(async (): Promise<boolean> => {
+    setSiweStatus("loading");
+    setSignInError(null);
+
+    try {
+      const s = await pingSession();
+
+      if (s) {
+        setSession(s);
+        setSiweStatus("authenticated");
+        pingDone.current = true;
+        autoSignAttempted.current = true;
+        return true;
+      } else {
+        setSession(null);
+        setSiweStatus("unauthenticated");
+        pingDone.current = true;
+        return false;
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to restore wallet session.";
+      setSession(null);
+      setSiweStatus("unauthenticated");
+      setSignInError(message);
+      pingDone.current = true;
+      return false;
+    }
+  }, []);
 
   // Restore session state on mount / when wallet connects
   useEffect(() => {
@@ -109,29 +140,35 @@ export function useWalletSession(): WalletSessionState {
       return;
     }
 
-    setSiweStatus("loading");
-    setSignInError(null);
+    void refreshSessionFromPing();
+  }, [isConnected, address, session, refreshSessionFromPing]);
 
-    pingSession()
-      .then((s) => {
-        if (s) {
-          setSession(s);
-          setSiweStatus("authenticated");
-          pingDone.current = true;
-        } else {
-          setSiweStatus("unauthenticated");
-          pingDone.current = true;
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const onVisibilityChange = () => {
+      if (document.hidden || !isConnected || isSigningIn || siweStatus === "authenticated") {
+        return;
+      }
+
+      void refreshSessionFromPing().then((authenticated) => {
+        if (document.hidden || authenticated) {
+          return;
         }
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error ? error.message : "Failed to restore wallet session.";
-        setSession(null);
-        setSiweStatus("unauthenticated");
-        setSignInError(message);
-        pingDone.current = true;
+
+        autoSignAttempted.current = false;
+        setVisibilityVersion((value) => value + 1);
       });
-  }, [isConnected, address, session]);
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [isConnected, isSigningIn, refreshSessionFromPing, siweStatus]);
 
   const connect = useCallback(
     async (connectorId?: string) => {
@@ -151,6 +188,7 @@ export function useWalletSession(): WalletSessionState {
     setSiweStatus("unauthenticated");
     setSignInError(null);
     pingDone.current = false;
+    autoSignAttempted.current = false;
     await disconnectAsync();
   }, [disconnectAsync]);
 
@@ -202,6 +240,7 @@ export function useWalletSession(): WalletSessionState {
     setSiweStatus("unauthenticated");
     setSignInError(null);
     pingDone.current = false;
+    autoSignAttempted.current = false;
   }, []);
 
   useEffect(() => {
@@ -213,10 +252,14 @@ export function useWalletSession(): WalletSessionState {
       pingDone.current &&
       !autoSignAttempted.current
     ) {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
+
       autoSignAttempted.current = true;
       void signIn();
     }
-  }, [isConnected, isCorrectChain, siweStatus, isSigningIn, signIn]);
+  }, [visibilityVersion, isConnected, isCorrectChain, siweStatus, isSigningIn, signIn]);
 
   const switchToCorrectChain = useCallback(async () => {
     await switchChainAsync({ chainId: baseRuntimeConfig.chainId });
