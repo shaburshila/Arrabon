@@ -8,6 +8,8 @@ import {
   type ComplianceCircuitBreaker,
 } from "@/lib/compliance/circuit-breaker";
 import { getComplianceConfig } from "@/lib/compliance/config";
+import { isChainalysisDevMockEnabled } from "@/lib/compliance/dev-mode";
+import { createChainalysisDevProvider } from "@/lib/compliance/providers/chainalysis-dev";
 import { createChainalysisOracleProvider } from "@/lib/compliance/providers/chainalysis-oracle";
 import { createLocalDenylistProvider } from "@/lib/compliance/providers/local-denylist";
 import { createUsdcBlacklistProvider } from "@/lib/compliance/providers/usdc-blacklist";
@@ -63,8 +65,12 @@ export interface CompositeComplianceDependencies {
 }
 
 function createDefaultProviders(): readonly ComplianceProvider[] {
+  const chainalysisProvider = isChainalysisDevMockEnabled()
+    ? createChainalysisDevProvider()
+    : createChainalysisOracleProvider();
+
   return [
-    createChainalysisOracleProvider(),
+    chainalysisProvider,
     createUsdcBlacklistProvider(),
     createLocalDenylistProvider(),
   ];
