@@ -36,3 +36,8 @@ npm run test:compliance
 - production-like performance benchmarking
 
 Эти проверки остаются manual validation частью шага 13 и должны выполняться отдельно на dev-стенде.
+
+Для non-production dev-стендов, где live provider calls на Base Sepolia недетерминированы, manual и automated проверки могут использовать env-driven dev mocks для shipped providers:
+
+- `COMPLIANCE_CHAINALYSIS_DEV_MOCK=true`
+- `COMPLIANCE_USDC_DEV_MOCK=true`

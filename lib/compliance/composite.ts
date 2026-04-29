@@ -8,10 +8,14 @@ import {
   type ComplianceCircuitBreaker,
 } from "@/lib/compliance/circuit-breaker";
 import { getComplianceConfig } from "@/lib/compliance/config";
-import { isChainalysisDevMockEnabled } from "@/lib/compliance/dev-mode";
+import {
+  isChainalysisDevMockEnabled,
+  isUsdcDevMockEnabled,
+} from "@/lib/compliance/dev-mode";
 import { createChainalysisDevProvider } from "@/lib/compliance/providers/chainalysis-dev";
 import { createChainalysisOracleProvider } from "@/lib/compliance/providers/chainalysis-oracle";
 import { createLocalDenylistProvider } from "@/lib/compliance/providers/local-denylist";
+import { createUsdcDevProvider } from "@/lib/compliance/providers/usdc-dev";
 import { createUsdcBlacklistProvider } from "@/lib/compliance/providers/usdc-blacklist";
 import type {
   BlockedScreeningResult,
@@ -68,10 +72,13 @@ function createDefaultProviders(): readonly ComplianceProvider[] {
   const chainalysisProvider = isChainalysisDevMockEnabled()
     ? createChainalysisDevProvider()
     : createChainalysisOracleProvider();
+  const usdcProvider = isUsdcDevMockEnabled()
+    ? createUsdcDevProvider()
+    : createUsdcBlacklistProvider();
 
   return [
     chainalysisProvider,
-    createUsdcBlacklistProvider(),
+    usdcProvider,
     createLocalDenylistProvider(),
   ];
 }

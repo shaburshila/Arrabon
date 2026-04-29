@@ -67,6 +67,8 @@ COMPLIANCE_CB_WINDOW_MS=
 COMPLIANCE_CB_RESET_MS=
 COMPLIANCE_CHAINALYSIS_DEV_MOCK=
 COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE=
+COMPLIANCE_USDC_DEV_MOCK=
+COMPLIANCE_USDC_DEV_MOCK_MODE=
 ```
 
 `AUTH_DOMAIN` is the preferred host override for SIWE domain validation. If it is not set, auth falls back to the incoming request host.
@@ -86,6 +88,8 @@ COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE=
 `COMPLIANCE_CB_FAILURE_THRESHOLD`, `COMPLIANCE_CB_WINDOW_MS`, and `COMPLIANCE_CB_RESET_MS` configure the per-provider compliance circuit breaker. Positive compliance cache TTL is intentionally fixed in code at 5 minutes for the current MVP.
 
 `COMPLIANCE_CHAINALYSIS_DEV_MOCK=true` switches only the Chainalysis provider to a dev-only mock. This is intended for non-production environments such as Base Sepolia when a live sanctions oracle is unavailable. `COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE` accepts `clear`, `blocked`, or `unavailable`; the default is `clear`.
+
+`COMPLIANCE_USDC_DEV_MOCK=true` switches only the USDC blacklist provider to a dev-only mock. This is intended for non-production environments such as Base Sepolia when the configured USDC contract does not implement `isBlacklisted` or when deterministic compliance testing is needed. `COMPLIANCE_USDC_DEV_MOCK_MODE` accepts `clear`, `blocked`, or `unavailable`; the default is `clear`.
 
 Even with `COMPLIANCE_CHAINALYSIS_DEV_MOCK=true`, `COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS` must still be present because the compliance config is loaded for shared circuit-breaker settings. For local dev you can use a valid placeholder such as `0x0000000000000000000000000000000000000000`.
 
@@ -107,7 +111,20 @@ Mode guide:
 - `blocked` — Chainalysis provider returns `OFAC_SANCTIONS`
 - `unavailable` — Chainalysis provider returns `PROVIDER_UNAVAILABLE`
 
-Only the Chainalysis provider is mocked in this mode. USDC blacklist and local denylist continue to run normally.
+If you also need to bypass live USDC `isBlacklisted` reads on Base Sepolia, add:
+
+```env
+COMPLIANCE_USDC_DEV_MOCK=true
+COMPLIANCE_USDC_DEV_MOCK_MODE=clear
+```
+
+Mode guide:
+
+- `clear` — USDC blacklist provider returns `NO_HIT`
+- `blocked` — USDC blacklist provider returns `USDC_BLACKLISTED`
+- `unavailable` — USDC blacklist provider returns `PROVIDER_UNAVAILABLE`
+
+Chainalysis and USDC dev mocks are independent and can be enabled separately or together. Local denylist continues to run normally.
 
 ## Contract Deployment
 

@@ -5,8 +5,10 @@ import { getAddress, type Address } from "viem";
 import { ComplianceCache } from "@/lib/compliance/cache";
 import { ComplianceCircuitBreaker } from "@/lib/compliance/circuit-breaker";
 import { createCompositeComplianceProvider } from "@/lib/compliance/composite";
+import { createChainalysisDevProvider } from "@/lib/compliance/providers/chainalysis-dev";
 import { createChainalysisOracleProvider } from "@/lib/compliance/providers/chainalysis-oracle";
 import { createLocalDenylistProvider } from "@/lib/compliance/providers/local-denylist";
+import { createUsdcDevProvider } from "@/lib/compliance/providers/usdc-dev";
 import { createUsdcBlacklistProvider } from "@/lib/compliance/providers/usdc-blacklist";
 import type { ComplianceProvider, ProviderScreeningResult } from "@/lib/compliance/types";
 
@@ -20,6 +22,16 @@ function makeProvider(
 }
 
 describe("compliance providers", () => {
+  test("Chainalysis dev provider returns Clear by default", async () => {
+    delete process.env.COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE;
+    const provider = createChainalysisDevProvider();
+
+    const result = await provider.screenWallet(TEST_WALLET);
+
+    assert.equal(result.result, "Clear");
+    assert.equal(result.reasonCode, "NO_HIT");
+  });
+
   test("Chainalysis provider returns Clear when oracle returns false", async () => {
     const provider = createChainalysisOracleProvider({
       client: {
@@ -108,6 +120,36 @@ describe("compliance providers", () => {
     assert.equal(result.reasonCode, "PROVIDER_UNAVAILABLE");
   });
 
+  test("USDC dev provider returns Clear by default", async () => {
+    delete process.env.COMPLIANCE_USDC_DEV_MOCK_MODE;
+    const provider = createUsdcDevProvider();
+
+    const result = await provider.screenWallet(TEST_WALLET);
+
+    assert.equal(result.result, "Clear");
+    assert.equal(result.reasonCode, "NO_HIT");
+  });
+
+  test("USDC dev provider returns Blocked in blocked mode", async () => {
+    process.env.COMPLIANCE_USDC_DEV_MOCK_MODE = "blocked";
+    const provider = createUsdcDevProvider();
+
+    const result = await provider.screenWallet(TEST_WALLET);
+
+    assert.equal(result.result, "Blocked");
+    assert.equal(result.reasonCode, "USDC_BLACKLISTED");
+  });
+
+  test("USDC dev provider returns PROVIDER_UNAVAILABLE in unavailable mode", async () => {
+    process.env.COMPLIANCE_USDC_DEV_MOCK_MODE = "unavailable";
+    const provider = createUsdcDevProvider();
+
+    const result = await provider.screenWallet(TEST_WALLET);
+
+    assert.equal(result.result, "Blocked");
+    assert.equal(result.reasonCode, "PROVIDER_UNAVAILABLE");
+  });
+
   test("Local denylist provider returns Clear when wallet is absent", async () => {
     const provider = createLocalDenylistProvider({
       findWallet: async () => null,
@@ -155,6 +197,8 @@ describe("composite compliance provider", () => {
   let breaker: ComplianceCircuitBreaker;
 
   beforeEach(() => {
+    delete process.env.COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE;
+    delete process.env.COMPLIANCE_USDC_DEV_MOCK_MODE;
     cache = new ComplianceCache();
     breaker = new ComplianceCircuitBreaker({
       failureThreshold: 2,
