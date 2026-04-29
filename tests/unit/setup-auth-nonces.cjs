@@ -32,6 +32,15 @@ const mocks = {
     count: 2,
     error: null,
   },
+  consumeResult: {
+    data: {
+      id: 'nonce-id-1',
+      nonce: 'nonce-1',
+      wallet: '0x0000000000000000000000000000000000000001',
+      used_at: '2026-04-23T10:00:00.000Z',
+    },
+    error: null,
+  },
   deleteResult: {
     error: null,
   },
@@ -56,6 +65,15 @@ mocks.reset = () => {
     count: 2,
     error: null,
   };
+  mocks.consumeResult = {
+    data: {
+      id: 'nonce-id-1',
+      nonce: 'nonce-1',
+      wallet: '0x0000000000000000000000000000000000000001',
+      used_at: '2026-04-23T10:00:00.000Z',
+    },
+    error: null,
+  };
   mocks.deleteResult = {
     error: null,
   };
@@ -72,12 +90,16 @@ const dbServerPath = path.resolve(root, 'lib/db/server.ts');
 function makeQueryBuilder() {
   return {
     operation: null,
+    wantsData: false,
     from(table) {
       mocks.calls.from.push(table);
       return this;
     },
     select(columns, options) {
       mocks.calls.select.push([columns, options]);
+      if (this.operation === 'update') {
+        this.wantsData = true;
+      }
       if (options && options.count === 'exact' && options.head === true) {
         this.operation = 'count';
       }
@@ -104,6 +126,9 @@ function makeQueryBuilder() {
     gt(column, value) {
       mocks.calls.gt.push([column, value]);
       if (this.operation === 'update') {
+        if (this.wantsData) {
+          return this;
+        }
         return Promise.resolve(mocks.updateResult);
       }
       return this;
@@ -121,6 +146,12 @@ function makeQueryBuilder() {
         return Promise.resolve(mocks.deleteResult);
       }
       return this;
+    },
+    maybeSingle() {
+      if (this.operation === 'update' && this.wantsData) {
+        return Promise.resolve(mocks.consumeResult);
+      }
+      return Promise.resolve({ data: null, error: null });
     },
   };
 }

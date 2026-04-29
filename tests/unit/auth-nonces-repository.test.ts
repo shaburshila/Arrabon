@@ -2,6 +2,7 @@ import { beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  consumeValidNonce,
   countRecentNonces,
   deleteExpiredNonces,
   invalidateActiveNonces,
@@ -21,6 +22,15 @@ interface AuthNoncesRepositoryMocks {
   };
   countResult: {
     count: number | null;
+    error: unknown;
+  };
+  consumeResult: {
+    data: {
+      id: string;
+      nonce: string;
+      used_at: string;
+      wallet: string;
+    } | null;
     error: unknown;
   };
   deleteResult: {
@@ -45,6 +55,44 @@ beforeEach(() => {
 });
 
 describe("auth nonces repository hardening helpers", () => {
+  test("consumes a valid nonce atomically in one update path", async () => {
+    const result = await consumeValidNonce(WALLET, "nonce-1", NOW);
+
+    assert.equal(result?.id, "nonce-id-1");
+    assert.deepEqual(mocks.calls.from, ["auth_nonces"]);
+    assert.deepEqual(mocks.calls.update, [{ used_at: NOW.toISOString() }]);
+    assert.deepEqual(mocks.calls.select, [[undefined, undefined]]);
+    assert.deepEqual(mocks.calls.eq, [
+      ["wallet", WALLET],
+      ["nonce", "nonce-1"],
+    ]);
+    assert.deepEqual(mocks.calls.is, [["used_at", null]]);
+    assert.deepEqual(mocks.calls.gt, [["expires_at", NOW.toISOString()]]);
+  });
+
+  test("returns null when atomic nonce consume finds no usable nonce", async () => {
+    mocks.consumeResult = {
+      data: null,
+      error: null,
+    };
+
+    const result = await consumeValidNonce(WALLET, "nonce-1", NOW);
+
+    assert.equal(result, null);
+  });
+
+  test("throws when atomic nonce consume fails", async () => {
+    mocks.consumeResult = {
+      data: null,
+      error: { message: "consume failed" },
+    };
+
+    await assert.rejects(
+      () => consumeValidNonce(WALLET, "nonce-1", NOW),
+      /Failed to consume auth nonce: consume failed/,
+    );
+  });
+
   test("counts all wallet nonces created after the cutoff", async () => {
     mocks.countResult = {
       count: 4,

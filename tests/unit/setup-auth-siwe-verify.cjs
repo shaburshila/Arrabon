@@ -19,17 +19,14 @@ const mocks = {
     expiresAt: new Date('2026-05-01T12:00:00.000Z'),
     token: 'session-token',
   }),
+  consumeValidNonce: async () => ({
+    id: 'nonce-id-1',
+  }),
   getOrCreateUser: async () => ({
     id: 'user-id-1',
     wallet: '0x0000000000000000000000000000000000000001',
   }),
-  getValidNonce: async () => ({
-    id: 'nonce-id-1',
-  }),
   isAdminWallet: () => false,
-  markUsed: async () => ({
-    id: 'nonce-id-1',
-  }),
   resolveAllowedAuthDomains: () => ['localhost'],
   setSessionCookie: () => {},
   verifySiweMessage: async () => ({
@@ -67,8 +64,7 @@ require.cache[authSiwePath] = makeEntry(authSiwePath, {
 
 const noncesRepoPath = path.resolve(root, 'server/repositories/nonces.ts');
 require.cache[noncesRepoPath] = makeEntry(noncesRepoPath, {
-  getValidNonce: (...args) => mocks.getValidNonce(...args),
-  markUsed: (...args) => mocks.markUsed(...args),
+  consumeValidNonce: (...args) => mocks.consumeValidNonce(...args),
 });
 
 const usersRepoPath = path.resolve(root, 'server/repositories/users.ts');

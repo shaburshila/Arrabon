@@ -99,6 +99,30 @@ export async function getValidNonce(
   return data as AuthNonceRow | null;
 }
 
+export async function consumeValidNonce(
+  wallet: string,
+  nonce: string,
+  now: Date,
+): Promise<AuthNonceRow | null> {
+  const db = getServerDbClient();
+  const nowUtc = mustBeUtcDate(now);
+  const { data, error } = await db
+    .from("auth_nonces")
+    .update({ used_at: nowUtc } as never)
+    .select()
+    .eq("wallet", wallet)
+    .eq("nonce", nonce)
+    .is("used_at", null)
+    .gt("expires_at", nowUtc)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to consume auth nonce: ${error.message}`);
+  }
+
+  return (data as AuthNonceRow | null) ?? null;
+}
+
 export async function markUsed(id: string): Promise<AuthNonceRow | null> {
   const db = getServerDbClient();
   const { data, error } = await db

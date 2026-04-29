@@ -8,10 +8,9 @@ interface AuthSiweVerifyMocks {
     expiresAt: Date;
     token: string;
   }>;
+  consumeValidNonce: (...args: unknown[]) => Promise<{ id: string } | null>;
   getOrCreateUser: (...args: unknown[]) => Promise<unknown>;
-  getValidNonce: (...args: unknown[]) => Promise<{ id: string } | null>;
   isAdminWallet: (...args: unknown[]) => boolean;
-  markUsed: (...args: unknown[]) => Promise<{ id: string } | null>;
   resolveAllowedAuthDomains: (...args: unknown[]) => string[];
   setSessionCookie: (...args: unknown[]) => void;
   verifySiweMessage: (...args: unknown[]) => Promise<{
@@ -29,10 +28,7 @@ beforeEach(() => {
     address: "0x0000000000000000000000000000000000000001",
     nonce: "nonce-1",
   });
-  mocks.getValidNonce = async () => ({
-    id: "nonce-id-1",
-  });
-  mocks.markUsed = async () => ({
+  mocks.consumeValidNonce = async () => ({
     id: "nonce-id-1",
   });
   mocks.getOrCreateUser = async () => ({
@@ -84,6 +80,62 @@ test("returns a fixed authentication error instead of leaking internal details",
   } finally {
     console.error = originalConsoleError;
   }
+});
+
+test("uses atomic nonce consume in the happy path", async () => {
+  const consumeCalls: unknown[][] = [];
+  mocks.consumeValidNonce = async (...args: unknown[]) => {
+    consumeCalls.push(args);
+    return {
+      id: "nonce-id-1",
+    };
+  };
+
+  const request = new Request("http://localhost/api/auth/siwe/verify", {
+    body: JSON.stringify({
+      message: "siwe-message",
+      signature: "0xsig",
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+
+  const response = await POST(request);
+  const body = (await response.json()) as { ok: boolean; wallet_address: string };
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.wallet_address, "0x0000000000000000000000000000000000000001");
+  assert.equal(consumeCalls.length, 1);
+  assert.equal(consumeCalls[0]?.[0], "0x0000000000000000000000000000000000000001");
+  assert.equal(consumeCalls[0]?.[1], "nonce-1");
+  assert.ok(consumeCalls[0]?.[2] instanceof Date);
+});
+
+test("returns 401 when atomic nonce consume returns null", async () => {
+  mocks.consumeValidNonce = async () => null;
+
+  const request = new Request("http://localhost/api/auth/siwe/verify", {
+    body: JSON.stringify({
+      message: "siwe-message",
+      signature: "0xsig",
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+
+  const response = await POST(request);
+  const body = (await response.json()) as { error: string; ok: boolean };
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body, {
+    error: "Nonce is invalid or expired.",
+    ok: false,
+  });
 });
 
 test("returns the same fixed authentication error for non-Error throws", async () => {

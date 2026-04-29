@@ -3,7 +3,7 @@ import { resolveAllowedAuthDomains } from "@/lib/auth/config";
 import { setSessionCookie } from "@/lib/auth/cookies";
 import { createAuthSession, isAdminWallet } from "@/lib/auth/session";
 import { verifySiweMessage } from "@/lib/auth/siwe";
-import { getValidNonce, markUsed } from "@/server/repositories/nonces";
+import { consumeValidNonce } from "@/server/repositories/nonces";
 import { getOrCreateUser } from "@/server/repositories/users";
 
 export const runtime = "nodejs";
@@ -40,16 +40,14 @@ export async function POST(request: Request) {
       message: messageValue,
       signature: signatureValue,
     });
-    const nonceRecord = await getValidNonce(verifiedMessage.address, verifiedMessage.nonce);
-
-    if (!nonceRecord) {
-      return jsonError("Nonce is invalid or expired.", 401);
-    }
-
-    const usedNonce = await markUsed(nonceRecord.id);
+    const usedNonce = await consumeValidNonce(
+      verifiedMessage.address,
+      verifiedMessage.nonce,
+      new Date(),
+    );
 
     if (!usedNonce) {
-      return jsonError("Nonce has already been used.", 409);
+      return jsonError("Nonce is invalid or expired.", 401);
     }
 
     await getOrCreateUser(verifiedMessage.address);
