@@ -137,7 +137,7 @@ function useSingleAction(
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         const syncResult = consultationLinkId
-          ? await triggerFundingSync(consultationLinkId, txHash).catch((error) => {
+          ? await triggerFundingSync(consultationLinkId).catch((error) => {
             console.warn("Lifecycle sync trigger failed after confirmed tx.", {
               attempt,
               dealId,

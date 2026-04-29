@@ -7,6 +7,8 @@ import {
   getActionErrorState,
 } from "@/hooks/use-deal-action";
 
+// Note: lifecycle convergence polling lives inside a hook closure and is
+// verified manually on the dev stand; this file only covers exported helpers.
 describe("useDealAction helpers", () => {
   test("creates an idle state with cleared compliance fields", () => {
     assert.deepEqual(createInitialActionState(), {
