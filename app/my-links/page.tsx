@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
-import { fetchMyLinks, type MyLink } from "@/lib/api/links";
+import { fetchMyLinks, type MyLink, type MyLinksFilter } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
 import { AppShell } from "@/components/app/app-shell";
@@ -29,20 +29,20 @@ import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
-type LinkFilter = "all" | MyLink["status"];
-
 type MyLinkBadge = {
   bg: string;
   color: string;
   label: string;
 };
 
-const FILTERS: { value: LinkFilter; label: string }[] = [
+const FILTERS: { value: MyLinksFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "Open", label: "Open" },
-  { value: "Consumed", label: "Funded" },
-  { value: "Expired", label: "Expired" },
-  { value: "Cancelled", label: "Cancelled" },
+  { value: "available", label: "Available" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "awaiting_buyer", label: "Awaiting buyer" },
+  { value: "disputed", label: "Disputed" },
+  { value: "closed", label: "Closed" },
+  { value: "inactive", label: "Inactive" },
 ];
 
 const PAGE_SIZE = 20;
@@ -93,18 +93,12 @@ export default function MyLinksPage() {
     session.isCorrectChain &&
     session.siweStatus === "authenticated";
 
-  const [filter, setFilter] = useState<LinkFilter>("all");
+  const [filter, setFilter] = useState<MyLinksFilter>("all");
   const [links, setLinks] = useState<MyLink[] | null>(null);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const filteredLinks = links
-    ? filter === "all"
-      ? links
-      : links.filter((link) => link.status === filter)
-    : [];
 
   const createLinkAction = (
     <Link href="/create" style={{ textDecoration: "none" }}>
@@ -127,6 +121,7 @@ export default function MyLinksPage() {
     setError(null);
     setLinks(null);
     fetchMyLinks({
+      filter,
       limit: PAGE_SIZE + 1,
       offset: page * PAGE_SIZE,
     })
@@ -136,14 +131,14 @@ export default function MyLinksPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load links."))
       .finally(() => setLoading(false));
-  }, [isAuthenticated, page]);
+  }, [filter, isAuthenticated, page]);
 
   function renderListContent() {
     if (links === null) {
       return null;
     }
 
-    if (links.length === 0) {
+    if (filter === "all" && links.length === 0) {
       return (
         <EmptyState
           action={createLinkAction}
@@ -154,7 +149,7 @@ export default function MyLinksPage() {
       );
     }
 
-    if (filteredLinks.length === 0) {
+    if (links.length === 0) {
       return (
         <EmptyState
           description="Try another filter."
@@ -164,9 +159,9 @@ export default function MyLinksPage() {
       );
     }
 
-    return filteredLinks.map((link, index) => (
+    return links.map((link, index) => (
       <LinkRow
-        isLast={index === filteredLinks.length - 1}
+        isLast={index === links.length - 1}
         key={link.id}
         link={link}
       />
@@ -194,7 +189,7 @@ export default function MyLinksPage() {
 
       <SegmentedTabs
         onChange={(value) => {
-          setFilter(value as LinkFilter);
+          setFilter(value as MyLinksFilter);
           setPage(0);
         }}
         options={FILTERS}
@@ -221,9 +216,9 @@ export default function MyLinksPage() {
             {renderListContent()}
           </ActionPanel>
 
-          {filteredLinks.length > 0 && (
+          {links.length > 0 && (
             <p style={footerCountStyle}>
-              Page {page + 1} · {filteredLinks.length} shown
+              Page {page + 1} · {links.length} shown
             </p>
           )}
 

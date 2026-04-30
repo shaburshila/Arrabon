@@ -26,12 +26,12 @@ import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
-type DealFilter = "all" | "upcoming" | "pending" | "disputed" | "resolved";
+type DealFilter = "all" | "upcoming" | "needs_action" | "disputed" | "resolved";
 
 const FILTERS: { value: DealFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "upcoming", label: "Upcoming" },
-  { value: "pending", label: "Pending" },
+  { value: "needs_action", label: "Needs action" },
   { value: "disputed", label: "Disputed" },
   { value: "resolved", label: "Resolved" },
 ];
@@ -52,7 +52,7 @@ const MY_DEALS_AUTH_MESSAGES = {
 function matchDealFilter(deal: MyDeal, filter: DealFilter): boolean {
   if (filter === "all") return true;
   if (filter === "upcoming") return deal.status === "Funded";
-  if (filter === "pending") return deal.status === "ConfirmPending";
+  if (filter === "needs_action") return deal.status === "ConfirmPending";
   if (filter === "disputed") return deal.status === "Disputed";
   if (filter === "resolved") {
     return deal.status === "Released" || deal.status === "Refunded";

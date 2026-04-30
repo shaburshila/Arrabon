@@ -173,6 +173,50 @@ Notes:
 
 - `expires_at` is selected by the seller and must be before `scheduled_at`.
 
+### `GET /api/links`
+
+Returns consultation links owned by the authenticated seller.
+
+Behavior:
+
+- requires SIWE session
+- returns newest links first by `consultation_links.created_at desc`
+- supports pagination via `limit` and `offset`
+- supports `filter` query param with values:
+  - `all`
+  - `available`
+  - `upcoming`
+  - `awaiting_buyer`
+  - `disputed`
+  - `closed`
+  - `inactive`
+- if `filter` is omitted, backend defaults to `all`
+- filtering is applied before pagination
+
+Response:
+
+```json
+[
+  {
+    "id": "link_123",
+    "deal_id": null,
+    "deal_status": null,
+    "deal_resolution_type": null,
+    "deal_resolved_at": null,
+    "deal_resolved_from_status": null,
+    "title": "Consultation",
+    "description": "30-minute consult",
+    "price_usdc": "100.00",
+    "scheduled_at": "2026-03-28T12:00:00Z",
+    "timezone": "Europe/Berlin",
+    "duration_minutes": 30,
+    "expires_at": "2026-03-28T11:30:00Z",
+    "status": "Open",
+    "share_url": "/link/link_123"
+  }
+]
+```
+
 ### `POST /api/links/:id/cancel`
 
 Cancels a link before funding.

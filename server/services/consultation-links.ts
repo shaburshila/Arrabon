@@ -13,13 +13,16 @@ import type {
 import { encryptMeetingUrl } from "@/lib/crypto/meeting-url";
 import { assertLinkHash, generateLinkHash } from "@/lib/crypto/link-hash";
 import { assertCompliance } from "@/lib/compliance/error-mapping";
-import type { ListPagination } from "@/lib/validators/pagination";
+import {
+  normalizeListPagination,
+  type ListPagination,
+} from "@/lib/validators/pagination";
 import type { CreateConsultationLinkInput } from "@/lib/validators/consultation-links";
 import {
   ConsultationLinksRepositoryError,
   createLink,
+  getAllByCreatorUserId,
   getById,
-  getByCreatorUserId,
   updateStatus,
 } from "@/server/repositories/consultation-links";
 import {
@@ -141,15 +144,52 @@ export interface MyLinkResult {
   title: string;
 }
 
+export type MyConsultationLinksFilter =
+  | "all"
+  | "available"
+  | "upcoming"
+  | "awaiting_buyer"
+  | "disputed"
+  | "closed"
+  | "inactive";
+
+function matchMyLinkFilter(
+  link: MyLinkResult,
+  filter: MyConsultationLinksFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "available") return link.deal_id === null && link.status === "Open";
+  if (filter === "upcoming") return link.deal_id !== null && link.deal_status === "Funded";
+  if (filter === "awaiting_buyer") {
+    return link.deal_id !== null && link.deal_status === "ConfirmPending";
+  }
+  if (filter === "disputed") return link.deal_id !== null && link.deal_status === "Disputed";
+  if (filter === "closed") {
+    return (
+      link.deal_id !== null &&
+      (link.deal_status === "Released" || link.deal_status === "Refunded")
+    );
+  }
+  if (filter === "inactive") {
+    return (
+      link.deal_id === null &&
+      (link.status === "Expired" || link.status === "Cancelled")
+    );
+  }
+
+  return false;
+}
+
 export async function listMyConsultationLinks(
   currentUser: CurrentUserContext,
   now: Date = new Date(),
   pagination?: Partial<ListPagination>,
+  filter: MyConsultationLinksFilter = "all",
 ): Promise<MyLinkResult[]> {
   let rows: ConsultationLinkRow[];
 
   try {
-    rows = await getByCreatorUserId(currentUser.id, pagination);
+    rows = await getAllByCreatorUserId(currentUser.id);
   } catch (error) {
     if (error instanceof ConsultationLinksRepositoryError) {
       throw new ConsultationLinkServiceError(
@@ -179,7 +219,7 @@ export async function listMyConsultationLinks(
     throw error;
   }
 
-  return rows.map((row) => {
+  const mappedLinks = rows.map((row) => {
     const existingDeal = dealsByLinkId.get(row.id);
     const effectiveStatus = resolveEffectiveConsultationLinkStatus(row, now);
     const status =
@@ -207,6 +247,11 @@ export async function listMyConsultationLinks(
       title: row.title,
     };
   });
+
+  const { limit, offset } = normalizeListPagination(pagination);
+  const filteredLinks = mappedLinks.filter((link) => matchMyLinkFilter(link, filter));
+
+  return filteredLinks.slice(offset, offset + limit);
 }
 
 export async function createConsultationLink(

@@ -13,6 +13,7 @@ import {
   parseListPagination,
 } from "@/lib/validators/pagination";
 import {
+  type MyConsultationLinksFilter,
   ConsultationLinkServiceError,
   createConsultationLink,
   listMyConsultationLinks,
@@ -30,11 +31,37 @@ function jsonError(message: string, status: number, details?: unknown) {
   );
 }
 
+const MY_LINK_FILTER_VALUES: ReadonlySet<MyConsultationLinksFilter> = new Set([
+  "all",
+  "available",
+  "upcoming",
+  "awaiting_buyer",
+  "disputed",
+  "closed",
+  "inactive",
+]);
+
+function parseMyLinksFilter(searchParams: URLSearchParams): MyConsultationLinksFilter {
+  const filter = searchParams.get("filter");
+
+  if (filter === null) {
+    return "all";
+  }
+
+  if (MY_LINK_FILTER_VALUES.has(filter as MyConsultationLinksFilter)) {
+    return filter as MyConsultationLinksFilter;
+  }
+
+  throw new PaginationValidationError("filter must be a valid my-links filter.");
+}
+
 export async function GET(request: Request) {
   try {
     const currentUser = await requireUser();
-    const pagination = parseListPagination(new URL(request.url).searchParams);
-    const links = await listMyConsultationLinks(currentUser, new Date(), pagination);
+    const searchParams = new URL(request.url).searchParams;
+    const pagination = parseListPagination(searchParams);
+    const filter = parseMyLinksFilter(searchParams);
+    const links = await listMyConsultationLinks(currentUser, new Date(), pagination, filter);
     return NextResponse.json(links);
   } catch (error) {
     if (error instanceof AuthGuardError) {

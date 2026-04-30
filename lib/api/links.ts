@@ -13,15 +13,35 @@ export interface ListPaginationParams {
   offset: number;
 }
 
-function formatListQuery(params?: ListPaginationParams): string {
-  if (!params) {
+export type MyLinksFilter =
+  | "all"
+  | "available"
+  | "upcoming"
+  | "awaiting_buyer"
+  | "disputed"
+  | "closed"
+  | "inactive";
+
+export interface FetchMyLinksParams extends Partial<ListPaginationParams> {
+  filter?: MyLinksFilter;
+}
+
+function formatListQuery(params?: FetchMyLinksParams): string {
+  if (!params || Object.keys(params).length === 0) {
     return "";
   }
 
-  const searchParams = new URLSearchParams({
-    limit: String(params.limit),
-    offset: String(params.offset),
-  });
+  const searchParams = new URLSearchParams();
+
+  if (params.filter) {
+    searchParams.set("filter", params.filter);
+  }
+  if (params.limit !== undefined) {
+    searchParams.set("limit", String(params.limit));
+  }
+  if (params.offset !== undefined) {
+    searchParams.set("offset", String(params.offset));
+  }
 
   return `?${searchParams.toString()}`;
 }
@@ -154,7 +174,7 @@ export interface MyLink {
 }
 
 // GET /api/links — requires SIWE session
-export async function fetchMyLinks(params?: ListPaginationParams): Promise<MyLink[]> {
+export async function fetchMyLinks(params?: FetchMyLinksParams): Promise<MyLink[]> {
   const res = await fetch(`/api/links${formatListQuery(params)}`);
   return parseResponse<MyLink[]>(res);
 }

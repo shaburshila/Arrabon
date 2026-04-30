@@ -68,6 +68,7 @@ class DealsRepositoryError extends Error {
 const mocks = {
   assertCompliance: (...args) => undefined,
   createLink: async () => ({ id: 'link-uuid-created', link_hash: '0x' + 'c'.repeat(64) }),
+  getAllByCreatorUserId: async () => [],
   getById: async () => null,
   getByCreatorUserId: async () => [],
   getByConsultationLinkId: async () => null,
@@ -135,6 +136,7 @@ const consultationLinksRepoPath = path.resolve(
 );
 require.cache[consultationLinksRepoPath] = makeEntry(consultationLinksRepoPath, {
   ConsultationLinksRepositoryError,
+  getAllByCreatorUserId: (...args) => mocks.getAllByCreatorUserId(...args),
   getById: (...args) => mocks.getById(...args),
   getByCreatorUserId: (...args) => mocks.getByCreatorUserId(...args),
   createLink: (...args) => mocks.createLink(...args),

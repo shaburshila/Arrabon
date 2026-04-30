@@ -36,6 +36,7 @@ import {
 interface ServiceMocks {
   assertCompliance: (...args: unknown[]) => void;
   createLink: (...args: unknown[]) => Promise<{ id: string; link_hash: string }>;
+  getAllByCreatorUserId: (...args: unknown[]) => Promise<ConsultationLinkRow[]>;
   getById: (id: string) => Promise<ConsultationLinkRow | null>;
   getByCreatorUserId: (...args: unknown[]) => Promise<ConsultationLinkRow[]>;
   getByConsultationLinkId: (id: string) => Promise<DealRow | null>;
@@ -121,6 +122,7 @@ beforeEach(() => {
     id: 'link-uuid-created',
     link_hash: '0x' + 'c'.repeat(64),
   });
+  mocks.getAllByCreatorUserId = async () => [];
   mocks.getById = async () => null;
   mocks.getByCreatorUserId = async () => [];
   mocks.getByConsultationLinkId = async () => null;
@@ -407,16 +409,16 @@ describe('response shape', () => {
 // ── Seller link list ─────────────────────────────────────────────────────────
 
 describe('listMyConsultationLinks', () => {
-  test('passes pagination options to the repository', async () => {
+  test('loads all seller links before applying pagination', async () => {
     let receivedArgs: unknown[] = [];
-    mocks.getByCreatorUserId = async (...args) => {
+    mocks.getAllByCreatorUserId = async (...args) => {
       receivedArgs = args;
       return [];
     };
 
     await listMyConsultationLinks(currentUser, new Date(FUTURE), { limit: 25, offset: 50 });
 
-    assert.deepEqual(receivedArgs, ['user-uuid-001', { limit: 25, offset: 50 }]);
+    assert.deepEqual(receivedArgs, ['user-uuid-001']);
   });
 
   test('returns Expired for a time-expired Open link when a deal exists', async () => {
@@ -430,7 +432,7 @@ describe('listMyConsultationLinks', () => {
       id: 'deal-uuid-999',
     });
 
-    mocks.getByCreatorUserId = async () => [link];
+    mocks.getAllByCreatorUserId = async () => [link];
     mocks.getByConsultationLinkIds = async (ids) => {
       assert.deepEqual(ids, ['link-uuid-001']);
       return [deal];
@@ -460,7 +462,7 @@ describe('listMyConsultationLinks', () => {
       status: 'Released',
     });
 
-    mocks.getByCreatorUserId = async () => [link];
+    mocks.getAllByCreatorUserId = async () => [link];
     mocks.getByConsultationLinkIds = async () => [deal];
 
     const result = await listMyConsultationLinks(currentUser);
@@ -485,7 +487,7 @@ describe('listMyConsultationLinks', () => {
       id: 'deal-uuid-999',
     });
 
-    mocks.getByCreatorUserId = async () => [link];
+    mocks.getAllByCreatorUserId = async () => [link];
     mocks.getByConsultationLinkIds = async () => [deal];
 
     const result = await listMyConsultationLinks(currentUser);
@@ -508,7 +510,7 @@ describe('listMyConsultationLinks', () => {
       id: 'deal-uuid-999',
     });
 
-    mocks.getByCreatorUserId = async () => [link];
+    mocks.getAllByCreatorUserId = async () => [link];
     mocks.getByConsultationLinkIds = async () => [deal];
 
     const result = await listMyConsultationLinks(currentUser);
@@ -521,7 +523,7 @@ describe('listMyConsultationLinks', () => {
   });
 
   test('returns Expired for a time-expired Open link when no deal exists', async () => {
-    mocks.getByCreatorUserId = async () => [
+    mocks.getAllByCreatorUserId = async () => [
       makeLink({
         expires_at: PAST,
         id: 'link-uuid-001',
@@ -537,6 +539,149 @@ describe('listMyConsultationLinks', () => {
     assert.equal(result[0].deal_status, null);
     assert.equal(result[0].status, 'Expired');
     assert.equal(result[0].share_url, '/link/link-uuid-001');
+  });
+
+  test('applies filter before pagination for available links', async () => {
+    const futureAfterNow = new Date(Date.now() + 2 * 60 * 60 * 1_000).toISOString();
+    const closedDealLinks = Array.from({ length: 20 }, (_, index) =>
+      makeLink({ expires_at: futureAfterNow, id: `closed-link-${index}`, status: 'Open' }),
+    );
+    const availableLink = makeLink({ expires_at: futureAfterNow, id: 'available-link-1', status: 'Open' });
+    const moreAvailableLink = makeLink({ expires_at: futureAfterNow, id: 'available-link-2', status: 'Open' });
+
+    mocks.getAllByCreatorUserId = async () => [
+      ...closedDealLinks,
+      availableLink,
+      moreAvailableLink,
+    ];
+    mocks.getByConsultationLinkIds = async (ids) => {
+      return ids
+        .filter((id) => String(id).startsWith('closed-link-'))
+        .map((id) =>
+          makeDeal({
+            consultation_link_id: String(id),
+            id: `deal-for-${id}`,
+            status: 'Released',
+          }),
+        );
+    };
+
+    const result = await listMyConsultationLinks(
+      currentUser,
+      new Date(FUTURE),
+      { limit: 20, offset: 0 },
+      'available',
+    );
+
+    assert.equal(result.length, 2);
+    assert.deepEqual(result.map((item) => item.id), ['available-link-1', 'available-link-2']);
+  });
+
+  test('returns only upcoming links for upcoming filter', async () => {
+    const upcomingLink = makeLink({ id: 'link-upcoming' });
+    const awaitingLink = makeLink({ id: 'link-awaiting' });
+    const disputedLink = makeLink({ id: 'link-disputed' });
+
+    mocks.getAllByCreatorUserId = async () => [upcomingLink, awaitingLink, disputedLink];
+    mocks.getByConsultationLinkIds = async () => [
+      makeDeal({ consultation_link_id: 'link-upcoming', id: 'deal-upcoming', status: 'Funded' }),
+      makeDeal({ consultation_link_id: 'link-awaiting', id: 'deal-awaiting', status: 'ConfirmPending' }),
+      makeDeal({ consultation_link_id: 'link-disputed', id: 'deal-disputed', status: 'Disputed' }),
+    ];
+
+    const result = await listMyConsultationLinks(
+      currentUser,
+      new Date(FUTURE),
+      undefined,
+      'upcoming',
+    );
+
+    assert.deepEqual(result.map((item) => item.id), ['link-upcoming']);
+    assert.equal(result[0].deal_status, 'Funded');
+  });
+
+  test('returns only awaiting buyer links for awaiting_buyer filter', async () => {
+    mocks.getAllByCreatorUserId = async () => [
+      makeLink({ id: 'link-awaiting' }),
+      makeLink({ id: 'link-disputed' }),
+    ];
+    mocks.getByConsultationLinkIds = async () => [
+      makeDeal({ consultation_link_id: 'link-awaiting', id: 'deal-awaiting', status: 'ConfirmPending' }),
+      makeDeal({ consultation_link_id: 'link-disputed', id: 'deal-disputed', status: 'Disputed' }),
+    ];
+
+    const result = await listMyConsultationLinks(
+      currentUser,
+      new Date(FUTURE),
+      undefined,
+      'awaiting_buyer',
+    );
+
+    assert.deepEqual(result.map((item) => item.id), ['link-awaiting']);
+    assert.equal(result[0].deal_status, 'ConfirmPending');
+  });
+
+  test('returns only disputed links for disputed filter', async () => {
+    mocks.getAllByCreatorUserId = async () => [
+      makeLink({ id: 'link-disputed' }),
+      makeLink({ id: 'link-closed' }),
+    ];
+    mocks.getByConsultationLinkIds = async () => [
+      makeDeal({ consultation_link_id: 'link-disputed', id: 'deal-disputed', status: 'Disputed' }),
+      makeDeal({ consultation_link_id: 'link-closed', id: 'deal-closed', status: 'Released' }),
+    ];
+
+    const result = await listMyConsultationLinks(
+      currentUser,
+      new Date(FUTURE),
+      undefined,
+      'disputed',
+    );
+
+    assert.deepEqual(result.map((item) => item.id), ['link-disputed']);
+    assert.equal(result[0].deal_status, 'Disputed');
+  });
+
+  test('returns only closed links for closed filter', async () => {
+    mocks.getAllByCreatorUserId = async () => [
+      makeLink({ id: 'link-released' }),
+      makeLink({ id: 'link-refunded' }),
+      makeLink({ id: 'link-upcoming' }),
+    ];
+    mocks.getByConsultationLinkIds = async () => [
+      makeDeal({ consultation_link_id: 'link-released', id: 'deal-released', status: 'Released' }),
+      makeDeal({ consultation_link_id: 'link-refunded', id: 'deal-refunded', status: 'Refunded', resolution_type: 'admin_refund' }),
+      makeDeal({ consultation_link_id: 'link-upcoming', id: 'deal-upcoming', status: 'Funded' }),
+    ];
+
+    const result = await listMyConsultationLinks(
+      currentUser,
+      new Date(FUTURE),
+      undefined,
+      'closed',
+    );
+
+    assert.deepEqual(result.map((item) => item.id), ['link-released', 'link-refunded']);
+  });
+
+  test('returns only inactive links for inactive filter', async () => {
+    mocks.getAllByCreatorUserId = async () => [
+      makeLink({ id: 'link-expired', status: 'Open', expires_at: PAST }),
+      makeLink({ id: 'link-cancelled', status: 'Cancelled' }),
+      makeLink({ id: 'link-booked-expired', status: 'Expired', expires_at: PAST }),
+    ];
+    mocks.getByConsultationLinkIds = async () => [
+      makeDeal({ consultation_link_id: 'link-booked-expired', id: 'deal-booked-expired', status: 'Funded' }),
+    ];
+
+    const result = await listMyConsultationLinks(
+      currentUser,
+      new Date(FUTURE),
+      undefined,
+      'inactive',
+    );
+
+    assert.deepEqual(result.map((item) => item.id), ['link-expired', 'link-cancelled']);
   });
 });
 
