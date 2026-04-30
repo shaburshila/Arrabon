@@ -193,7 +193,10 @@ export default function MyLinksPage() {
       </div>
 
       <SegmentedTabs
-        onChange={(value) => setFilter(value as LinkFilter)}
+        onChange={(value) => {
+          setFilter(value as LinkFilter);
+          setPage(0);
+        }}
         options={FILTERS}
         value={filter}
       />

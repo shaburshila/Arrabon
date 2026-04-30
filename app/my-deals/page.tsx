@@ -151,7 +151,10 @@ export default function MyDealsPage() {
       </div>
 
       <SegmentedTabs
-        onChange={(value) => setFilter(value as DealFilter)}
+        onChange={(value) => {
+          setFilter(value as DealFilter);
+          setPage(0);
+        }}
         options={FILTERS}
         value={filter}
       />
