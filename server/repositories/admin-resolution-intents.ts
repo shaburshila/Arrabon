@@ -58,39 +58,20 @@ export async function consumeLatestAdminResolutionIntent(
   input: ConsumeLatestAdminResolutionIntentInput,
 ): Promise<AdminResolutionIntentRow | null> {
   const db = getServerDbClient().schema("public");
-  const { data: intent, error: selectError } = await db
-    .from("admin_resolution_intents")
-    .select("*")
-    .eq("onchain_deal_id", input.onchainDealId)
-    .eq("resolution", input.resolution)
-    .is("consumed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
+  const { data: intent, error } = await db
+    .rpc("consume_latest_admin_resolution_intent", {
+      p_onchain_deal_id: input.onchainDealId,
+      p_resolution: input.resolution,
+    })
+    .returns<AdminResolutionIntentRow[]>()
     .maybeSingle();
 
-  if (selectError) {
+  if (error) {
     throw new AdminResolutionIntentsRepositoryError(
-      `Failed to load admin resolution intent: ${selectError.message}`,
-      selectError.code,
+      `Failed to consume admin resolution intent: ${error.message}`,
+      error.code,
     );
   }
 
-  if (!intent) {
-    return null;
-  }
-
-  const { error: updateError } = await db
-    .from("admin_resolution_intents")
-    .update({ consumed_at: new Date().toISOString() })
-    .eq("id", intent.id)
-    .is("consumed_at", null);
-
-  if (updateError) {
-    throw new AdminResolutionIntentsRepositoryError(
-      `Failed to consume admin resolution intent: ${updateError.message}`,
-      updateError.code,
-    );
-  }
-
-  return intent;
+  return intent ?? null;
 }

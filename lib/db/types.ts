@@ -521,6 +521,13 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      consume_latest_admin_resolution_intent: {
+        Args: {
+          p_onchain_deal_id: string;
+          p_resolution: AdminResolutionIntentResolution;
+        };
+        Returns: AdminResolutionIntentRow[];
+      };
       insert_confirmed_deal_and_maybe_consume_link: {
         Args: {
           p_buyer_address: string;
