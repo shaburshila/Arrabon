@@ -338,6 +338,15 @@ Behavior:
 - uses `currentUser.wallet_address` as `buyer_address`
 - returns newest deals first by `deals.created_at desc`
 - returns only buyer deals; seller recovery remains `/my-links`
+- supports pagination via `limit` and `offset`
+- supports `filter` query param with values:
+  - `all`
+  - `upcoming`
+  - `needs_action`
+  - `disputed`
+  - `resolved`
+- if `filter` is omitted, backend defaults to `all`
+- filtering is applied before pagination
 
 Response:
 

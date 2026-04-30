@@ -6,6 +6,7 @@ import {
   parseListPagination,
 } from "@/lib/validators/pagination";
 import {
+  type MyDealsFilter,
   listMyBuyerDeals,
   MyDealsServiceError,
 } from "@/server/services/my-deals";
@@ -22,11 +23,35 @@ function jsonError(message: string, status: number, details?: unknown) {
   );
 }
 
+const MY_DEALS_FILTER_VALUES: ReadonlySet<MyDealsFilter> = new Set([
+  "all",
+  "upcoming",
+  "needs_action",
+  "disputed",
+  "resolved",
+]);
+
+function parseMyDealsFilter(searchParams: URLSearchParams): MyDealsFilter {
+  const filter = searchParams.get("filter");
+
+  if (filter === null) {
+    return "all";
+  }
+
+  if (MY_DEALS_FILTER_VALUES.has(filter as MyDealsFilter)) {
+    return filter as MyDealsFilter;
+  }
+
+  throw new PaginationValidationError("filter must be a valid my-deals filter.");
+}
+
 export async function GET(request: Request) {
   try {
+    const searchParams = new URL(request.url).searchParams;
     const currentUser = await requireUser();
-    const pagination = parseListPagination(new URL(request.url).searchParams);
-    const deals = await listMyBuyerDeals(currentUser, pagination);
+    const pagination = parseListPagination(searchParams);
+    const filter = parseMyDealsFilter(searchParams);
+    const deals = await listMyBuyerDeals(currentUser, pagination, filter);
 
     return NextResponse.json(deals);
   } catch (error) {

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
-import { fetchMyDeals, type MyDeal } from "@/lib/api/deals";
+import { fetchMyDeals, type MyDeal, type MyDealsFilter } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
@@ -26,9 +26,7 @@ import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
-type DealFilter = "all" | "upcoming" | "needs_action" | "disputed" | "resolved";
-
-const FILTERS: { value: DealFilter; label: string }[] = [
+const FILTERS: { value: MyDealsFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "upcoming", label: "Upcoming" },
   { value: "needs_action", label: "Needs action" },
@@ -49,18 +47,6 @@ const MY_DEALS_AUTH_MESSAGES = {
   switchTitle: "Switch to Base",
 } as const;
 
-function matchDealFilter(deal: MyDeal, filter: DealFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "upcoming") return deal.status === "Funded";
-  if (filter === "needs_action") return deal.status === "ConfirmPending";
-  if (filter === "disputed") return deal.status === "Disputed";
-  if (filter === "resolved") {
-    return deal.status === "Released" || deal.status === "Refunded";
-  }
-
-  return false;
-}
-
 export default function MyDealsPage() {
   const session = useWalletSessionContext();
   const isAuthenticated =
@@ -69,15 +55,11 @@ export default function MyDealsPage() {
     session.siweStatus === "authenticated";
 
   const [deals, setDeals] = useState<MyDeal[] | null>(null);
-  const [filter, setFilter] = useState<DealFilter>("all");
+  const [filter, setFilter] = useState<MyDealsFilter>("all");
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const filteredDeals = deals
-    ? deals.filter((deal) => matchDealFilter(deal, filter))
-    : [];
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -91,6 +73,7 @@ export default function MyDealsPage() {
     setError(null);
     setDeals(null);
     fetchMyDeals({
+      filter,
       limit: PAGE_SIZE + 1,
       offset: page * PAGE_SIZE,
     })
@@ -100,10 +83,10 @@ export default function MyDealsPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load deals."))
       .finally(() => setLoading(false));
-  }, [isAuthenticated, page]);
+  }, [filter, isAuthenticated, page]);
 
   function renderListContent() {
-    if (!deals || deals.length === 0) {
+    if (filter === "all" && (!deals || deals.length === 0)) {
       return (
         <EmptyState
           description="Pay for a consultation link to see it here."
@@ -113,7 +96,7 @@ export default function MyDealsPage() {
       );
     }
 
-    if (filteredDeals.length === 0) {
+    if (!deals || deals.length === 0) {
       return (
         <EmptyState
           description="Try another filter."
@@ -123,10 +106,10 @@ export default function MyDealsPage() {
       );
     }
 
-    return filteredDeals.map((deal, index) => (
+    return deals.map((deal, index) => (
       <DealRow
         deal={deal}
-        isLast={index === filteredDeals.length - 1}
+        isLast={index === deals.length - 1}
         key={deal.id}
       />
     ));
@@ -152,7 +135,7 @@ export default function MyDealsPage() {
 
       <SegmentedTabs
         onChange={(value) => {
-          setFilter(value as DealFilter);
+          setFilter(value as MyDealsFilter);
           setPage(0);
         }}
         options={FILTERS}
@@ -179,9 +162,9 @@ export default function MyDealsPage() {
             {renderListContent()}
           </ActionPanel>
 
-          {filteredDeals.length > 0 && (
+          {deals && deals.length > 0 && (
             <p style={footerCountStyle}>
-              Page {page + 1} · {filteredDeals.length} shown
+              Page {page + 1} · {deals.length} shown
             </p>
           )}
 

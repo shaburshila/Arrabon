@@ -573,6 +573,45 @@ export async function listBuyerDealRows(
   });
 }
 
+export async function getAllBuyerDealRows(
+  buyerAddress: string,
+): Promise<MyBuyerDealRow[]> {
+  const db = getServerDbClient().schema("public");
+  const { data: deals, error } = await db
+    .from("deals")
+    .select("*")
+    .eq("buyer_address", buyerAddress)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to list buyer deals: ${error.message}`,
+      error.code,
+    );
+  }
+
+  const dealRows = deals ?? [];
+
+  if (dealRows.length === 0) {
+    return [];
+  }
+
+  const linksById = await getConsultationLinksByDealRows(dealRows);
+
+  return dealRows.map((deal) => {
+    const linkedConsultationLink = linksById.get(deal.consultation_link_id);
+
+    if (!linkedConsultationLink) {
+      throw new DealsRepositoryError(
+        `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+        "CONSULTATION_LINK_MISSING",
+      );
+    }
+
+    return toMyBuyerDealRow(deal, linkedConsultationLink);
+  });
+}
+
 export async function listDisputedDealReviewRows(
   pagination?: Partial<ListPagination>,
 ): Promise<AdminDealReviewRow[]> {

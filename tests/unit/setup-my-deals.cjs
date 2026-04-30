@@ -25,6 +25,7 @@ class DealsRepositoryError extends Error {
 }
 
 const mocks = {
+  getAllBuyerDealRows: async () => [],
   listBuyerDealRows: async () => [],
   DealsRepositoryError,
 };
@@ -36,5 +37,6 @@ const root = path.resolve(__dirname, '../../');
 const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');
 require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
   DealsRepositoryError,
+  getAllBuyerDealRows: (...args) => mocks.getAllBuyerDealRows(...args),
   listBuyerDealRows: (...args) => mocks.listBuyerDealRows(...args),
 });

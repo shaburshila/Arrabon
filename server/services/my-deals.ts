@@ -4,10 +4,13 @@ import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import type { DealResolutionType, DealStatus } from "@/lib/db/types";
-import type { ListPagination } from "@/lib/validators/pagination";
+import {
+  normalizeListPagination,
+  type ListPagination,
+} from "@/lib/validators/pagination";
 import {
   DealsRepositoryError,
-  listBuyerDealRows,
+  getAllBuyerDealRows,
 } from "@/server/repositories/deals";
 
 export interface MyDealResult {
@@ -32,6 +35,25 @@ export interface MyDealResult {
   tx_hash: string | null;
 }
 
+export type MyDealsFilter =
+  | "all"
+  | "upcoming"
+  | "needs_action"
+  | "disputed"
+  | "resolved";
+
+function matchMyDealFilter(deal: MyDealResult, filter: MyDealsFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "upcoming") return deal.status === "Funded";
+  if (filter === "needs_action") return deal.status === "ConfirmPending";
+  if (filter === "disputed") return deal.status === "Disputed";
+  if (filter === "resolved") {
+    return deal.status === "Released" || deal.status === "Refunded";
+  }
+
+  return false;
+}
+
 export class MyDealsServiceError extends Error {
   code: string;
   status: number;
@@ -47,9 +69,14 @@ export class MyDealsServiceError extends Error {
 export async function listMyBuyerDeals(
   currentUser: CurrentUserContext,
   pagination?: Partial<ListPagination>,
+  filter: MyDealsFilter = "all",
 ): Promise<MyDealResult[]> {
   try {
-    return await listBuyerDealRows(getAddress(currentUser.wallet_address), pagination);
+    const rows = await getAllBuyerDealRows(getAddress(currentUser.wallet_address));
+    const filteredRows = rows.filter((deal) => matchMyDealFilter(deal, filter));
+    const { limit, offset } = normalizeListPagination(pagination);
+
+    return filteredRows.slice(offset, offset + limit);
   } catch (error) {
     if (error instanceof DealsRepositoryError) {
       if (error.code === "CONSULTATION_LINK_MISSING") {

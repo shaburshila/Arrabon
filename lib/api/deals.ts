@@ -11,15 +11,33 @@ export interface ListPaginationParams {
   offset: number;
 }
 
-function formatListQuery(params?: ListPaginationParams): string {
-  if (!params) {
+export type MyDealsFilter =
+  | "all"
+  | "upcoming"
+  | "needs_action"
+  | "disputed"
+  | "resolved";
+
+export interface FetchMyDealsParams extends Partial<ListPaginationParams> {
+  filter?: MyDealsFilter;
+}
+
+function formatListQuery(params?: FetchMyDealsParams): string {
+  if (!params || Object.keys(params).length === 0) {
     return "";
   }
 
-  const searchParams = new URLSearchParams({
-    limit: String(params.limit),
-    offset: String(params.offset),
-  });
+  const searchParams = new URLSearchParams();
+
+  if (params.filter) {
+    searchParams.set("filter", params.filter);
+  }
+  if (params.limit !== undefined) {
+    searchParams.set("limit", String(params.limit));
+  }
+  if (params.offset !== undefined) {
+    searchParams.set("offset", String(params.offset));
+  }
 
   return `?${searchParams.toString()}`;
 }
@@ -109,7 +127,7 @@ export async function fetchDeal(id: string): Promise<DealReadModel> {
 }
 
 // GET /api/me/deals — requires SIWE session, returns deals where current wallet is buyer
-export async function fetchMyDeals(params?: ListPaginationParams): Promise<MyDeal[]> {
+export async function fetchMyDeals(params?: FetchMyDealsParams): Promise<MyDeal[]> {
   const res = await fetch(`/api/me/deals${formatListQuery(params)}`);
   return parseResponse<MyDeal[]>(res);
 }

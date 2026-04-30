@@ -10,6 +10,7 @@ import {
 
 interface MyDealsMocks {
   DealsRepositoryError: new (message: string, code?: string) => Error & { code?: string };
+  getAllBuyerDealRows: (...args: unknown[]) => Promise<MyBuyerDealRow[]>;
   listBuyerDealRows: (...args: unknown[]) => Promise<MyBuyerDealRow[]>;
 }
 
@@ -53,6 +54,7 @@ function makeRow(overrides: Partial<MyBuyerDealRow> = {}): MyBuyerDealRow {
 }
 
 beforeEach(() => {
+  mocks.getAllBuyerDealRows = async () => [];
   mocks.listBuyerDealRows = async () => [];
 });
 
@@ -65,7 +67,7 @@ describe("listMyBuyerDeals", () => {
 
   test("normalizes current wallet before loading buyer deals", async () => {
     let receivedBuyerAddress: unknown = null;
-    mocks.listBuyerDealRows = async (buyerAddress) => {
+    mocks.getAllBuyerDealRows = async (buyerAddress) => {
       receivedBuyerAddress = buyerAddress;
       return [];
     };
@@ -75,20 +77,25 @@ describe("listMyBuyerDeals", () => {
     assert.equal(receivedBuyerAddress, BUYER_LOWER);
   });
 
-  test("passes pagination options to the repository", async () => {
-    let receivedPagination: unknown = null;
-    mocks.listBuyerDealRows = async (_buyerAddress, pagination) => {
-      receivedPagination = pagination;
-      return [];
+  test("does not pass pagination to the repository and slices in the service", async () => {
+    let receivedArgs: unknown[] | null = null;
+    mocks.getAllBuyerDealRows = async (...args) => {
+      receivedArgs = args;
+      return [
+        makeRow({ id: "deal-id-1", onchain_deal_id: "41" }),
+        makeRow({ id: "deal-id-2", onchain_deal_id: "42" }),
+        makeRow({ id: "deal-id-3", onchain_deal_id: "43" }),
+      ];
     };
 
-    await listMyBuyerDeals(currentUser, { limit: 25, offset: 50 });
+    const result = await listMyBuyerDeals(currentUser, { limit: 1, offset: 1 });
 
-    assert.deepEqual(receivedPagination, { limit: 25, offset: 50 });
+    assert.deepEqual(receivedArgs, [BUYER_LOWER]);
+    assert.deepEqual(result.map((deal) => deal.id), ["deal-id-2"]);
   });
 
   test("returns mapped buyer deal rows", async () => {
-    mocks.listBuyerDealRows = async () => [
+    mocks.getAllBuyerDealRows = async () => [
       makeRow({
         resolution_type: "admin_release",
         resolved_at: "2026-04-19T10:00:00.000Z",
@@ -109,7 +116,7 @@ describe("listMyBuyerDeals", () => {
   });
 
   test("maps repository errors to service errors", async () => {
-    mocks.listBuyerDealRows = async () => {
+    mocks.getAllBuyerDealRows = async () => {
       throw new mocks.DealsRepositoryError("db down", "DB_DOWN");
     };
 
@@ -125,7 +132,7 @@ describe("listMyBuyerDeals", () => {
   });
 
   test("preserves consultation-link-missing as a specific service error", async () => {
-    mocks.listBuyerDealRows = async () => {
+    mocks.getAllBuyerDealRows = async () => {
       throw new mocks.DealsRepositoryError("missing link", "CONSULTATION_LINK_MISSING");
     };
 
@@ -138,5 +145,72 @@ describe("listMyBuyerDeals", () => {
         return true;
       },
     );
+  });
+
+  test("applies upcoming filter before pagination", async () => {
+    mocks.getAllBuyerDealRows = async () => [
+      makeRow({ id: "deal-resolved-1", onchain_deal_id: "51", status: "Released" }),
+      makeRow({ id: "deal-resolved-2", onchain_deal_id: "52", status: "Refunded" }),
+      makeRow({ id: "deal-upcoming-1", onchain_deal_id: "53", status: "Funded" }),
+      makeRow({ id: "deal-upcoming-2", onchain_deal_id: "54", status: "Funded" }),
+    ];
+
+    const result = await listMyBuyerDeals(
+      currentUser,
+      { limit: 20, offset: 0 },
+      "upcoming",
+    );
+
+    assert.deepEqual(result.map((deal) => deal.id), [
+      "deal-upcoming-1",
+      "deal-upcoming-2",
+    ]);
+  });
+
+  test("returns only needs action deals for needs_action filter", async () => {
+    mocks.getAllBuyerDealRows = async () => [
+      makeRow({ id: "deal-upcoming", onchain_deal_id: "61", status: "Funded" }),
+      makeRow({ id: "deal-needs-action", onchain_deal_id: "62", status: "ConfirmPending" }),
+      makeRow({ id: "deal-disputed", onchain_deal_id: "63", status: "Disputed" }),
+    ];
+
+    const result = await listMyBuyerDeals(
+      currentUser,
+      undefined,
+      "needs_action",
+    );
+
+    assert.deepEqual(result.map((deal) => deal.id), ["deal-needs-action"]);
+  });
+
+  test("returns only disputed deals for disputed filter", async () => {
+    mocks.getAllBuyerDealRows = async () => [
+      makeRow({ id: "deal-disputed", onchain_deal_id: "71", status: "Disputed" }),
+      makeRow({ id: "deal-resolved", onchain_deal_id: "72", status: "Released" }),
+    ];
+
+    const result = await listMyBuyerDeals(
+      currentUser,
+      undefined,
+      "disputed",
+    );
+
+    assert.deepEqual(result.map((deal) => deal.id), ["deal-disputed"]);
+  });
+
+  test("returns only resolved deals for resolved filter", async () => {
+    mocks.getAllBuyerDealRows = async () => [
+      makeRow({ id: "deal-released", onchain_deal_id: "81", status: "Released" }),
+      makeRow({ id: "deal-refunded", onchain_deal_id: "82", status: "Refunded" }),
+      makeRow({ id: "deal-fund", onchain_deal_id: "83", status: "Funded" }),
+    ];
+
+    const result = await listMyBuyerDeals(
+      currentUser,
+      undefined,
+      "resolved",
+    );
+
+    assert.deepEqual(result.map((deal) => deal.id), ["deal-released", "deal-refunded"]);
   });
 });
