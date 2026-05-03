@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { jsonError } from "@/lib/api/response";
 import { AuthGuardError, requireAdmin } from "@/lib/auth/guards";
 import {
   AdminDenylistValidationError,
@@ -12,16 +13,6 @@ import {
 } from "@/server/services/admin-denylist";
 
 export const runtime = "nodejs";
-
-function jsonError(message: string, status: number, details?: unknown) {
-  return NextResponse.json(
-    {
-      details,
-      error: message,
-    },
-    { status },
-  );
-}
 
 export async function DELETE(
   request: Request,

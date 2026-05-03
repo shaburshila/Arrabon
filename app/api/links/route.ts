@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+import { jsonError } from "@/lib/api/response";
 import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
   ComplianceBlockedError,
@@ -20,16 +22,6 @@ import {
 } from "@/server/services/consultation-links";
 
 export const runtime = "nodejs";
-
-function jsonError(message: string, status: number, details?: unknown) {
-  return NextResponse.json(
-    {
-      details,
-      error: message,
-    },
-    { status },
-  );
-}
 
 const MY_LINK_FILTER_VALUES: ReadonlySet<MyConsultationLinksFilter> = new Set([
   "all",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { jsonError } from "@/lib/api/response";
 import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
   DealValidationError,
@@ -11,28 +12,6 @@ import {
 } from "@/server/services/deals-read";
 
 export const runtime = "nodejs";
-
-function jsonError(
-  message: string,
-  status: number,
-  details?: unknown,
-) {
-  const body: {
-    details?: unknown;
-    error: string;
-  } = {
-    error: message,
-  };
-
-  if (details !== undefined) {
-    body.details = details;
-  }
-
-  return NextResponse.json(
-    body,
-    { status },
-  );
-}
 
 export async function GET(
   _request: Request,
