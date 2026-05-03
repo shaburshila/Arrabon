@@ -62,6 +62,7 @@ type RouteMocks = {
   parseDealCompletionRouteParams: (
     params: { id?: string | undefined },
   ) => { dealId: string };
+  prepareOpenDisputeForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   prepareAutoReleaseForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   prepareConfirmReleaseForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   prepareMarkCompletedForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
@@ -72,6 +73,7 @@ const routeMocks: RouteMocks = {
   parseDealCompletionRouteParams: (params: { id?: string | undefined }) => ({
     dealId: params.id ?? "deal-id-1",
   }),
+  prepareOpenDisputeForDeal: async () => ({ ok: true }),
   prepareAutoReleaseForDeal: async () => ({ ok: true }),
   prepareConfirmReleaseForDeal: async () => ({ ok: true }),
   prepareMarkCompletedForDeal: async () => ({ ok: true }),
@@ -96,6 +98,8 @@ const routeMocks: RouteMocks = {
 });
 (require.cache as Record<string, unknown>)[servicePath] = makeEntry(servicePath, {
   DealCompletionServiceError,
+  prepareOpenDisputeForDeal: (currentUser: unknown, params: unknown) =>
+    routeMocks.prepareOpenDisputeForDeal(currentUser, params),
   prepareAutoReleaseForDeal: (currentUser: unknown, params: unknown) =>
     routeMocks.prepareAutoReleaseForDeal(currentUser, params),
   prepareConfirmReleaseForDeal: (currentUser: unknown, params: unknown) =>
@@ -108,11 +112,13 @@ const { ComplianceBlockedError } = require("../../lib/compliance/error-mapping")
 const { POST: completePost } = require("../../app/api/deals/[id]/complete/route");
 const { POST: releasePost } = require("../../app/api/deals/[id]/release/route");
 const { POST: autoReleasePost } = require("../../app/api/deals/[id]/auto-release/route");
+const { POST: disputePost } = require("../../app/api/deals/[id]/dispute/route");
 
 beforeEach(() => {
   routeMocks.parseDealCompletionRouteParams = (params: { id?: string | undefined }) => ({
     dealId: params.id ?? "deal-id-1",
   });
+  routeMocks.prepareOpenDisputeForDeal = async () => ({ ok: true });
   routeMocks.prepareAutoReleaseForDeal = async () => ({ ok: true });
   routeMocks.prepareConfirmReleaseForDeal = async () => ({ ok: true });
   routeMocks.prepareMarkCompletedForDeal = async () => ({ ok: true });
@@ -127,6 +133,14 @@ beforeEach(() => {
 });
 
 describe("deal lifecycle compliance routes", () => {
+  test("dispute route returns 201 on success", async () => {
+    const response = await disputePost(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "deal-id-1" }),
+    });
+
+    assert.equal(response.status, 201);
+  });
+
   test("complete route returns canonical 403 shape", async () => {
     routeMocks.prepareMarkCompletedForDeal = async (
       _currentUser: unknown,

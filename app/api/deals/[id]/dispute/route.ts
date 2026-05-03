@@ -22,7 +22,7 @@ export async function POST(
     const parsedParams = parseDealCompletionRouteParams(await params);
     const result = await prepareOpenDisputeForDeal(currentUser, parsedParams);
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof AuthGuardError) {
       return jsonError(error.message, error.status);

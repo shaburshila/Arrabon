@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const body = parseAddAdminDenylistBody(payload);
     const result = await addAdminDenylistEntry(adminUser, body);
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof AuthGuardError) {
       return jsonError(error.message, error.status);

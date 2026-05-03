@@ -206,7 +206,7 @@ describe("admin denylist routes", () => {
       }),
     );
 
-    assert.equal(response.status, 200);
+    assert.equal(response.status, 201);
     assert.ok(serviceArgs);
     assert.equal((serviceArgs[1] as { wallet: string }).wallet, "0x00000000000000000000000000000000000000BB");
   });
