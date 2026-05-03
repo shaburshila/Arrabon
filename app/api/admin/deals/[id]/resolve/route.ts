@@ -25,10 +25,18 @@ export const POST = withComplianceErrorHandling(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body.", 400);
+  }
+
   try {
     const adminUser = await requireAdmin();
     const parsedParams = parseDealRouteParams(await params);
-    const body = parseAdminResolveBody(await request.json().catch(() => null));
+    const body = parseAdminResolveBody(payload);
     const result = await prepareAdminResolveForDeal(
       adminUser,
       parsedParams,

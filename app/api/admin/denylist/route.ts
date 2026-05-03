@@ -43,9 +43,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body.", 400);
+  }
+
   try {
     const adminUser = await requireAdmin();
-    const body = parseAddAdminDenylistBody(await request.json().catch(() => null));
+    const body = parseAddAdminDenylistBody(payload);
     const result = await addAdminDenylistEntry(adminUser, body);
 
     return NextResponse.json(result);

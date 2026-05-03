@@ -49,10 +49,18 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body.", 400);
+  }
+
   try {
     const currentUser = await requireUser();
     const parsedParams = parseDealRouteParams(await params);
-    const parsedBody = parseCreateDisputeMessageBody(await request.json().catch(() => null));
+    const parsedBody = parseCreateDisputeMessageBody(payload);
     const result = await createDisputeMessageForDeal(
       currentUser,
       parsedParams,

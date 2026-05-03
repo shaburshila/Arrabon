@@ -135,6 +135,22 @@ beforeEach(() => {
 });
 
 describe("admin resolve compliance route", () => {
+  test("returns 400 for invalid JSON body", async () => {
+    const response = await POST(
+      new Request("http://localhost", {
+        body: "{",
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "deal-id-1" }) },
+    );
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: "Invalid JSON body.",
+    });
+  });
+
   test("returns canonical 403 shape", async () => {
     routeMocks.prepareAdminResolveForDeal = async (
       _currentUser: unknown,

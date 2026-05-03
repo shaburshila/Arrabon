@@ -176,6 +176,21 @@ describe("admin denylist routes", () => {
     });
   });
 
+  test("post route returns 400 for invalid JSON body", async () => {
+    const response = await POST(
+      new Request("http://localhost", {
+        body: "{",
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: "Invalid JSON body.",
+    });
+  });
+
   test("post route delegates validated body to service", async () => {
     let serviceArgs: unknown[] | null = null;
     routeMocks.addAdminDenylistEntry = async (...args: unknown[]) => {
@@ -219,6 +234,26 @@ describe("admin denylist routes", () => {
     assert.equal(response.status, 400);
     const body = await response.json();
     assert.equal(body.error, "Invalid admin denylist input.");
+  });
+
+  test("delete route returns 400 for invalid JSON body", async () => {
+    const response = await DELETE(
+      new Request("http://localhost", {
+        body: "{",
+        headers: { "content-type": "application/json" },
+        method: "DELETE",
+      }),
+      {
+        params: Promise.resolve({
+          wallet: "0x00000000000000000000000000000000000000BB",
+        }),
+      },
+    );
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: "Invalid JSON body.",
+    });
   });
 
   test("delete route delegates wallet and mandatory comment to service", async () => {

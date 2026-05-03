@@ -18,10 +18,18 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ wallet: string }> },
 ) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body.", 400);
+  }
+
   try {
     const adminUser = await requireAdmin();
     const parsedParams = parseAdminDenylistWalletRouteParams(await params);
-    const body = parseRemoveAdminDenylistBody(await request.json().catch(() => null));
+    const body = parseRemoveAdminDenylistBody(payload);
     const result = await removeAdminDenylistEntry(adminUser, parsedParams.wallet, body);
 
     return NextResponse.json(result);
