@@ -131,8 +131,34 @@ export interface MyBuyerDealRow {
   tx_hash: string | null;
 }
 
+type DealWithConsultationLinkRow = DealRow & {
+  consultation_links: ConsultationLinkRow | null;
+};
+
 function toUtcIsoString(value: Date | null): string | null {
   return value ? value.toISOString() : null;
+}
+
+async function loadDealWithConsultationLinkById(
+  dealId: string,
+  errorContext: "read view" | "reveal context" | "action context",
+): Promise<DealWithConsultationLinkRow | null> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("deals")
+    .select("*, consultation_links(*)")
+    .eq("id", dealId)
+    .returns<DealWithConsultationLinkRow>()
+    .maybeSingle();
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load deal ${errorContext}: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return data;
 }
 
 export async function getByConsultationLinkId(
@@ -318,25 +344,13 @@ export async function insertConfirmedDealAndMaybeConsumeLink(
 export async function getDealReadViewById(
   dealId: string,
 ): Promise<DealReadViewRow | null> {
-  const db = getServerDbClient().schema("public");
-  const { data: deal, error } = await db
-    .from("deals")
-    .select("*")
-    .eq("id", dealId)
-    .maybeSingle();
-
-  if (error) {
-    throw new DealsRepositoryError(
-      `Failed to load deal read view: ${error.message}`,
-      error.code,
-    );
-  }
+  const deal = await loadDealWithConsultationLinkById(dealId, "read view");
 
   if (!deal) {
     return null;
   }
 
-  const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+  const linkedConsultationLink = deal.consultation_links;
 
   if (!linkedConsultationLink) {
     throw new DealsRepositoryError(
@@ -366,25 +380,13 @@ export async function getDealReadViewById(
 export async function getDealRevealContextById(
   dealId: string,
 ): Promise<DealRevealContextRow | null> {
-  const db = getServerDbClient().schema("public");
-  const { data: deal, error } = await db
-    .from("deals")
-    .select("*")
-    .eq("id", dealId)
-    .maybeSingle();
-
-  if (error) {
-    throw new DealsRepositoryError(
-      `Failed to load deal reveal context: ${error.message}`,
-      error.code,
-    );
-  }
+  const deal = await loadDealWithConsultationLinkById(dealId, "reveal context");
 
   if (!deal) {
     return null;
   }
 
-  const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+  const linkedConsultationLink = deal.consultation_links;
 
   if (!linkedConsultationLink) {
     throw new DealsRepositoryError(
@@ -408,25 +410,13 @@ export async function getDealRevealContextById(
 export async function getDealActionContextById(
   dealId: string,
 ): Promise<DealActionContextRow | null> {
-  const db = getServerDbClient().schema("public");
-  const { data: deal, error } = await db
-    .from("deals")
-    .select("*")
-    .eq("id", dealId)
-    .maybeSingle();
-
-  if (error) {
-    throw new DealsRepositoryError(
-      `Failed to load deal action context: ${error.message}`,
-      error.code,
-    );
-  }
+  const deal = await loadDealWithConsultationLinkById(dealId, "action context");
 
   if (!deal) {
     return null;
   }
 
-  const linkedConsultationLink = await getConsultationLinkById(deal.consultation_link_id);
+  const linkedConsultationLink = deal.consultation_links;
 
   if (!linkedConsultationLink) {
     throw new DealsRepositoryError(
