@@ -25,6 +25,7 @@ const mocks = {
     gte: [],
     is: [],
     lte: [],
+    schema: [],
     select: [],
     update: [],
   },
@@ -58,6 +59,7 @@ mocks.reset = () => {
     gte: [],
     is: [],
     lte: [],
+    schema: [],
     select: [],
     update: [],
   };
@@ -93,6 +95,10 @@ function makeQueryBuilder() {
     wantsData: false,
     from(table) {
       mocks.calls.from.push(table);
+      return this;
+    },
+    schema(schemaName) {
+      mocks.calls.schema.push(schemaName);
       return this;
     },
     select(columns, options) {

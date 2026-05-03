@@ -1,4 +1,4 @@
-import type { SessionInsert, SessionRow } from "@/lib/db/types";
+import type { SessionInsert, SessionRow, SessionUpdate } from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
 
 function mustBeUtcDate(value: Date): string {
@@ -11,7 +11,7 @@ export async function createSession(
   tokenHash: string,
   expiresAt: Date,
 ): Promise<SessionRow> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const payload: SessionInsert = {
     is_admin: isAdmin,
     wallet,
@@ -21,7 +21,7 @@ export async function createSession(
 
   const { data, error } = await db
     .from("sessions")
-    .insert(payload as never)
+    .insert(payload)
     .select()
     .single();
 
@@ -33,7 +33,7 @@ export async function createSession(
 }
 
 export async function getSession(tokenHash: string): Promise<SessionRow | null> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const nowUtc = new Date().toISOString();
   const { data, error } = await db
     .from("sessions")
@@ -51,10 +51,13 @@ export async function getSession(tokenHash: string): Promise<SessionRow | null> 
 }
 
 export async function revokeSession(id: string): Promise<SessionRow | null> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
+  const payload: SessionUpdate = {
+    revoked_at: new Date().toISOString(),
+  };
   const { data, error } = await db
     .from("sessions")
-    .update({ revoked_at: new Date().toISOString() } as never)
+    .update(payload)
     .eq("id", id)
     .is("revoked_at", null)
     .select()

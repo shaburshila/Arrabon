@@ -1,4 +1,4 @@
-import type { AuthNonceInsert, AuthNonceRow } from "@/lib/db/types";
+import type { AuthNonceInsert, AuthNonceRow, AuthNonceUpdate } from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
 
 function mustBeUtcDate(value: Date): string {
@@ -10,7 +10,7 @@ export async function createNonce(
   nonce: string,
   expiresAt: Date,
 ): Promise<AuthNonceRow> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const payload: AuthNonceInsert = {
     wallet,
     nonce,
@@ -19,7 +19,7 @@ export async function createNonce(
 
   const { data, error } = await db
     .from("auth_nonces")
-    .insert(payload as never)
+    .insert(payload)
     .select()
     .single();
 
@@ -31,7 +31,7 @@ export async function createNonce(
 }
 
 export async function countRecentNonces(wallet: string, since: Date): Promise<number> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const { count, error } = await db
     .from("auth_nonces")
     .select("id", { count: "exact", head: true })
@@ -50,10 +50,13 @@ export async function countRecentNonces(wallet: string, since: Date): Promise<nu
 }
 
 export async function invalidateActiveNonces(wallet: string, now: Date): Promise<void> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
+  const payload: AuthNonceUpdate = {
+    used_at: mustBeUtcDate(now),
+  };
   const { error } = await db
     .from("auth_nonces")
-    .update({ used_at: mustBeUtcDate(now) } as never)
+    .update(payload)
     .eq("wallet", wallet)
     .is("used_at", null)
     .gt("expires_at", mustBeUtcDate(now));
@@ -64,7 +67,7 @@ export async function invalidateActiveNonces(wallet: string, now: Date): Promise
 }
 
 export async function deleteExpiredNonces(now: Date): Promise<void> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const { error } = await db
     .from("auth_nonces")
     .delete()
@@ -79,7 +82,7 @@ export async function getValidNonce(
   wallet: string,
   nonce: string,
 ): Promise<AuthNonceRow | null> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const nowUtc = new Date().toISOString();
   const { data, error } = await db
     .from("auth_nonces")
@@ -104,11 +107,14 @@ export async function consumeValidNonce(
   nonce: string,
   now: Date,
 ): Promise<AuthNonceRow | null> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
   const nowUtc = mustBeUtcDate(now);
+  const payload: AuthNonceUpdate = {
+    used_at: nowUtc,
+  };
   const { data, error } = await db
     .from("auth_nonces")
-    .update({ used_at: nowUtc } as never)
+    .update(payload)
     .select()
     .eq("wallet", wallet)
     .eq("nonce", nonce)
@@ -124,10 +130,13 @@ export async function consumeValidNonce(
 }
 
 export async function markUsed(id: string): Promise<AuthNonceRow | null> {
-  const db = getServerDbClient();
+  const db = getServerDbClient().schema("public");
+  const payload: AuthNonceUpdate = {
+    used_at: new Date().toISOString(),
+  };
   const { data, error } = await db
     .from("auth_nonces")
-    .update({ used_at: new Date().toISOString() } as never)
+    .update(payload)
     .eq("id", id)
     .is("used_at", null)
     .select()
