@@ -488,13 +488,17 @@ export function CreateLinkForm({ session }: { session: WalletSessionState }) {
               reasonCode={compliance.complianceReasonCode}
               walletAddress={compliance.complianceWallet}
             />
-          ) : error && (
-            <Notice
-              message={error}
-              title="Could not create link"
-              tone="danger"
-            />
-          )}
+          ) : null}
+
+          <div aria-live="polite" role="status">
+            {!compliance.isBlocked && error ? (
+              <Notice
+                message={error}
+                title="Could not create link"
+                tone="danger"
+              />
+            ) : null}
+          </div>
 
           <Notice
             message="Funds are held in escrow on Base until the consultation is confirmed or disputed."
