@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export default function ErrorPage({
+  error,
   reset,
 }: {
   error: Error;
   reset: () => void;
 }) {
   const [reloading, setReloading] = useState(false);
+
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
 
   function handleReset() {
     setReloading(true);

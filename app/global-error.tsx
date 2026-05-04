@@ -15,12 +15,17 @@ const themeVarsCss = `
 `;
 
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error;
   reset: () => void;
 }) {
   const [reloading, setReloading] = useState(false);
+
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
 
   useEffect(() => {
     try {
