@@ -2,7 +2,8 @@
 // Frontend never builds calldata independently — it only executes what the backend prepares.
 // dataSuffix (Builder Code) is appended to all calls when NEXT_PUBLIC_BUILDER_CODE is set.
 
-import { sendTransaction, waitForTransactionReceipt } from "@wagmi/core";
+import { getConnectorClient, waitForTransactionReceipt } from "@wagmi/core";
+import { sendTransaction } from "viem/actions";
 import { encodeFunctionData, getAddress, type Address, type Hex } from "viem";
 import type { Config } from "wagmi";
 
@@ -15,6 +16,7 @@ import {
   confirmReleaseFunctionAbi,
   openDisputeFunctionAbi,
 } from "@/lib/base/consult-escrow-abi";
+import { resolveBaseChain } from "@/lib/base/chains";
 import { baseRuntimeConfig } from "@/lib/base/config";
 import type { FundingContractCall } from "@/lib/api/links";
 import type { LifecycleContractCall } from "@/lib/api/deals";
@@ -40,6 +42,24 @@ function withBuilderCodeSuffix(data: Hex): Hex {
   return (data + suffix) as Hex;
 }
 
+async function executePreparedTransaction(
+  config: Config,
+  chainId: number,
+  data: Hex,
+  to: Address,
+): Promise<Hex> {
+  const client = await getConnectorClient(config, {
+    assertChainId: false,
+    chainId,
+  });
+
+  return sendTransaction(client, {
+    chain: resolveBaseChain(chainId),
+    data,
+    to,
+  });
+}
+
 // Execute a backend-prepared createAndFundDeal call.
 // Returns the tx hash immediately after submission.
 export async function executeFundingCall(
@@ -61,11 +81,12 @@ export async function executeFundingCall(
     functionName: "createAndFundDeal",
   });
 
-  return sendTransaction(config, {
-    chainId: contractCall.chain_id,
-    data: withBuilderCodeSuffix(encodedData),
-    to: getAddress(contract_address),
-  });
+  return executePreparedTransaction(
+    config,
+    contractCall.chain_id,
+    withBuilderCodeSuffix(encodedData),
+    getAddress(contract_address),
+  );
 }
 
 // Execute a backend-prepared lifecycle call.
@@ -105,11 +126,12 @@ export async function executeLifecycleCall(
     });
   }
 
-  return sendTransaction(config, {
-    chainId: contractCall.chain_id,
-    data: withBuilderCodeSuffix(encodedData),
-    to: getAddress(contract_address),
-  });
+  return executePreparedTransaction(
+    config,
+    contractCall.chain_id,
+    withBuilderCodeSuffix(encodedData),
+    getAddress(contract_address),
+  );
 }
 
 // Execute a backend-prepared admin dispute resolution call.
@@ -130,11 +152,12 @@ export async function executeAdminCall(
     functionName: function_name,
   });
 
-  return sendTransaction(config, {
-    chainId: contractCall.chain_id,
-    data: withBuilderCodeSuffix(encodedData),
-    to: getAddress(contract_address),
-  });
+  return executePreparedTransaction(
+    config,
+    contractCall.chain_id,
+    withBuilderCodeSuffix(encodedData),
+    getAddress(contract_address),
+  );
 }
 
 // Wait for a transaction to be confirmed on chain.
