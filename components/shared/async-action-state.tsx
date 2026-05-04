@@ -3,6 +3,7 @@
 // Reusable tx feedback UI: shows step label, tx hash link, error message.
 
 import type { Hex } from "viem";
+import { Notice } from "@/components/shared/notice";
 
 interface AsyncActionStateProps {
   error: string | null;
@@ -64,18 +65,10 @@ export function AsyncActionState({ error, step, stepLabel, txHash }: AsyncAction
       )}
 
       {error && (
-        <div
-          style={{
-            background: "var(--danger-muted)",
-            border: "1px solid var(--danger)",
-            borderRadius: "var(--radius-sm)",
-            color: "var(--danger)",
-            fontSize: 13,
-            padding: "10px 14px",
-          }}
-        >
-          {error}
-        </div>
+        <Notice
+          message={error}
+          tone="danger"
+        />
       )}
     </div>
   );

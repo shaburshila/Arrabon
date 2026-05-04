@@ -174,10 +174,10 @@ export function useFundingFlow(
       // 1. Backend prepare — source of truth for all contract args
       const prepared = await prepareFunding(linkId);
       const { contract_call } = prepared;
-      const escrowAddress = getAddress(contract_call.contract_address) as Address;
+      const escrowAddress = getAddress(contract_call.contract_address);
       const price = BigInt(contract_call.args.price);
       // walletAddress from prepared response (backend derives from session)
-      const buyerAddress = getAddress(prepared.buyer_address) as Address;
+      const buyerAddress = getAddress(prepared.buyer_address);
 
       // 2. USDC approval if needed
       await ensureUsdcAllowance(config, buyerAddress, escrowAddress, price, {
