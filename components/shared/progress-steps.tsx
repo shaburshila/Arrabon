@@ -18,7 +18,16 @@ export function ProgressSteps({
   style?: CSSProperties;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", ...style }}>
+    <ol
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        listStyle: "none",
+        margin: 0,
+        padding: 0,
+        ...style,
+      }}
+    >
       {steps.map((step, index) => (
         <ProgressStep
           item={step}
@@ -26,7 +35,7 @@ export function ProgressSteps({
           last={index === steps.length - 1}
         />
       ))}
-    </div>
+    </ol>
   );
 }
 
@@ -40,7 +49,7 @@ function ProgressStep({
   const colors = getStepColors(item.state);
 
   return (
-    <div style={{ display: "flex", gap: 12 }}>
+    <li style={{ display: "flex", gap: 12 }}>
       <div style={railStyle}>
         <div
           style={{
@@ -76,7 +85,7 @@ function ProgressStep({
           <p style={processingStyle}>Processing...</p>
         )}
       </div>
-    </div>
+    </li>
   );
 }
 
