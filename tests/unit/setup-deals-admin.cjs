@@ -48,15 +48,15 @@ const mocks = {
     walletAddress: '0x0000000000000000000000000000000000000001',
   }),
   prepareAdminResolveRefundCall: (dealId) => ({
-    args: { deal_id: dealId },
     chain_id: 8453,
     contract_address: '0x0000000000000000000000000000000000000001',
+    data: '0x' + String(dealId).padStart(64, '0'),
     function_name: 'adminResolveRefund',
   }),
   prepareAdminResolveReleaseCall: (dealId) => ({
-    args: { deal_id: dealId },
     chain_id: 8453,
     contract_address: '0x0000000000000000000000000000000000000001',
+    data: '0x' + String(dealId).padStart(64, '0'),
     function_name: 'adminResolveRelease',
   }),
   DealsRepositoryError,

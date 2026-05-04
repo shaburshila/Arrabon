@@ -94,7 +94,7 @@ describe("prepareMarkCompletedForDeal availability", () => {
 
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "markCompleted");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("screens seller with lifecycle_complete context before preparing call", async () => {
@@ -141,9 +141,9 @@ describe("prepareMarkCompletedForDeal availability", () => {
       (dealId: unknown) => {
         prepareCalls += 1;
         return {
-          args: { deal_id: dealId },
           chain_id: 8453,
           contract_address: "0x0000000000000000000000000000000000000001",
+          data: `0x${String(dealId).padStart(64, "0")}`,
           function_name: "markCompleted",
         };
       };
@@ -170,7 +170,7 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
 
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "confirmRelease");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("rejects confirm release after the 48h deadline", async () => {
@@ -282,7 +282,7 @@ describe("prepareOpenDisputeForDeal deadline boundary", () => {
 
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "openDispute");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("allows funded dispute after scheduled_at", async () => {
@@ -296,7 +296,7 @@ describe("prepareOpenDisputeForDeal deadline boundary", () => {
 
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "openDispute");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("rejects funded dispute when scheduled_at is invalid", async () => {
@@ -329,7 +329,7 @@ describe("prepareOpenDisputeForDeal deadline boundary", () => {
 
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "openDispute");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("rejects open dispute after the 48h deadline", async () => {
@@ -375,7 +375,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
 
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.contract_call.function_name, "autoRelease");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("screens seller while keeping current user as actor", async () => {

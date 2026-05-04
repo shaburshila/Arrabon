@@ -1,5 +1,6 @@
 import {
   decodeEventLog,
+  encodeFunctionData,
   getAddress,
   parseUnits,
   type Address,
@@ -17,6 +18,7 @@ import {
   markCompletedFunctionAbi,
   openDisputeFunctionAbi,
 } from "@/lib/base/consult-escrow-abi";
+import { baseRuntimeConfig } from "@/lib/base/config";
 
 export const dealFundedEventAbi = {
   type: "event",
@@ -91,20 +93,14 @@ export interface CreateAndFundDealInput {
 export interface PreparedCreateAndFundDealCall {
   chain_id: number;
   contract_address: Address;
+  data: Hex;
   function_name: "createAndFundDeal";
-  args: {
-    buyer: Address;
-    duration_minutes: string;
-    link_hash: string;
-    price: string;
-    scheduled_at: string;
-    seller: Address;
-  };
 }
 
 export interface PreparedDealLifecycleCall {
   chain_id: number;
   contract_address: Address;
+  data: Hex;
   function_name:
     | "adminResolveRefund"
     | "adminResolveRelease"
@@ -112,9 +108,6 @@ export interface PreparedDealLifecycleCall {
     | "confirmRelease"
     | "markCompleted"
     | "openDispute";
-  args: {
-    deal_id: string;
-  };
 }
 
 export interface NormalizedFundedEvent {
@@ -182,6 +175,16 @@ export class ConsultEscrowConfigError extends Error {
     super(message);
     this.name = "ConsultEscrowConfigError";
   }
+}
+
+function withBuilderCodeSuffix(data: Hex): Hex {
+  const builderCode = baseRuntimeConfig.builderCode;
+  if (!builderCode) {
+    return data;
+  }
+
+  const suffix = builderCode.startsWith("0x") ? builderCode.slice(2) : builderCode;
+  return (data + suffix) as Hex;
 }
 
 function getRequiredEnv(name: "NEXT_PUBLIC_BASE_CHAIN_ID" | "NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS"): string {
@@ -393,14 +396,53 @@ function prepareDealLifecycleCall(
 ): PreparedDealLifecycleCall {
   const contractAddress = getContractAddress();
   const chainId = getChainId();
+  const onchainDealIdValue = BigInt(onchainDealId);
+
+  let data: Hex;
+
+  if (functionName === "markCompleted") {
+    data = encodeFunctionData({
+      abi: [markCompletedFunctionAbi],
+      args: [onchainDealIdValue],
+      functionName: "markCompleted",
+    });
+  } else if (functionName === "confirmRelease") {
+    data = encodeFunctionData({
+      abi: [confirmReleaseFunctionAbi],
+      args: [onchainDealIdValue],
+      functionName: "confirmRelease",
+    });
+  } else if (functionName === "autoRelease") {
+    data = encodeFunctionData({
+      abi: [autoReleaseFunctionAbi],
+      args: [onchainDealIdValue],
+      functionName: "autoRelease",
+    });
+  } else if (functionName === "openDispute") {
+    data = encodeFunctionData({
+      abi: [openDisputeFunctionAbi],
+      args: [onchainDealIdValue],
+      functionName: "openDispute",
+    });
+  } else if (functionName === "adminResolveRelease") {
+    data = encodeFunctionData({
+      abi: [adminResolveReleaseFunctionAbi],
+      args: [onchainDealIdValue],
+      functionName: "adminResolveRelease",
+    });
+  } else {
+    data = encodeFunctionData({
+      abi: [adminResolveRefundFunctionAbi],
+      args: [onchainDealIdValue],
+      functionName: "adminResolveRefund",
+    });
+  }
 
   return {
     chain_id: chainId,
     contract_address: contractAddress,
+    data: withBuilderCodeSuffix(data),
     function_name: functionName,
-    args: {
-      deal_id: onchainDealId,
-    },
   };
 }
 
@@ -439,18 +481,23 @@ export function prepareCreateAndFundDealCall(
   const price = parseUnits(input.priceUsdc, 6);
   const scheduledAt = toUnixSeconds(input.scheduledAt);
   const durationMinutes = BigInt(input.durationMinutes);
+  const data = encodeFunctionData({
+    abi: [createAndFundDealFunctionAbi],
+    args: [
+      linkHash,
+      seller,
+      buyer,
+      price,
+      scheduledAt,
+      durationMinutes,
+    ],
+    functionName: "createAndFundDeal",
+  });
 
   return {
     chain_id: chainId,
     contract_address: contractAddress,
+    data: withBuilderCodeSuffix(data),
     function_name: "createAndFundDeal",
-    args: {
-      buyer,
-      duration_minutes: toUint256String(durationMinutes),
-      link_hash: linkHash,
-      price: toUint256String(price),
-      scheduled_at: toUint256String(scheduledAt),
-      seller,
-    },
   };
 }

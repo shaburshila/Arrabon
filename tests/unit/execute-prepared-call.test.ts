@@ -98,16 +98,9 @@ beforeEach(() => {
 describe("execute-prepared-call chain wiring", () => {
   test("funding call uses getConnectorClient with assertChainId false and passes full Base Sepolia chain", async () => {
     await executeFundingCall(config, {
-      args: {
-        buyer: "0x00000000000000000000000000000000000000AA",
-        duration_minutes: "60",
-        link_hash: `0x${"1".repeat(64)}`,
-        price: "1000000",
-        scheduled_at: "1735689600",
-        seller: "0x00000000000000000000000000000000000000BB",
-      },
       chain_id: 84532,
       contract_address: "0x00000000000000000000000000000000000000CC",
+      data: `0x${"1".repeat(64)}`,
       function_name: "createAndFundDeal",
     });
 
@@ -125,21 +118,21 @@ describe("execute-prepared-call chain wiring", () => {
     assert.equal(requestArg.chain.id, 84532);
     assert.equal(requestArg.chain.name, "Base Sepolia");
     assert.equal(requestArg.to, "0x00000000000000000000000000000000000000cc");
-    assert.match(requestArg.data, /^0x[0-9a-f]+$/);
+    assert.equal(requestArg.data, `0x${"1".repeat(64)}`);
   });
 
   test("lifecycle and admin calls also use the same resolved chain path", async () => {
     await executeLifecycleCall(config, {
-      args: { deal_id: "42" },
       chain_id: 84532,
       contract_address: "0x00000000000000000000000000000000000000CC",
+      data: `0x${"2".repeat(64)}`,
       function_name: "confirmRelease",
     });
 
     await executeAdminCall(config, {
-      args: { deal_id: "42" },
       chain_id: 84532,
       contract_address: "0x00000000000000000000000000000000000000CC",
+      data: `0x${"3".repeat(64)}`,
       function_name: "adminResolveRefund",
     });
 
@@ -150,10 +143,18 @@ describe("execute-prepared-call chain wiring", () => {
 
     assert.equal(viemActionMocks.sendTransactionCalls.length, 2);
     for (const [, requestArg] of viemActionMocks.sendTransactionCalls as Array<
-      [typeof connectorClient, { chain: { id: number; name: string } }]
+      [typeof connectorClient, { chain: { id: number; name: string }; data: `0x${string}` }]
     >) {
       assert.equal(requestArg.chain.id, 84532);
       assert.equal(requestArg.chain.name, "Base Sepolia");
     }
+    assert.equal(
+      (viemActionMocks.sendTransactionCalls[0] as [typeof connectorClient, { data: `0x${string}` }])[1].data,
+      `0x${"2".repeat(64)}`,
+    );
+    assert.equal(
+      (viemActionMocks.sendTransactionCalls[1] as [typeof connectorClient, { data: `0x${string}` }])[1].data,
+      `0x${"3".repeat(64)}`,
+    );
   });
 });

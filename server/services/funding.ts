@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAddress } from "viem";
+import { getAddress, parseUnits } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
@@ -25,6 +25,7 @@ import { screenWalletsBatch } from "@/server/services/compliance";
 type FundingUnavailableStatus = "Cancelled" | "Consumed" | "Expired";
 
 export interface PrepareFundingResult {
+  approval_amount: string;
   buyer_address: string;
   consultation_link_id: string;
   contract_call: PreparedCreateAndFundDealCall;
@@ -175,6 +176,7 @@ export async function prepareFundingForLink(
 
   try {
     return {
+      approval_amount: parseUnits(String(link.price_usdc), 6).toString(10),
       buyer_address: getAddress(currentUser.wallet_address),
       consultation_link_id: link.id,
       contract_call: prepareCreateAndFundDealCall({

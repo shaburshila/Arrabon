@@ -251,6 +251,7 @@ Response:
 {
   "consultation_link_id": "link_123",
   "link_hash": "0xlinkhash",
+  "approval_amount": "100000000",
   "buyer_address": "0xbuyer...",
   "seller_address": "0xseller...",
   "schedule": {
@@ -261,14 +262,7 @@ Response:
     "chain_id": 8453,
     "contract_address": "0xcontract...",
     "function_name": "createAndFundDeal",
-    "args": {
-      "link_hash": "0xlinkhash",
-      "seller": "0xseller...",
-      "buyer": "0xbuyer...",
-      "price": "100000000",
-      "scheduled_at": "1774699200",
-      "duration_minutes": "30"
-    }
+    "data": "0xpreparedcall..."
   }
 }
 ```
@@ -286,7 +280,7 @@ Errors:
 
 Notes:
 
-- Response contains structured args only; encoded calldata is not returned.
+- Response contains backend-produced opaque calldata in `contract_call.data`.
 - The prepare response is a snapshot. By tx submission time, offchain state may already have changed.
 - Source-of-truth boundary: funding must be unavailable once `now >= expires_at`.
 
@@ -405,7 +399,7 @@ Errors:
 
 ## 6. Deal Completion Endpoints
 
-Lifecycle endpoints are **prepare-only**: they return structured contract call arguments for the caller's wallet to sign and submit. No deal state is written by the backend. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
+Lifecycle endpoints are **prepare-only**: they return opaque backend-produced contract call payload for the caller's wallet to sign and submit. No deal state is written by the backend. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
 
 Request body: empty `{}` or omitted for all lifecycle endpoints.
 
@@ -418,9 +412,7 @@ Response shape for all three (on success):
     "chain_id": 8453,
     "contract_address": "0xcontract...",
     "function_name": "<markCompleted|confirmRelease|openDispute|autoRelease>",
-    "args": {
-      "deal_id": "17"
-    }
+    "data": "0xpreparedcall..."
   }
 }
 ```

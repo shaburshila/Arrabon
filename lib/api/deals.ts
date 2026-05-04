@@ -109,9 +109,9 @@ export interface MyDeal {
 
 // Contract call shape returned by lifecycle prepare endpoints.
 export interface LifecycleContractCall {
-  args: { deal_id: string }; // onchain deal id (uint256 as string)
   chain_id: number;
   contract_address: string;
+  data: `0x${string}`;
   function_name: "autoRelease" | "confirmRelease" | "markCompleted" | "openDispute";
 }
 

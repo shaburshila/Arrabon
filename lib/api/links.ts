@@ -90,21 +90,15 @@ export interface CreateLinkInput {
 
 // Contract call args from funding prepare
 export interface FundingContractCall {
-  args: {
-    buyer: string;
-    duration_minutes: string;
-    link_hash: string;
-    price: string;
-    scheduled_at: string;
-    seller: string;
-  };
   chain_id: number;
   contract_address: string;
+  data: Hex;
   function_name: "createAndFundDeal";
 }
 
 // Shape returned by POST /api/links/:id/funding/prepare
 export interface FundingPrepareResult {
+  approval_amount: string;
   buyer_address: string;
   consultation_link_id: string;
   contract_call: FundingContractCall;

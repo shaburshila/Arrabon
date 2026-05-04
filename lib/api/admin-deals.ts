@@ -81,9 +81,9 @@ export interface AdminResolvedDealReview {
 }
 
 export interface AdminContractCall {
-  args: { deal_id: string };
   chain_id: number;
   contract_address: string;
+  data: `0x${string}`;
   function_name: "adminResolveRefund" | "adminResolveRelease";
 }
 

@@ -1,23 +1,12 @@
-// Executes backend-prepared contract calls via wagmi sendTransaction.
-// Frontend never builds calldata independently — it only executes what the backend prepares.
-// dataSuffix (Builder Code) is appended to all calls when NEXT_PUBLIC_BUILDER_CODE is set.
+// Executes backend-prepared contract calls via viem/wagmi.
+// Frontend never builds calldata independently — it only executes the opaque payload from the backend.
 
 import { getConnectorClient, waitForTransactionReceipt } from "@wagmi/core";
 import { sendTransaction } from "viem/actions";
-import { encodeFunctionData, getAddress, type Address, type Hex } from "viem";
+import { getAddress, type Address, type Hex } from "viem";
 import type { Config } from "wagmi";
 
-import {
-  adminResolveRefundFunctionAbi,
-  adminResolveReleaseFunctionAbi,
-  autoReleaseFunctionAbi,
-  createAndFundDealFunctionAbi,
-  markCompletedFunctionAbi,
-  confirmReleaseFunctionAbi,
-  openDisputeFunctionAbi,
-} from "@/lib/base/consult-escrow-abi";
 import { resolveBaseChain } from "@/lib/base/chains";
-import { baseRuntimeConfig } from "@/lib/base/config";
 import type { FundingContractCall } from "@/lib/api/links";
 import type { LifecycleContractCall } from "@/lib/api/deals";
 import type { AdminContractCall } from "@/lib/api/admin-deals";
@@ -30,16 +19,6 @@ export class TransactionRevertedError extends Error {
     this.name = "TransactionRevertedError";
     this.txHash = txHash;
   }
-}
-
-// Append Builder Code dataSuffix if configured.
-// Format: raw hex bytes appended after function calldata.
-function withBuilderCodeSuffix(data: Hex): Hex {
-  const builderCode = baseRuntimeConfig.builderCode;
-  if (!builderCode) return data;
-  // Strip 0x prefix from suffix and append
-  const suffix = builderCode.startsWith("0x") ? builderCode.slice(2) : builderCode;
-  return (data + suffix) as Hex;
 }
 
 async function executePreparedTransaction(
@@ -66,97 +45,37 @@ export async function executeFundingCall(
   config: Config,
   contractCall: FundingContractCall,
 ): Promise<Hex> {
-  const { args, contract_address } = contractCall;
-
-  const encodedData = encodeFunctionData({
-    abi: [createAndFundDealFunctionAbi],
-    args: [
-      args.link_hash as Hex,
-      getAddress(args.seller) as Address,
-      getAddress(args.buyer) as Address,
-      BigInt(args.price),
-      BigInt(args.scheduled_at),
-      BigInt(args.duration_minutes),
-    ],
-    functionName: "createAndFundDeal",
-  });
-
   return executePreparedTransaction(
     config,
     contractCall.chain_id,
-    withBuilderCodeSuffix(encodedData),
-    getAddress(contract_address),
+    contractCall.data,
+    getAddress(contractCall.contract_address),
   );
 }
 
 // Execute a backend-prepared lifecycle call.
-// args.deal_id from backend is the onchain uint256 deal id as a decimal string.
 export async function executeLifecycleCall(
   config: Config,
   contractCall: LifecycleContractCall,
 ): Promise<Hex> {
-  const { args, contract_address, function_name } = contractCall;
-  const onchainDealId = BigInt(args.deal_id);
-
-  let encodedData: Hex;
-
-  if (function_name === "markCompleted") {
-    encodedData = encodeFunctionData({
-      abi: [markCompletedFunctionAbi],
-      args: [onchainDealId],
-      functionName: "markCompleted",
-    });
-  } else if (function_name === "confirmRelease") {
-    encodedData = encodeFunctionData({
-      abi: [confirmReleaseFunctionAbi],
-      args: [onchainDealId],
-      functionName: "confirmRelease",
-    });
-  } else if (function_name === "autoRelease") {
-    encodedData = encodeFunctionData({
-      abi: [autoReleaseFunctionAbi],
-      args: [onchainDealId],
-      functionName: "autoRelease",
-    });
-  } else {
-    encodedData = encodeFunctionData({
-      abi: [openDisputeFunctionAbi],
-      args: [onchainDealId],
-      functionName: "openDispute",
-    });
-  }
-
   return executePreparedTransaction(
     config,
     contractCall.chain_id,
-    withBuilderCodeSuffix(encodedData),
-    getAddress(contract_address),
+    contractCall.data,
+    getAddress(contractCall.contract_address),
   );
 }
 
 // Execute a backend-prepared admin dispute resolution call.
-// args.deal_id from backend is the onchain uint256 deal id as a decimal string.
 export async function executeAdminCall(
   config: Config,
   contractCall: AdminContractCall,
 ): Promise<Hex> {
-  const { args, contract_address, function_name } = contractCall;
-  const onchainDealId = BigInt(args.deal_id);
-
-  const encodedData = encodeFunctionData({
-    abi:
-      function_name === "adminResolveRelease"
-        ? [adminResolveReleaseFunctionAbi]
-        : [adminResolveRefundFunctionAbi],
-    args: [onchainDealId],
-    functionName: function_name,
-  });
-
   return executePreparedTransaction(
     config,
     contractCall.chain_id,
-    withBuilderCodeSuffix(encodedData),
-    getAddress(contract_address),
+    contractCall.data,
+    getAddress(contractCall.contract_address),
   );
 }
 

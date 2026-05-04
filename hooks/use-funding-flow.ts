@@ -175,7 +175,7 @@ export function useFundingFlow(
       const prepared = await prepareFunding(linkId);
       const { contract_call } = prepared;
       const escrowAddress = getAddress(contract_call.contract_address);
-      const price = BigInt(contract_call.args.price);
+      const price = BigInt(prepared.approval_amount);
       // walletAddress from prepared response (backend derives from session)
       const buyerAddress = getAddress(prepared.buyer_address);
 

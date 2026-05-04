@@ -55,9 +55,9 @@ const mocks = {
   getByConsultationLinkId: async () => null,
   getById: async () => null,
   prepareCreateAndFundDealCall: (input) => ({
-    args: input,
     chain_id: 84532,
     contract_address: '0x0000000000000000000000000000000000000001',
+    data: '0x' + '1'.repeat(64),
     function_name: 'createAndFundDeal',
   }),
   screenWalletsBatch: async () => [],
@@ -71,9 +71,9 @@ const mocks = {
     this.getByConsultationLinkId = async () => null;
     this.getById = async () => null;
     this.prepareCreateAndFundDealCall = (input) => ({
-      args: input,
       chain_id: 84532,
       contract_address: '0x0000000000000000000000000000000000000001',
+      data: '0x' + '1'.repeat(64),
       function_name: 'createAndFundDeal',
     });
     this.screenWalletsBatch = async () => [];

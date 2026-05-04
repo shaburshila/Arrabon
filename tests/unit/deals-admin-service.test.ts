@@ -108,9 +108,9 @@ beforeEach(() => {
   mocks.screenWalletForDeal = async (walletAddress: unknown) =>
     makeScreeningResult(String(walletAddress));
   mocks.prepareAdminResolveReleaseCall = (dealId: unknown) => ({
-    args: { deal_id: dealId },
     chain_id: 8453,
     contract_address: "0x0000000000000000000000000000000000000001",
+    data: `0x${String(dealId).padStart(64, "0")}`,
     function_name: "adminResolveRelease",
   });
 });
@@ -252,7 +252,7 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.resolution, "release");
     assert.equal(result.contract_call.function_name, "adminResolveRelease");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("screens seller for release with admin as actor", async () => {
@@ -284,7 +284,7 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.resolution, "refund");
     assert.equal(result.contract_call.function_name, "adminResolveRefund");
-    assert.equal(result.contract_call.args.deal_id, "42");
+    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
   test("screens buyer for refund with admin as actor", async () => {
