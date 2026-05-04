@@ -5,11 +5,12 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { getAddress, type Address } from "viem";
+import type { Address } from "viem";
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
+import { getComplianceWalletAddress } from "@/lib/base/compliance";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
@@ -73,24 +74,6 @@ export function createInitialCreateLinkComplianceState(): CreateLinkComplianceSt
     complianceReasonCode: null,
     complianceWallet: null,
   };
-}
-
-function getComplianceWalletAddress(body: unknown): Address | null {
-  if (!body || typeof body !== "object" || !("wallet_address" in body)) {
-    return null;
-  }
-
-  const walletAddress = (body as { wallet_address?: unknown }).wallet_address;
-
-  if (typeof walletAddress !== "string") {
-    return null;
-  }
-
-  try {
-    return getAddress(walletAddress) as Address;
-  } catch {
-    return null;
-  }
 }
 
 export function getCreateLinkErrorState(err: unknown): {

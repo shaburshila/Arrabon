@@ -6,7 +6,7 @@
 
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useConfig } from "wagmi";
-import { getAddress, type Address, type Hex } from "viem";
+import { type Address, type Hex } from "viem";
 
 import {
   type DealReadModel,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/deals";
 import { triggerFundingSync } from "@/lib/api/links";
 import { ApiError } from "@/lib/api/auth";
+import { getComplianceWalletAddress } from "@/lib/base/compliance";
 import { executeLifecycleCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 
 export type ActionStep =
@@ -48,24 +49,6 @@ export interface DealAction {
 interface ActionMutex {
   lockRef: MutableRefObject<boolean>;
   setIsAnyActionInFlight: (value: boolean) => void;
-}
-
-function getComplianceWalletAddress(body: unknown): Address | null {
-  if (!body || typeof body !== "object" || !("wallet_address" in body)) {
-    return null;
-  }
-
-  const walletAddress = (body as { wallet_address?: unknown }).wallet_address;
-
-  if (typeof walletAddress !== "string") {
-    return null;
-  }
-
-  try {
-    return getAddress(walletAddress) as Address;
-  } catch {
-    return null;
-  }
 }
 
 export function createInitialActionState(): ActionState {

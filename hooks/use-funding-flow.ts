@@ -14,6 +14,7 @@ import {
   type FundingSyncResult,
 } from "@/lib/api/links";
 import { ApiError } from "@/lib/api/auth";
+import { getComplianceWalletAddress } from "@/lib/base/compliance";
 import { ensureUsdcAllowance } from "@/lib/contract/usdc";
 import { executeFundingCall, waitForTx } from "@/lib/contract/execute-prepared-call";
 
@@ -36,24 +37,6 @@ export interface FundingState {
   error: string | null;
   step: FundingStep;
   txHash: Hex | null;
-}
-
-function getComplianceWalletAddress(body: unknown): Address | null {
-  if (!body || typeof body !== "object" || !("wallet_address" in body)) {
-    return null;
-  }
-
-  const walletAddress = (body as { wallet_address?: unknown }).wallet_address;
-
-  if (typeof walletAddress !== "string") {
-    return null;
-  }
-
-  try {
-    return getAddress(walletAddress) as Address;
-  } catch {
-    return null;
-  }
 }
 
 export function createInitialFundingState(): FundingState {
