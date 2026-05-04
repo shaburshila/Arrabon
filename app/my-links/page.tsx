@@ -270,6 +270,7 @@ function LinkRow({
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [origin, setOrigin] = useState("");
+  const isOriginReady = origin !== "";
   const shareUrl = `${origin}${link.share_url}`;
   const badge = getMyLinkBadge(link);
 
@@ -308,10 +309,14 @@ function LinkRow({
       />
 
       <div style={actionsStyle}>
-        <CopyIconButton text={shareUrl} />
+        <CopyIconButton
+          disabled={!isOriginReady}
+          text={shareUrl}
+        />
 
         {link.status === "Open" && (
           <IconAnchor
+            disabled={!isOriginReady}
             href={shareUrl}
             label="Open checkout"
           >
@@ -332,10 +337,14 @@ function LinkRow({
   );
 }
 
-function CopyIconButton({ text }: { text: string }) {
+function CopyIconButton({ disabled = false, text }: { disabled?: boolean; text: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
+    if (disabled) {
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -347,6 +356,7 @@ function CopyIconButton({ text }: { text: string }) {
 
   return (
     <IconButton
+      disabled={disabled}
       label="Copy link"
       onClick={handleCopy}
     >
@@ -357,10 +367,12 @@ function CopyIconButton({ text }: { text: string }) {
 
 function IconButton({
   children,
+  disabled = false,
   label,
   onClick,
 }: {
   children: ReactNode;
+  disabled?: boolean;
   label: string;
   onClick: () => void;
 }) {
@@ -369,10 +381,11 @@ function IconButton({
   return (
     <button
       aria-label={label}
+      disabled={disabled}
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => setIsHovered(!disabled)}
       onMouseLeave={() => setIsHovered(false)}
-      style={iconActionStyle(isHovered)}
+      style={iconActionStyle(isHovered, disabled)}
       title={label}
       type="button"
     >
@@ -383,10 +396,12 @@ function IconButton({
 
 function IconAnchor({
   children,
+  disabled = false,
   href,
   label,
 }: {
   children: ReactNode;
+  disabled?: boolean;
   href: string;
   label: string;
 }) {
@@ -395,11 +410,18 @@ function IconAnchor({
   return (
     <a
       aria-label={label}
-      href={href}
-      onMouseEnter={() => setIsHovered(true)}
+      aria-disabled={disabled}
+      href={disabled ? undefined : href}
+      onClick={(event) => {
+        if (disabled) {
+          event.preventDefault();
+        }
+      }}
+      onMouseEnter={() => setIsHovered(!disabled)}
       onMouseLeave={() => setIsHovered(false)}
       rel="noreferrer"
-      style={iconActionStyle(isHovered)}
+      style={iconActionStyle(isHovered, disabled)}
+      tabIndex={disabled ? -1 : undefined}
       target="_blank"
       title={label}
     >
@@ -444,17 +466,18 @@ function getMyLinkBadge(link: MyLink): MyLinkBadge {
   return LINK_STATUS_CONFIG[link.status];
 }
 
-function iconActionStyle(isHovered: boolean): CSSProperties {
+function iconActionStyle(isHovered: boolean, isDisabled = false): CSSProperties {
   return {
     alignItems: "center",
-    background: isHovered ? "var(--muted-bg)" : "transparent",
+    background: isDisabled ? "transparent" : (isHovered ? "var(--muted-bg)" : "transparent"),
     border: "none",
     borderRadius: "var(--radius-sm)",
     color: "var(--muted)",
-    cursor: "pointer",
+    cursor: isDisabled ? "default" : "pointer",
     display: "inline-flex",
     height: 32,
     justifyContent: "center",
+    opacity: isDisabled ? 0.5 : 1,
     padding: 6,
     textDecoration: "none",
     transition: "background 0.15s, color 0.15s",
