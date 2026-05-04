@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -27,9 +27,11 @@ function applyTheme(theme: Theme) {
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const attr = document.documentElement.getAttribute("data-theme");
+    const applied = attr === "light" || attr === "dark" ? attr : null;
     const stored = getStoredTheme();
-    const resolved = stored ?? getSystemTheme();
+    const resolved = applied ?? stored ?? getSystemTheme();
     setTheme(resolved);
     applyTheme(resolved);
   }, []);
