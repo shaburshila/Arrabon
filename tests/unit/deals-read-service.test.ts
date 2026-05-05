@@ -67,6 +67,7 @@ function makeReadView(overrides: Partial<DealReadViewRow> = {}): DealReadViewRow
     id: "deal-id-1",
     onchain_deal_id: "1",
     price_usdc: "125.50",
+    risk_status: "Clear",
     resolution_type: null,
     resolved_at: null,
     resolved_by_wallet: null,
@@ -92,6 +93,14 @@ describe("getDealReadModel", () => {
     const result = await getDealReadModel(currentUser, { dealId: "deal-id-1" });
 
     assert.equal(result.price_usdc, "250.00");
+  });
+
+  test("includes risk_status from the deal read view", async () => {
+    mocks.getDealReadViewById = async () => makeReadView({ risk_status: "Blocked" });
+
+    const result = await getDealReadModel(currentUser, { dealId: "deal-id-1" });
+
+    assert.equal(result.risk_status, "Blocked");
   });
 
   test("allows the seller to read the deal", async () => {

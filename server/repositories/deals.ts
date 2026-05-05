@@ -51,6 +51,7 @@ export interface DealReadViewRow {
   id: string;
   onchain_deal_id: string;
   price_usdc: string;
+  risk_status: DealRow["risk_status"];
   resolution_type: DealResolutionType | null;
   resolved_at: string | null;
   resolved_by_wallet: string | null;
@@ -366,6 +367,7 @@ export async function getDealReadViewById(
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: String(linkedConsultationLink.price_usdc),
+    risk_status: deal.risk_status,
     resolution_type: deal.resolution_type,
     resolved_at: deal.resolved_at,
     resolved_by_wallet: deal.resolved_by_wallet,

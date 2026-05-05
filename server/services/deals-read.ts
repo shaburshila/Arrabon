@@ -4,7 +4,7 @@ import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import { computeReleaseDeadlineMs } from "@/lib/constants/deals";
-import type { DealResolutionType, DealStatus } from "@/lib/db/types";
+import type { DealResolutionType, DealRiskStatus, DealStatus } from "@/lib/db/types";
 import type { DealRouteParams } from "@/lib/validators/deals";
 import { decryptMeetingUrl } from "@/lib/crypto/meeting-url";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
@@ -28,6 +28,7 @@ export interface DealReadModel {
   id: string;
   onchain_deal_id: string;
   price_usdc: string;
+  risk_status: DealRiskStatus;
   release_deadline_at: string | null;
   resolution_type: DealResolutionType | null;
   resolved_at: string | null;
@@ -197,6 +198,7 @@ export async function getDealReadModel(
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: deal.price_usdc,
+    risk_status: deal.risk_status,
     release_deadline_at: computeReleaseDeadline(deal.completed_at),
     resolution_type: deal.resolution_type,
     resolved_at: deal.resolved_at,

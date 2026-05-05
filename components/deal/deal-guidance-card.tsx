@@ -1,6 +1,6 @@
 "use client";
 
-import type { DealStatus } from "@/lib/api/deals";
+import type { DealRiskStatus, DealStatus } from "@/lib/api/deals";
 import { ActionPanel } from "@/components/shared/action-panel";
 
 interface DealGuidanceCardProps {
@@ -9,6 +9,7 @@ interface DealGuidanceCardProps {
   isSeller: boolean;
   isViewer: boolean;
   priceUsdc?: string;
+  riskStatus?: DealRiskStatus;
   releaseDeadlineAt: string | null;
   scheduledAt: string;
 }
@@ -59,6 +60,7 @@ function getGuidanceMessage({
   isSeller,
   isViewer,
   priceUsdc,
+  riskStatus = "Clear",
   releaseDeadlineAt,
   scheduledAt,
 }: DealGuidanceCardProps): string {
@@ -68,6 +70,19 @@ function getGuidanceMessage({
 
   const scheduledTime = formatAbsoluteDate(scheduledAt);
   const amount = priceUsdc ? `$${priceUsdc} USDC` : null;
+  const shouldOverrideForCompliance =
+    (dealStatus === "Funded" ||
+      dealStatus === "ConfirmPending" ||
+      dealStatus === "Disputed") &&
+    (riskStatus === "Blocked" || riskStatus === "Review");
+
+  if (shouldOverrideForCompliance) {
+    if (riskStatus === "Blocked") {
+      return "This deal is under compliance review. Payouts are temporarily paused while the hold is reviewed.";
+    }
+
+    return "This deal is under compliance review. Payout actions may be delayed while checks are completed.";
+  }
 
   switch (dealStatus) {
     case "Funded":

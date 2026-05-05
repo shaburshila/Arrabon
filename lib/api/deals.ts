@@ -55,6 +55,8 @@ export type DealResolutionType =
   | "auto_release"
   | "buyer_confirmed";
 
+export type DealRiskStatus = "Blocked" | "Clear" | "Review";
+
 const POLLABLE_DEAL_STATUSES: ReadonlySet<DealStatus> = new Set([
   "ConfirmPending",
   "Disputed",
@@ -73,6 +75,7 @@ export interface DealReadModel {
   id: string;
   onchain_deal_id: string;
   price_usdc: string;
+  risk_status: DealRiskStatus;
   release_deadline_at: string | null;
   resolution_type: DealResolutionType | null;
   resolved_at: string | null;

@@ -20,7 +20,7 @@ import { KeyTimes } from "@/components/deal/key-times";
 import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { LiveBadge } from "@/components/shared/live-badge";
 import { Notice } from "@/components/shared/notice";
-import { isDealStatusPollable } from "@/lib/api/deals";
+import { isDealStatusPollable, type DealReadModel } from "@/lib/api/deals";
 
 // Buyer can dispute from Funded (no-show) or ConfirmPending (within window)
 function isDeadlinePassed(value: string | null): boolean {
@@ -65,6 +65,38 @@ function getBackLink(input: { isBuyer: boolean; isSeller: boolean }) {
   return { href: "/", label: "← Home" };
 }
 
+function getRiskStatusNotice(deal: DealReadModel): { message: string; title: string } | null {
+  if (deal.risk_status === "Blocked") {
+    if (deal.status === "Released" || deal.status === "Refunded") {
+      return {
+        message: "This deal was flagged during compliance review. The completed outcome is shown for transparency.",
+        title: "Compliance Flag",
+      };
+    }
+
+    return {
+      message: "This deal is under compliance review. Payouts are temporarily paused until the hold is resolved.",
+      title: "Compliance Hold",
+    };
+  }
+
+  if (deal.risk_status === "Review") {
+    if (deal.status === "Released" || deal.status === "Refunded") {
+      return {
+        message: "This deal was flagged for compliance review. The current status remains visible for transparency.",
+        title: "Compliance Review",
+      };
+    }
+
+    return {
+      message: "This deal is under compliance review. Some actions may be delayed while checks are completed.",
+      title: "Compliance Review",
+    };
+  }
+
+  return null;
+}
+
 export default function DealPage() {
   const params = useParams();
   const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
@@ -80,6 +112,10 @@ export default function DealPage() {
     isBuyer: dealPage.isBuyer,
     isSeller: dealPage.isSeller,
   });
+  const riskStatusNotice =
+    dealPage.status === "ready" && dealPage.deal
+      ? getRiskStatusNotice(dealPage.deal)
+      : null;
 
   return (
     <AppShell maxWidth={480}>
@@ -118,6 +154,14 @@ export default function DealPage() {
       {/* Main content */}
       {dealPage.status === "ready" && dealPage.deal && (
         <>
+          {riskStatusNotice && (
+            <Notice
+              message={riskStatusNotice.message}
+              title={riskStatusNotice.title}
+              tone="warning"
+            />
+          )}
+
           <DealStatusCard
             deal={dealPage.deal}
             isAdmin={session.session?.is_admin === true}
@@ -129,6 +173,7 @@ export default function DealPage() {
             isSeller={dealPage.isSeller}
             isViewer={!dealPage.isParticipant}
             priceUsdc={dealPage.deal.price_usdc}
+            riskStatus={dealPage.deal.risk_status}
             releaseDeadlineAt={dealPage.deal.release_deadline_at}
             scheduledAt={dealPage.deal.scheduled_at}
           />
