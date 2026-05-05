@@ -127,7 +127,9 @@ MVP должен гарантировать:
 - Mitigation:
   - post-funding rescreening on confirmed `Funded`
   - `deals.risk_status = Blocked`
-  - legal hold on all payout-path backend prepare endpoints
+  - legal hold on all payout-path backend exchange / prepare endpoints
+  - short-lived one-time execution grants for access-controlled payout paths (`confirmRelease`, `adminResolve*`)
+  - SIWE-bound exchange step re-checks `issued_to_wallet`, `deal_id`, legal hold, and payout recipient before returning calldata
 
 ### T-10 Admin bypass of legal hold
 
@@ -176,6 +178,8 @@ MVP должен гарантировать:
 | Backend stores encrypted meeting URL | Privacy acceptable for MVP with encryption at rest |
 | Backend helper can call autoRelease for UX | Not trusted for correctness; chain remains source of truth |
 | Funds already in escrow may become legally frozen post-funding | Accepted MVP trade-off; release/refund stays blocked pending manual legal review |
+| Access-controlled payout stale-window is narrowed, not eliminated | After grant exchange there is still a residual window before wallet broadcast |
+| `autoRelease` remains stale-prepare-sensitive in v1 | Permissionless liveness is preserved; full revocation requires contract redesign |
 
 ---
 

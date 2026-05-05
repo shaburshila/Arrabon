@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash, randomBytes } from "node:crypto";
+
 import { assertCompliance } from "@/lib/compliance/error-mapping";
 import type { ComplianceReasonCode, ComplianceCheckRow, DealRiskStatus } from "@/lib/db/types";
 import {
@@ -20,6 +22,11 @@ import {
   ComplianceChecksRepositoryError,
   findByDealNewestFirst,
 } from "@/server/repositories/compliance-checks";
+import {
+  createPayoutExecutionGrant,
+  consumePayoutExecutionGrant,
+  PayoutExecutionGrantsRepositoryError,
+} from "@/server/repositories/payout-execution-grants";
 import {
   DealsRepositoryError,
   getAdminDealReviewRowById,
@@ -117,6 +124,16 @@ export interface PreparedAdminResolveResult {
   deal_id: string;
   resolution: AdminResolution;
 }
+
+export interface AdminResolveGrantIssueResult {
+  action: "adminResolveRefund" | "adminResolveRelease";
+  deal_id: string;
+  expires_at: string;
+  grant_token: string;
+  resolution: AdminResolution;
+}
+
+const PAYOUT_GRANT_TTL_MS = 120_000;
 
 export class DealAdminServiceError extends Error {
   code: string;
@@ -331,6 +348,14 @@ function mapRepositoryError(error: unknown): never {
     );
   }
 
+  if (error instanceof PayoutExecutionGrantsRepositoryError) {
+    throw new DealAdminServiceError(
+      "Failed to manage payout authorization.",
+      500,
+      error.code ?? "PAYOUT_GRANT_FAILED",
+    );
+  }
+
   if (isEconnresetLike(error)) {
     console.warn("Supabase cold start detected (ECONNRESET)", {
       code: error.code ?? "ECONNRESET",
@@ -339,6 +364,81 @@ function mapRepositoryError(error: unknown): never {
   }
 
   throw error;
+}
+
+function buildGrantToken(): { token: string; tokenHash: string } {
+  const rawToken = randomBytes(32);
+
+  return {
+    token: rawToken.toString("hex"),
+    tokenHash: createHash("sha256").update(rawToken).digest("hex"),
+  };
+}
+
+async function issueAdminResolveGrant(
+  currentUser: CurrentUserContext,
+  dealId: string,
+  resolution: AdminResolution,
+  now: Date,
+): Promise<AdminResolveGrantIssueResult> {
+  const { token, tokenHash } = buildGrantToken();
+  const expiresAt = new Date(now.getTime() + PAYOUT_GRANT_TTL_MS).toISOString();
+  const action =
+    resolution === "release" ? "adminResolveRelease" : "adminResolveRefund";
+
+  await createPayoutExecutionGrant({
+    action,
+    dealId,
+    expiresAt,
+    issuedByWallet: currentUser.wallet_address,
+    issuedToWallet: currentUser.wallet_address,
+    resolution,
+    tokenHash,
+  });
+
+  return {
+    action,
+    deal_id: dealId,
+    expires_at: expiresAt,
+    grant_token: token,
+    resolution,
+  };
+}
+
+async function consumeAdminResolveGrant(
+  currentUser: CurrentUserContext,
+  dealId: string,
+  grantToken: string,
+  now: Date,
+) {
+  const rawToken = Buffer.from(grantToken, "hex");
+
+  if (rawToken.length !== 32) {
+    throw new DealAdminServiceError(
+      "Payout authorization is invalid or expired.",
+      409,
+      "PAYOUT_GRANT_INVALID",
+    );
+  }
+
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const grant = await consumePayoutExecutionGrant({
+    allowedActions: ["adminResolveRelease", "adminResolveRefund"],
+    dealId,
+    issuedToWallet: currentUser.wallet_address,
+    now: now.toISOString(),
+    tokenHash,
+  });
+
+  if (!grant) {
+    throw new DealAdminServiceError(
+      "Payout authorization is invalid or expired.",
+      409,
+      "PAYOUT_GRANT_INVALID",
+    );
+  }
+
+  return grant;
 }
 
 export async function listAdminDisputedDeals(
@@ -387,6 +487,40 @@ export async function prepareAdminResolveForDeal(
   currentUser: CurrentUserContext,
   input: DealRouteParams,
   resolution: AdminResolution,
+  now: Date = new Date(),
+): Promise<AdminResolveGrantIssueResult> {
+  let context;
+
+  try {
+    context = await getDealActionContextById(input.dealId);
+  } catch (error) {
+    mapRepositoryError(error);
+  }
+
+  if (!context) {
+    throw new DealAdminServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
+  }
+
+  if (context.status !== "Disputed") {
+    throw new DealAdminServiceError(
+      "Deal is not in dispute.",
+      409,
+      "DEAL_NOT_DISPUTED",
+    );
+  }
+
+  try {
+    return await issueAdminResolveGrant(currentUser, context.id, resolution, now);
+  } catch (error) {
+    mapRepositoryError(error);
+  }
+}
+
+export async function exchangeAdminResolveGrantForDeal(
+  currentUser: CurrentUserContext,
+  input: DealRouteParams,
+  grantToken: string,
+  now: Date = new Date(),
 ): Promise<PreparedAdminResolveResult> {
   let context;
 
@@ -408,21 +542,54 @@ export async function prepareAdminResolveForDeal(
     );
   }
 
-  if (context.risk_status === "Blocked") {
-    await assertDealNotBlocked(context.id);
+  await assertDealNotBlocked(context.id);
+  const screeningContexts = {
+    refund: {
+      action: "admin_resolve_refund" as const,
+      actorWallet: currentUser.wallet_address,
+      dealId: context.id,
+    },
+    release: {
+      action: "admin_resolve_release" as const,
+      actorWallet: currentUser.wallet_address,
+      dealId: context.id,
+    },
+  };
+  const releaseScreeningResult = await screenWalletForDeal(
+    context.seller_address,
+    screeningContexts.release,
+  );
+  const refundScreeningResult = await screenWalletForDeal(
+    context.buyer_address,
+    screeningContexts.refund,
+  );
+
+  let grant;
+
+  try {
+    grant = await consumeAdminResolveGrant(currentUser, input.dealId, grantToken, now);
+  } catch (error) {
+    mapRepositoryError(error);
   }
 
-  const targetWallet =
-    resolution === "release" ? context.seller_address : context.buyer_address;
-  const screeningContext = {
-    action:
-      resolution === "release"
-        ? ("admin_resolve_release" as const)
-        : ("admin_resolve_refund" as const),
-    actorWallet: currentUser.wallet_address,
-    dealId: context.id,
-  };
-  const screeningResult = await screenWalletForDeal(targetWallet, screeningContext);
+  const resolution = grant.resolution;
+
+  if (!resolution) {
+    throw new DealAdminServiceError(
+      "Payout authorization is invalid.",
+      500,
+      "PAYOUT_GRANT_INVALID",
+    );
+  }
+
+  const screeningContext =
+    resolution === "release"
+      ? screeningContexts.release
+      : screeningContexts.refund;
+  const screeningResult =
+    resolution === "release"
+      ? releaseScreeningResult
+      : refundScreeningResult;
   assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
 
   let contractCall: PreparedDealLifecycleCall;

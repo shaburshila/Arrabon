@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash, randomBytes } from "node:crypto";
 import { getAddress } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
@@ -18,12 +19,26 @@ import {
   DealsRepositoryError,
   getDealActionContextById,
 } from "@/server/repositories/deals";
+import {
+  createPayoutExecutionGrant,
+  consumePayoutExecutionGrant,
+  PayoutExecutionGrantsRepositoryError,
+} from "@/server/repositories/payout-execution-grants";
 import { assertDealNotBlocked, screenWalletForDeal } from "@/server/services/compliance";
 
 export interface PreparedDealLifecycleResult {
   contract_call: PreparedDealLifecycleCall;
   deal_id: string;
 }
+
+export interface PayoutExecutionGrantIssueResult {
+  action: "confirmRelease";
+  deal_id: string;
+  expires_at: string;
+  grant_token: string;
+}
+
+const PAYOUT_GRANT_TTL_MS = 120_000;
 
 export class DealCompletionServiceError extends Error {
   code: string;
@@ -171,6 +186,105 @@ function buildPreparedResult(dealId: string, contractCall: PreparedDealLifecycle
   };
 }
 
+function buildGrantToken(): { token: string; tokenHash: string } {
+  const rawToken = randomBytes(32);
+
+  return {
+    token: rawToken.toString("hex"),
+    tokenHash: createHash("sha256").update(rawToken).digest("hex"),
+  };
+}
+
+async function issueConfirmReleaseGrant(
+  currentUser: CurrentUserContext,
+  dealId: string,
+  now: Date,
+): Promise<PayoutExecutionGrantIssueResult> {
+  const { token, tokenHash } = buildGrantToken();
+  const expiresAt = new Date(now.getTime() + PAYOUT_GRANT_TTL_MS).toISOString();
+
+  try {
+    await createPayoutExecutionGrant({
+      action: "confirmRelease",
+      dealId,
+      expiresAt,
+      issuedByWallet: currentUser.wallet_address,
+      issuedToWallet: currentUser.wallet_address,
+      tokenHash,
+    });
+  } catch (error) {
+    if (error instanceof PayoutExecutionGrantsRepositoryError) {
+      throw new DealCompletionServiceError(
+        "Failed to issue payout authorization.",
+        500,
+        error.code ?? "PAYOUT_GRANT_CREATE_FAILED",
+      );
+    }
+
+    throw error;
+  }
+
+  return {
+    action: "confirmRelease",
+    deal_id: dealId,
+    expires_at: expiresAt,
+    grant_token: token,
+  };
+}
+
+async function consumeConfirmReleaseGrant(
+  currentUser: CurrentUserContext,
+  dealId: string,
+  grantToken: string,
+  now: Date,
+) {
+  const rawToken = Buffer.from(grantToken, "hex");
+
+  if (rawToken.length !== 32) {
+    throw new DealCompletionServiceError(
+      "Payout authorization is invalid or expired.",
+      409,
+      "PAYOUT_GRANT_INVALID",
+    );
+  }
+
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+
+  try {
+    const grant = await consumePayoutExecutionGrant({
+      allowedActions: ["confirmRelease"],
+      dealId,
+      issuedToWallet: currentUser.wallet_address,
+      now: now.toISOString(),
+      tokenHash,
+    });
+
+    if (!grant) {
+      throw new DealCompletionServiceError(
+        "Payout authorization is invalid or expired.",
+        409,
+        "PAYOUT_GRANT_INVALID",
+      );
+    }
+
+    return grant;
+  } catch (error) {
+    if (error instanceof DealCompletionServiceError) {
+      throw error;
+    }
+
+    if (error instanceof PayoutExecutionGrantsRepositoryError) {
+      throw new DealCompletionServiceError(
+        "Failed to consume payout authorization.",
+        500,
+        error.code ?? "PAYOUT_GRANT_CONSUME_FAILED",
+      );
+    }
+
+    throw error;
+  }
+}
+
 export async function prepareMarkCompletedForDeal(
   currentUser: CurrentUserContext,
   input: DealCompletionRouteParams,
@@ -225,7 +339,7 @@ export async function prepareConfirmReleaseForDeal(
   currentUser: CurrentUserContext,
   input: DealCompletionRouteParams,
   now: Date = new Date(),
-): Promise<PreparedDealLifecycleResult> {
+): Promise<PayoutExecutionGrantIssueResult> {
   const context = await getActionContext(input);
 
   if (!context) {
@@ -253,9 +367,42 @@ export async function prepareConfirmReleaseForDeal(
     );
   }
 
-  if (context.risk_status === "Blocked") {
-    await assertDealNotBlocked(context.id);
+  return issueConfirmReleaseGrant(currentUser, context.id, now);
+}
+
+export async function exchangeConfirmReleaseGrantForDeal(
+  currentUser: CurrentUserContext,
+  input: DealCompletionRouteParams,
+  grantToken: string,
+  now: Date = new Date(),
+): Promise<PreparedDealLifecycleResult> {
+  const context = await getActionContext(input);
+
+  if (!context) {
+    throw new DealCompletionServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
   }
+
+  assertBuyer(currentUser, context.buyer_address);
+
+  if (context.status !== "ConfirmPending") {
+    throw new DealCompletionServiceError(
+      "Deal cannot be released in its current state.",
+      409,
+      "DEAL_NOT_CONFIRM_PENDING",
+    );
+  }
+
+  const releaseDeadline = computeReleaseDeadline(context.completed_at);
+
+  if (now.getTime() > releaseDeadline.getTime()) {
+    throw new DealCompletionServiceError(
+      "Release deadline has passed.",
+      409,
+      "RELEASE_DEADLINE_PASSED",
+    );
+  }
+
+  await assertDealNotBlocked(context.id);
 
   const screeningContext = {
     action: "lifecycle_release" as const,
@@ -267,6 +414,8 @@ export async function prepareConfirmReleaseForDeal(
     screeningContext,
   );
   assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
+
+  await consumeConfirmReleaseGrant(currentUser, input.dealId, grantToken, now);
 
   try {
     return buildPreparedResult(

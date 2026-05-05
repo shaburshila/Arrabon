@@ -308,6 +308,11 @@ export interface WalletDenylistUpdate {
 }
 
 export type AdminResolutionIntentResolution = "refund" | "release";
+export type PayoutExecutionGrantAction =
+  | "adminResolveRefund"
+  | "adminResolveRelease"
+  | "confirmRelease";
+export type PayoutExecutionGrantResolution = "refund" | "release";
 
 export interface AdminResolutionIntentRow {
   id: string;
@@ -336,6 +341,44 @@ export interface AdminResolutionIntentUpdate {
   admin_wallet?: string;
   created_at?: string;
   consumed_at?: string | null;
+}
+
+export interface PayoutExecutionGrantRow {
+  id: string;
+  deal_id: string;
+  action: PayoutExecutionGrantAction;
+  resolution: PayoutExecutionGrantResolution | null;
+  issued_to_wallet: string;
+  issued_by_wallet: string;
+  token_hash: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+}
+
+export interface PayoutExecutionGrantInsert {
+  id?: string;
+  deal_id: string;
+  action: PayoutExecutionGrantAction;
+  resolution?: PayoutExecutionGrantResolution | null;
+  issued_to_wallet: string;
+  issued_by_wallet: string;
+  token_hash: string;
+  expires_at: string;
+  used_at?: string | null;
+  created_at?: string;
+}
+
+export interface PayoutExecutionGrantUpdate {
+  deal_id?: string;
+  action?: PayoutExecutionGrantAction;
+  resolution?: PayoutExecutionGrantResolution | null;
+  issued_to_wallet?: string;
+  issued_by_wallet?: string;
+  token_hash?: string;
+  expires_at?: string;
+  used_at?: string | null;
+  created_at?: string;
 }
 
 export interface AuditLogRow {
@@ -491,6 +534,20 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "admin_resolution_intents_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payout_execution_grants: {
+        Row: PayoutExecutionGrantRow;
+        Insert: PayoutExecutionGrantInsert;
+        Update: PayoutExecutionGrantUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "payout_execution_grants_deal_id_fkey";
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";

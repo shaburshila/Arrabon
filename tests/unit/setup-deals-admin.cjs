@@ -35,6 +35,21 @@ const mocks = {
   assertDealNotBlocked: async () => {},
   assertCompliance: () => {},
   createAdminResolutionIntent: async () => ({ id: 'intent-id-1' }),
+  createPayoutExecutionGrant: async () => ({
+    id: 'grant-id-1',
+  }),
+  consumePayoutExecutionGrant: async () => ({
+    action: 'adminResolveRelease',
+    created_at: '2026-05-05T00:00:00.000Z',
+    deal_id: 'deal-id-1',
+    expires_at: '2026-05-05T00:02:00.000Z',
+    id: 'grant-id-1',
+    issued_by_wallet: '0x0000000000000000000000000000000000000003',
+    issued_to_wallet: '0x0000000000000000000000000000000000000003',
+    resolution: 'release',
+    token_hash: 'token-hash',
+    used_at: '2026-05-05T00:01:00.000Z',
+  }),
   findByDealNewestFirst: async () => [],
   getAdminDealReviewRowById: async () => null,
   getDealActionContextById: async () => null,
@@ -89,6 +104,19 @@ require.cache[complianceChecksRepoPath] = makeEntry(complianceChecksRepoPath, {
     }
   },
   findByDealNewestFirst: (...args) => mocks.findByDealNewestFirst(...args),
+});
+
+const payoutExecutionGrantsRepoPath = path.resolve(root, 'server/repositories/payout-execution-grants.ts');
+require.cache[payoutExecutionGrantsRepoPath] = makeEntry(payoutExecutionGrantsRepoPath, {
+  PayoutExecutionGrantsRepositoryError: class PayoutExecutionGrantsRepositoryError extends Error {
+    constructor(message, code) {
+      super(message);
+      this.name = 'PayoutExecutionGrantsRepositoryError';
+      this.code = code;
+    }
+  },
+  createPayoutExecutionGrant: (...args) => mocks.createPayoutExecutionGrant(...args),
+  consumePayoutExecutionGrant: (...args) => mocks.consumePayoutExecutionGrant(...args),
 });
 
 const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');

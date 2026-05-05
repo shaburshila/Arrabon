@@ -5,6 +5,7 @@ import type { CurrentUserContext } from "../../lib/auth/guards";
 import type { DealActionContextRow } from "../../server/repositories/deals";
 import {
   DealCompletionServiceError,
+  exchangeConfirmReleaseGrantForDeal,
   prepareAutoReleaseForDeal,
   prepareConfirmReleaseForDeal,
   prepareMarkCompletedForDeal,
@@ -14,6 +15,8 @@ import {
 interface DealsCompletionMocks {
   assertDealNotBlocked: (...args: unknown[]) => Promise<unknown>;
   assertCompliance: (...args: unknown[]) => unknown;
+  createPayoutExecutionGrant: (...args: unknown[]) => Promise<unknown>;
+  consumePayoutExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
   screenWalletForDeal: (...args: unknown[]) => Promise<unknown>;
 }
@@ -161,16 +164,17 @@ describe("prepareMarkCompletedForDeal availability", () => {
 });
 
 describe("prepareConfirmReleaseForDeal deadline boundary", () => {
-  test("allows confirm release at the exact 48h deadline", async () => {
+  test("issues confirm release grant at the exact 48h deadline", async () => {
     const result = await prepareConfirmReleaseForDeal(
       currentUser,
       { dealId: "deal-id-1" },
       DEADLINE,
     );
 
+    assert.equal(result.action, "confirmRelease");
     assert.equal(result.deal_id, "deal-id-1");
-    assert.equal(result.contract_call.function_name, "confirmRelease");
-    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
+    assert.match(result.grant_token, /^[0-9a-f]{64}$/);
+    assert.match(result.expires_at, /^20/);
   });
 
   test("rejects confirm release after the 48h deadline", async () => {
@@ -189,12 +193,11 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
     );
   });
 
-  test("screens seller while keeping buyer as actor", async () => {
-    let screenedWallet: unknown = null;
-    let screenedContext: unknown = null;
+  test("does not invoke recipient screening during grant issuance", async () => {
+    let complianceCalls = 0;
 
-    mocks.screenWalletForDeal = async (...args: unknown[]) => {
-      [screenedWallet, screenedContext] = args;
+    mocks.screenWalletForDeal = async () => {
+      complianceCalls += 1;
       return makeScreeningResult();
     };
 
@@ -204,6 +207,52 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
       DEADLINE,
     );
 
+    assert.equal(complianceCalls, 0);
+  });
+
+  test("stores confirm release grant for the authenticated buyer", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.createPayoutExecutionGrant = async (...args: unknown[]) => {
+      [capturedInput] = args;
+      return { id: "grant-id-1" };
+    };
+
+    const result = await prepareConfirmReleaseForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      DEADLINE,
+    );
+
+    assert.equal(result.action, "confirmRelease");
+    assert.deepEqual(capturedInput, {
+      action: "confirmRelease",
+      dealId: "deal-id-1",
+      expiresAt: result.expires_at,
+      issuedByWallet: BUYER,
+      issuedToWallet: BUYER,
+      tokenHash: String(capturedInput && (capturedInput as { tokenHash?: string }).tokenHash),
+    });
+    assert.match(String((capturedInput as { tokenHash?: string }).tokenHash), /^[0-9a-f]{64}$/);
+  });
+
+  test("exchange screens seller while keeping buyer as actor", async () => {
+    let screenedWallet: unknown = null;
+    let screenedContext: unknown = null;
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      [screenedWallet, screenedContext] = args;
+      return makeScreeningResult();
+    };
+
+    const result = await exchangeConfirmReleaseGrantForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      "a".repeat(64),
+      DEADLINE,
+    );
+
+    assert.equal(result.contract_call.function_name, "confirmRelease");
     assert.equal(screenedWallet, SELLER);
     assert.deepEqual(screenedContext, {
       action: "lifecycle_release",
@@ -212,7 +261,7 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
     });
   });
 
-  test("blocks legal-hold deal before recipient screening", async () => {
+  test("blocks legal-hold deal before recipient screening during exchange", async () => {
     let complianceCalls = 0;
     let legalHoldDealId: unknown = null;
 
@@ -227,11 +276,28 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
     };
 
     await assert.rejects(
-      () => prepareConfirmReleaseForDeal(currentUser, { dealId: "deal-id-1" }, DEADLINE),
+      () => exchangeConfirmReleaseGrantForDeal(
+        currentUser,
+        { dealId: "deal-id-1" },
+        "a".repeat(64),
+        DEADLINE,
+      ),
       /legal hold/,
     );
     assert.equal(legalHoldDealId, "deal-id-1");
     assert.equal(complianceCalls, 0);
+  });
+
+  test("rejects exchange when grant token is malformed", async () => {
+    await assert.rejects(
+      () => exchangeConfirmReleaseGrantForDeal(currentUser, { dealId: "deal-id-1" }, "bad", DEADLINE),
+      (error: unknown) => {
+        assert.ok(error instanceof DealCompletionServiceError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "PAYOUT_GRANT_INVALID");
+        return true;
+      },
+    );
   });
 });
 

@@ -14,6 +14,7 @@ import { fetchAdminDealCompliance } from "@/lib/api/admin";
 import {
   type AdminDealReview,
   type AdminResolution,
+  exchangeAdminResolve,
   fetchAdminDeal,
   prepareAdminResolve,
 } from "@/lib/api/admin-deals";
@@ -269,7 +270,8 @@ export default function AdminDisputeDetailPage() {
       });
 
       try {
-        const prepared = await prepareAdminResolve(currentDeal.id, resolution);
+        const grant = await prepareAdminResolve(currentDeal.id, resolution);
+        const prepared = await exchangeAdminResolve(currentDeal.id, grant.grant_token);
         setResolveState((prev) => ({ ...prev, step: "signature" }));
 
         const hash = await executeAdminCall(config, prepared.contract_call);

@@ -8,6 +8,7 @@ import type {
 } from "../../server/repositories/deals";
 import {
   DealAdminServiceError,
+  exchangeAdminResolveGrantForDeal,
   getAdminDealCompliance,
   getAdminDealReview,
   listAdminDisputedDeals,
@@ -19,6 +20,8 @@ interface DealsAdminMocks {
   ConsultEscrowConfigError: new (message: string) => Error;
   assertCompliance: (...args: unknown[]) => unknown;
   createAdminResolutionIntent: (...args: unknown[]) => Promise<unknown>;
+  createPayoutExecutionGrant: (...args: unknown[]) => Promise<unknown>;
+  consumePayoutExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   findByDealNewestFirst: (...args: unknown[]) => Promise<unknown[]>;
   getAdminDealReviewRowById: (...args: unknown[]) => Promise<AdminDealReviewRow | null>;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
@@ -242,62 +245,138 @@ describe("getAdminDealCompliance", () => {
 });
 
 describe("prepareAdminResolveForDeal", () => {
-  test("prepares admin release call for disputed deal", async () => {
+  test("issues admin release grant for disputed deal", async () => {
     const result = await prepareAdminResolveForDeal(
       adminUser,
       { dealId: "deal-id-1" },
       "release",
     );
 
+    assert.equal(result.action, "adminResolveRelease");
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.resolution, "release");
-    assert.equal(result.contract_call.function_name, "adminResolveRelease");
-    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
+    assert.match(result.grant_token, /^[0-9a-f]{64}$/);
   });
 
-  test("screens seller for release with admin as actor", async () => {
-    let screenedWallet: unknown = null;
-    let screenedContext: unknown = null;
+  test("does not screen release recipient during grant issuance", async () => {
+    let screeningCalls = 0;
 
-    mocks.screenWalletForDeal = async (...args: unknown[]) => {
-      [screenedWallet, screenedContext] = args;
+    mocks.screenWalletForDeal = async () => {
+      screeningCalls += 1;
       return makeScreeningResult(makeActionContext().seller_address);
     };
 
     await prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release");
 
-    assert.equal(screenedWallet, makeActionContext().seller_address);
-    assert.deepEqual(screenedContext, {
-      action: "admin_resolve_release",
-      actorWallet: ADMIN_WALLET,
-      dealId: "deal-id-1",
-    });
+    assert.equal(screeningCalls, 0);
   });
 
-  test("prepares admin refund call for disputed deal", async () => {
+  test("stores admin grant for the authenticated admin wallet", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.createPayoutExecutionGrant = async (...args: unknown[]) => {
+      [capturedInput] = args;
+      return { id: "grant-id-1" };
+    };
+
+    const result = await prepareAdminResolveForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "release",
+    );
+
+    assert.equal(result.action, "adminResolveRelease");
+    assert.deepEqual(capturedInput, {
+      action: "adminResolveRelease",
+      dealId: "deal-id-1",
+      expiresAt: result.expires_at,
+      issuedByWallet: ADMIN_WALLET,
+      issuedToWallet: ADMIN_WALLET,
+      resolution: "release",
+      tokenHash: String(capturedInput && (capturedInput as { tokenHash?: string }).tokenHash),
+    });
+    assert.match(String((capturedInput as { tokenHash?: string }).tokenHash), /^[0-9a-f]{64}$/);
+  });
+
+  test("issues admin refund grant for disputed deal", async () => {
     const result = await prepareAdminResolveForDeal(
       adminUser,
       { dealId: "deal-id-1" },
       "refund",
     );
 
+    assert.equal(result.action, "adminResolveRefund");
     assert.equal(result.deal_id, "deal-id-1");
     assert.equal(result.resolution, "refund");
-    assert.equal(result.contract_call.function_name, "adminResolveRefund");
-    assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
+    assert.match(result.grant_token, /^[0-9a-f]{64}$/);
   });
 
-  test("screens buyer for refund with admin as actor", async () => {
+  test("exchange screens seller for release with admin as actor", async () => {
+    const screenedCalls: Array<{ context: unknown; wallet: unknown }> = [];
+
+    mocks.screenWalletForDeal = async (...args: unknown[]) => {
+      const [wallet, context] = args;
+      screenedCalls.push({ context, wallet });
+      return makeScreeningResult(String(wallet));
+    };
+
+    const result = await exchangeAdminResolveGrantForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "a".repeat(64),
+    );
+
+    assert.equal(result.contract_call.function_name, "adminResolveRelease");
+    assert.equal(result.resolution, "release");
+    assert.deepEqual(screenedCalls, [
+      {
+        context: {
+          action: "admin_resolve_release",
+          actorWallet: ADMIN_WALLET,
+          dealId: "deal-id-1",
+        },
+        wallet: makeActionContext().seller_address,
+      },
+      {
+        context: {
+          action: "admin_resolve_refund",
+          actorWallet: ADMIN_WALLET,
+          dealId: "deal-id-1",
+        },
+        wallet: makeActionContext().buyer_address,
+      },
+    ]);
+  });
+
+  test("exchange screens buyer for refund with admin as actor", async () => {
     let screenedWallet: unknown = null;
     let screenedContext: unknown = null;
 
+    mocks.consumePayoutExecutionGrant = async () => ({
+      action: "adminResolveRefund",
+      created_at: "2026-05-05T00:00:00.000Z",
+      deal_id: "deal-id-1",
+      expires_at: "2026-05-05T00:02:00.000Z",
+      id: "grant-id-1",
+      issued_by_wallet: ADMIN_WALLET,
+      issued_to_wallet: ADMIN_WALLET,
+      resolution: "refund",
+      token_hash: "token-hash",
+      used_at: "2026-05-05T00:01:00.000Z",
+    });
     mocks.screenWalletForDeal = async (...args: unknown[]) => {
       [screenedWallet, screenedContext] = args;
       return makeScreeningResult(makeActionContext().buyer_address);
     };
 
-    await prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "refund");
+    const result = await exchangeAdminResolveGrantForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "a".repeat(64),
+    );
 
+    assert.equal(result.contract_call.function_name, "adminResolveRefund");
+    assert.equal(result.resolution, "refund");
     assert.equal(screenedWallet, makeActionContext().buyer_address);
     assert.deepEqual(screenedContext, {
       action: "admin_resolve_refund",
@@ -327,18 +406,30 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(intentCalls, 0);
   });
 
-  test("creates admin release intent after preparing release call", async () => {
+  test("creates admin release intent only on exchange", async () => {
     let capturedInput: unknown = null;
 
+    mocks.consumePayoutExecutionGrant = async () => ({
+      action: "adminResolveRelease",
+      created_at: "2026-05-05T00:00:00.000Z",
+      deal_id: "deal-id-1",
+      expires_at: "2026-05-05T00:02:00.000Z",
+      id: "grant-id-1",
+      issued_by_wallet: ADMIN_WALLET,
+      issued_to_wallet: ADMIN_WALLET,
+      resolution: "release",
+      token_hash: "token-hash",
+      used_at: "2026-05-05T00:01:00.000Z",
+    });
     mocks.createAdminResolutionIntent = async (...args: unknown[]) => {
       capturedInput = args[0];
       return { id: "intent-id-1" };
     };
 
-    const result = await prepareAdminResolveForDeal(
+    const result = await exchangeAdminResolveGrantForDeal(
       adminUser,
       { dealId: "deal-id-1" },
-      "release",
+      "a".repeat(64),
     );
 
     assert.equal(result.contract_call.function_name, "adminResolveRelease");
@@ -350,7 +441,7 @@ describe("prepareAdminResolveForDeal", () => {
     });
   });
 
-  test("creates admin refund intent after preparing refund call", async () => {
+  test("creates admin refund intent only on exchange", async () => {
     let capturedInput: unknown = null;
 
     mocks.createAdminResolutionIntent = async (...args: unknown[]) => {
@@ -358,10 +449,23 @@ describe("prepareAdminResolveForDeal", () => {
       return { id: "intent-id-1" };
     };
 
-    const result = await prepareAdminResolveForDeal(
+    mocks.consumePayoutExecutionGrant = async () => ({
+      action: "adminResolveRefund",
+      created_at: "2026-05-05T00:00:00.000Z",
+      deal_id: "deal-id-1",
+      expires_at: "2026-05-05T00:02:00.000Z",
+      id: "grant-id-1",
+      issued_by_wallet: ADMIN_WALLET,
+      issued_to_wallet: ADMIN_WALLET,
+      resolution: "refund",
+      token_hash: "token-hash",
+      used_at: "2026-05-05T00:01:00.000Z",
+    });
+
+    const result = await exchangeAdminResolveGrantForDeal(
       adminUser,
       { dealId: "deal-id-1" },
-      "refund",
+      "a".repeat(64),
     );
 
     assert.equal(result.contract_call.function_name, "adminResolveRefund");
@@ -376,6 +480,18 @@ describe("prepareAdminResolveForDeal", () => {
   test("does not create intent when contract config is unavailable", async () => {
     let intentCalls = 0;
 
+    mocks.consumePayoutExecutionGrant = async () => ({
+      action: "adminResolveRelease",
+      created_at: "2026-05-05T00:00:00.000Z",
+      deal_id: "deal-id-1",
+      expires_at: "2026-05-05T00:02:00.000Z",
+      id: "grant-id-1",
+      issued_by_wallet: ADMIN_WALLET,
+      issued_to_wallet: ADMIN_WALLET,
+      resolution: "release",
+      token_hash: "token-hash",
+      used_at: "2026-05-05T00:01:00.000Z",
+    });
     mocks.prepareAdminResolveReleaseCall = () => {
       throw new mocks.ConsultEscrowConfigError("Missing contract config.");
     };
@@ -385,7 +501,7 @@ describe("prepareAdminResolveForDeal", () => {
     };
 
     await assert.rejects(
-      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      () => exchangeAdminResolveGrantForDeal(adminUser, { dealId: "deal-id-1" }, "a".repeat(64)),
       (error: unknown) => {
         assert.ok(error instanceof DealAdminServiceError);
         assert.equal(error.status, 500);
@@ -408,13 +524,13 @@ describe("prepareAdminResolveForDeal", () => {
     };
 
     await assert.rejects(
-      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      () => exchangeAdminResolveGrantForDeal(adminUser, { dealId: "deal-id-1" }, "a".repeat(64)),
       /blocked/,
     );
     assert.equal(intentCalls, 0);
   });
 
-  test("blocks legal-hold deal before recipient screening or intent creation", async () => {
+  test("blocks legal-hold deal before recipient screening or intent creation on exchange", async () => {
     let complianceCalls = 0;
     let intentCalls = 0;
     let legalHoldDealId: unknown = null;
@@ -434,11 +550,23 @@ describe("prepareAdminResolveForDeal", () => {
     };
 
     await assert.rejects(
-      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      () => exchangeAdminResolveGrantForDeal(adminUser, { dealId: "deal-id-1" }, "a".repeat(64)),
       /legal hold/,
     );
     assert.equal(legalHoldDealId, "deal-id-1");
     assert.equal(complianceCalls, 0);
     assert.equal(intentCalls, 0);
+  });
+
+  test("rejects exchange when grant token is malformed", async () => {
+    await assert.rejects(
+      () => exchangeAdminResolveGrantForDeal(adminUser, { dealId: "deal-id-1" }, "bad"),
+      (error: unknown) => {
+        assert.ok(error instanceof DealAdminServiceError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "PAYOUT_GRANT_INVALID");
+        return true;
+      },
+    );
   });
 });

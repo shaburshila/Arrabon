@@ -93,6 +93,14 @@ export interface AdminResolvePrepareResult {
   resolution: AdminResolution;
 }
 
+export interface AdminResolveGrantResult {
+  action: "adminResolveRefund" | "adminResolveRelease";
+  deal_id: string;
+  expires_at: string;
+  grant_token: string;
+  resolution: AdminResolution;
+}
+
 // GET /api/admin/deals — requires SIWE admin session
 export async function fetchAdminDisputedDeals(
   params?: ListPaginationParams,
@@ -120,9 +128,21 @@ export async function fetchAdminDeal(id: string): Promise<AdminDealReview> {
 export async function prepareAdminResolve(
   dealId: string,
   resolution: AdminResolution,
-): Promise<AdminResolvePrepareResult> {
+): Promise<AdminResolveGrantResult> {
   const res = await fetch(`/api/admin/deals/${encodeURIComponent(dealId)}/resolve`, {
     body: JSON.stringify({ resolution }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return parseResponse<AdminResolveGrantResult>(res);
+}
+
+export async function exchangeAdminResolve(
+  dealId: string,
+  grantToken: string,
+): Promise<AdminResolvePrepareResult> {
+  const res = await fetch(`/api/admin/deals/${encodeURIComponent(dealId)}/resolve/execute`, {
+    body: JSON.stringify({ grant_token: grantToken }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });

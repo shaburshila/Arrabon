@@ -12,6 +12,7 @@ import {
   type AdminDealReview,
   type AdminResolvedDealReview,
   type AdminResolution,
+  exchangeAdminResolve,
   fetchAdminDisputedDeals,
   fetchAdminResolvedDeals,
   prepareAdminResolve,
@@ -280,7 +281,8 @@ export default function AdminDisputesPage() {
       });
 
       try {
-        const prepared = await prepareAdminResolve(deal.id, resolution);
+        const grant = await prepareAdminResolve(deal.id, resolution);
+        const prepared = await exchangeAdminResolve(deal.id, grant.grant_token);
         setResolveState((prev) => ({ ...prev, step: "signature" }));
 
         const hash = await executeAdminCall(config, prepared.contract_call);

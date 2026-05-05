@@ -574,22 +574,33 @@ Indexer worker               Backend / Compliance Service
 
 ### 8.4 Payout blocked (legal hold)
 
-**Точки:** `POST /api/deals/:id/release`, `POST /api/deals/:id/auto-release`, `POST /api/admin/deals/:id/resolve`
+**Точки:**
+- `POST /api/deals/:id/release` -> выдача grant
+- `POST /api/deals/:id/release/execute` -> exchange grant в calldata
+- `POST /api/admin/deals/:id/resolve` -> выдача admin grant
+- `POST /api/admin/deals/:id/resolve/execute` -> exchange grant в calldata
+- `POST /api/deals/:id/auto-release` -> direct prepare path, без grant
 
 ```
 User / Admin                  Backend
   │                            │
   │─── POST /release ─────────►│
-  │    (или auto-release,      │
-  │     или admin resolve)     │
+  │    (или admin resolve)     │
+  │                            │ access/state gate only
+  │                            │ grant row created (TTL 120s)
+  │◄─── 200 grant_token ───────┤
+  │                            │
+  │─── POST /.../execute ─────►│
+  │    { grant_token }         │ issued_to_wallet == session wallet?
+  │                            │ grant.deal_id == :id ?
+  │                            │ grant used/expired?
+  │                            │
   │                            │ assertDealNotBlocked(dealId)
   │                            │   → reads compliance_checks
   │                            │   → any check with result=Blocked?
   │                            │
   │                            ├── [yes: deal.risk_status = Blocked]
-  │◄─── 403 COMPLIANCE_BLOCKED ┤
-  │     reason_code:           │   calldata не генерируется
-  │     LEGAL_HOLD             │   deal.status не меняется
+  │◄─── 403 COMPLIANCE_BLOCKED ┤   calldata не генерируется
   │                            │
   │                            ├── [no: all Clear / Review]
   │                            │   screenWallet(recipient)
@@ -600,9 +611,19 @@ User / Admin                  Backend
   │                            │
   │                            ├── [recipient Clear]
   │◄─── 200 calldata ──────────┤
+  │
+  │─── POST /auto-release ────►│
+  │                            │ direct prepare path
+  │                            │ same legal-hold checks
+  │◄─── 200 calldata / 403 ────┤
 ```
 
-**Инвариант:** два уровня gate: (1) `assertDealNotBlocked` проверяет исторические checks сделки; (2) свежая проверка recipient wallet. Оба уровня должны пройти.
+**Инварианты:**
+- для `confirmRelease` и admin resolve выдача исполнимого calldata перенесена на exchange шаг;
+- два уровня gate: (1) `assertDealNotBlocked` проверяет исторические checks сделки; (2) свежая проверка recipient wallet;
+- `autoRelease` остаётся direct-prepare path без grant и потому сохраняет отдельный residual risk между prepare и broadcast.
+
+**Residual risk:** grant-flow сужает stale-window для access-controlled payout path до окна между успешным exchange и фактическим wallet broadcast. Для `autoRelease` такого сужения в v1 нет: permissionless liveness важнее полного устранения stale-window.
 
 ---
 

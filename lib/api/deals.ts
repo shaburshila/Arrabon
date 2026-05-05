@@ -120,6 +120,13 @@ export interface LifecyclePrepareResult {
   deal_id: string; // backend UUID
 }
 
+export interface PayoutExecutionGrantResult {
+  action: "confirmRelease";
+  deal_id: string;
+  expires_at: string;
+  grant_token: string;
+}
+
 // GET /api/deals/:id — requires SIWE session for a participant or admin
 export async function fetchDeal(id: string): Promise<DealReadModel> {
   const res = await fetch(`/api/deals/${encodeURIComponent(id)}`);
@@ -150,9 +157,21 @@ export async function prepareComplete(dealId: string): Promise<LifecyclePrepareR
 }
 
 // POST /api/deals/:id/release — requires SIWE session (buyer)
-export async function prepareRelease(dealId: string): Promise<LifecyclePrepareResult> {
+export async function prepareRelease(dealId: string): Promise<PayoutExecutionGrantResult> {
   const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/release`, {
     body: "{}",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return parseResponse<PayoutExecutionGrantResult>(res);
+}
+
+export async function exchangeReleaseGrant(
+  dealId: string,
+  grantToken: string,
+): Promise<LifecyclePrepareResult> {
+  const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/release/execute`, {
+    body: JSON.stringify({ grant_token: grantToken }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });

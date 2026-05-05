@@ -399,11 +399,16 @@ Errors:
 
 ## 6. Deal Completion Endpoints
 
-Lifecycle endpoints are **prepare-only**: they return opaque backend-produced contract call payload for the caller's wallet to sign and submit. No deal state is written by the backend. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
+Lifecycle endpoints split into two categories:
+
+- direct prepare endpoints that immediately return opaque backend-produced `contract_call`
+- two-step payout endpoints that first return a short-lived execution grant and only then exchange it for final calldata
+
+No deal state is written by the backend during either step. Final state transitions are driven exclusively by confirmed onchain events via the indexer.
 
 Request body: empty `{}` or omitted for all lifecycle endpoints.
 
-Response shape for all three (on success):
+Response shape for direct prepare endpoints (on success):
 
 ```json
 {
@@ -435,9 +440,60 @@ Errors:
 
 ### `POST /api/deals/:id/release`
 
-Prepares a `confirmRelease` call. Callable only by the buyer while the deal is in `ConfirmPending` and the 48-hour dispute window has not yet passed.
+Issues a short-lived execution grant for `confirmRelease`. Callable only by the buyer while the deal is in `ConfirmPending` and the 48-hour dispute window has not yet passed.
+
+Grant response:
+
+```json
+{
+  "action": "confirmRelease",
+  "deal_id": "deal_123",
+  "expires_at": "2026-05-05T12:00:00.000Z",
+  "grant_token": "0123abcd..."
+}
+```
 
 The buyer window is inclusive at the exact deadline (`now == deadline` is allowed). Auto-release becomes valid only strictly after the deadline passes.
+
+Notes:
+
+- grant TTL is currently `120s`
+- this grant step intentionally performs access/state checks only
+- compliance gate happens on the exchange step below
+
+### `POST /api/deals/:id/release/execute`
+
+Exchanges a previously issued release grant for final opaque `confirmRelease` calldata.
+
+Request:
+
+```json
+{
+  "grant_token": "0123abcd..."
+}
+```
+
+Response:
+
+```json
+{
+  "deal_id": "deal_123",
+  "contract_call": {
+    "chain_id": 8453,
+    "contract_address": "0xcontract...",
+    "function_name": "confirmRelease",
+    "data": "0xpreparedcall..."
+  }
+}
+```
+
+Behavior:
+
+- requires SIWE session
+- `grant_token` is one-time use
+- backend requires `issued_to_wallet === currentUser.wallet_address`
+- backend requires `grant.deal_id === :id`
+- backend re-runs `assertDealNotBlocked(dealId)` and recipient screening before returning calldata
 
 Errors:
 
@@ -446,6 +502,7 @@ Errors:
 - `403` session wallet is not the deal buyer
 - `403` `COMPLIANCE_BLOCKED` when seller payout is blocked by compliance or the deal is already in legal hold
 - `409` deal not in `ConfirmPending` state
+- `409` payout authorization invalid, expired, already used, or issued for another wallet / deal
 - `409` release deadline has passed
 - `500` `completed_at` is missing (integrity error — indexer has not yet converged or data is corrupt)
 - `500` contract config unavailable
@@ -718,11 +775,36 @@ or
 Behavior:
 
 - backend validates admin allowlist
-- backend prepares corresponding contract action
+- backend issues a short-lived execution grant instead of immediate calldata
 - admin wallet still signs tx; backend does not own admin key
-- release path screens seller as payout recipient
-- refund path screens buyer as payout recipient
-- `risk_status = Blocked` prevents any calldata preparation
+
+Request:
+
+```json
+{
+  "resolution": "release"
+}
+```
+
+or
+
+```json
+{
+  "resolution": "refund"
+}
+```
+
+Grant response:
+
+```json
+{
+  "action": "adminResolveRelease",
+  "deal_id": "deal_123",
+  "expires_at": "2026-05-05T12:00:00.000Z",
+  "grant_token": "0123abcd...",
+  "resolution": "release"
+}
+```
 
 Errors:
 
@@ -730,9 +812,55 @@ Errors:
 - `400` invalid `resolution`
 - `401` no SIWE session
 - `403` not admin
+- `404` deal not found
+- `409` deal not in `Disputed`
+
+### `POST /api/admin/deals/:id/resolve/execute`
+
+Exchanges a previously issued admin resolve grant for final opaque admin payout calldata.
+
+Request:
+
+```json
+{
+  "grant_token": "0123abcd..."
+}
+```
+
+Response:
+
+```json
+{
+  "deal_id": "deal_123",
+  "resolution": "release",
+  "contract_call": {
+    "chain_id": 8453,
+    "contract_address": "0xcontract...",
+    "function_name": "adminResolveRelease",
+    "data": "0xpreparedcall..."
+  }
+}
+```
+
+Behavior:
+
+- requires SIWE admin session
+- `grant_token` is one-time use
+- backend requires `issued_to_wallet === currentUser.wallet_address`
+- backend requires `grant.deal_id === :id`
+- `resolution` is taken from the stored grant row, not from request body
+- backend re-runs `assertDealNotBlocked(dealId)` and recipient screening before returning calldata
+- `admin_resolution_intent` is created on this exchange step only
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` not admin
 - `403` `COMPLIANCE_BLOCKED` when payout recipient is blocked or the deal is already in legal hold
 - `404` deal not found
 - `409` deal not in `Disputed`
+- `409` payout authorization invalid, expired, already used, or issued for another wallet / deal
 
 ### `GET /api/admin/denylist`
 
