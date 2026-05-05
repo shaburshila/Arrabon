@@ -17,3 +17,8 @@ cache/
 design-reference
 TODO.md
 MANUAL-QA.md
+next-env.d.ts
+supabase/.temp/
+test-results/
+playwright-report/
+coverage/
