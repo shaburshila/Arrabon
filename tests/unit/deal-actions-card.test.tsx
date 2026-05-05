@@ -53,6 +53,20 @@ function makeIdleAction(): DealAction {
   };
 }
 
+function makeSyncFailedAction(): DealAction {
+  return {
+    execute: async () => {},
+    reset: () => {},
+    state: {
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: "Transaction confirmed, but backend sync is delayed. Please refresh this page in a moment.",
+      step: "sync_failed",
+      txHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    },
+  };
+}
+
 describe("DealActionsCard", () => {
   test("hides open dispute when buyerDisputable is false", () => {
     const html = renderToStaticMarkup(
@@ -67,6 +81,7 @@ describe("DealActionsCard", () => {
         isAnyActionInFlight: false,
         isBuyer: true,
         isSeller: false,
+        onRefreshStatus: async () => null,
         release: makeIdleAction(),
         session: makeSession(),
       }),
@@ -88,6 +103,7 @@ describe("DealActionsCard", () => {
         isAnyActionInFlight: false,
         isBuyer: true,
         isSeller: false,
+        onRefreshStatus: async () => null,
         release: makeBlockedAction(),
         session: makeSession(),
       }),
@@ -97,5 +113,30 @@ describe("DealActionsCard", () => {
     assert.match(html, /Open dispute/);
     assert.doesNotMatch(html, /Reset/);
     assert.doesNotMatch(html, /Confirm in wallet/);
+  });
+
+  test("renders refresh status for sync_failed while keeping the primary action disabled", () => {
+    const html = renderToStaticMarkup(
+      createElement(DealActionsCard, {
+        autoRelease: makeIdleAction(),
+        autoReleaseAvailable: false,
+        buyerDisputable: false,
+        buyerReleasable: true,
+        complete: makeIdleAction(),
+        dealStatus: "ConfirmPending",
+        dispute: makeIdleAction(),
+        isAnyActionInFlight: false,
+        isBuyer: true,
+        isSeller: false,
+        onRefreshStatus: async () => null,
+        release: makeSyncFailedAction(),
+        session: makeSession(),
+      }),
+    );
+
+    assert.match(html, /Refresh status/);
+    assert.doesNotMatch(html, /Reset/);
+    assert.match(html, /Transaction confirmed, but backend sync is delayed/);
+    assert.match(html, /<button[^>]*disabled=""[^>]*>Release to seller<\/button>/);
   });
 });

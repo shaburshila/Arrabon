@@ -219,6 +219,7 @@ export default function DealPage() {
             isAnyActionInFlight={actions.isAnyActionInFlight}
             isBuyer={dealPage.isBuyer}
             isSeller={dealPage.isSeller}
+            onRefreshStatus={dealPage.refetch}
             release={actions.release}
             session={session}
           />

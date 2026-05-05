@@ -26,6 +26,7 @@ interface DealActionsCardProps {
   release: DealAction;
   dispute: DealAction;
   isAnyActionInFlight: boolean;
+  onRefreshStatus: () => Promise<unknown>;
 }
 
 export function DealActionsCard({
@@ -39,6 +40,7 @@ export function DealActionsCard({
   isAnyActionInFlight,
   isBuyer,
   isSeller,
+  onRefreshStatus,
   release,
   session,
 }: DealActionsCardProps) {
@@ -91,6 +93,7 @@ export function DealActionsCard({
               disabledByOtherAction={isAnyActionInFlight}
               description="Mark the consultation as completed so the buyer can confirm payment release or open a dispute."
               label="Mark completed"
+              onRefreshStatus={onRefreshStatus}
               variant="primary"
             />
           )}
@@ -102,6 +105,7 @@ export function DealActionsCard({
               disabledByOtherAction={isAnyActionInFlight}
               description="Release payment to the seller. Confirm the consultation went well."
               label="Release to seller"
+              onRefreshStatus={onRefreshStatus}
               variant="primary"
             />
           )}
@@ -113,6 +117,7 @@ export function DealActionsCard({
               disabledByOtherAction={isAnyActionInFlight}
               description={getDisputeDescription(dealStatus)}
               label="Open dispute"
+              onRefreshStatus={onRefreshStatus}
               variant="danger"
             />
           )}
@@ -128,6 +133,7 @@ export function DealActionsCard({
           disabledByOtherAction={isAnyActionInFlight}
           disabledReason="Connect your wallet on the correct network to finalize auto-release."
           label="Auto-release to seller"
+          onRefreshStatus={onRefreshStatus}
           variant="primary"
         />
       )}
@@ -150,6 +156,7 @@ function ActionGroup({
   disabled,
   disabledReason,
   label,
+  onRefreshStatus,
   variant,
 }: {
   action: DealAction;
@@ -158,6 +165,7 @@ function ActionGroup({
   disabled?: boolean;
   disabledReason?: string;
   label: string;
+  onRefreshStatus: () => Promise<unknown>;
   variant: "danger" | "primary";
 }) {
   const { execute, reset, state } = action;
@@ -218,6 +226,11 @@ function ActionGroup({
           {state.step === "failed" && (
             <Btn onClick={reset} variant="ghost">
               Reset
+            </Btn>
+          )}
+          {state.step === "sync_failed" && (
+            <Btn onClick={() => void onRefreshStatus()} variant="ghost">
+              Refresh status
             </Btn>
           )}
         </div>
