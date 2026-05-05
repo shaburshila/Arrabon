@@ -42,6 +42,11 @@ export interface ProcessConfirmedFundedEventOnceResult {
   dealId: string | null;
 }
 
+export interface ProcessConfirmedLifecycleEventOnceResult {
+  alreadyProcessed: boolean;
+  dealId: string | null;
+}
+
 function toUtcIsoString(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -127,6 +132,134 @@ export async function processConfirmedFundedEventOnce(
   if (error) {
     throw new ProcessedTransactionsRepositoryError(
       `Failed to process confirmed funded event once: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return {
+    alreadyProcessed: data.already_processed,
+    dealId: data.deal_id,
+  };
+}
+
+export async function processConfirmedCompletedEventOnce(input: {
+  completedAt: Date;
+  eventType: string;
+  onchainDealId: string;
+  txHash: string;
+}): Promise<ProcessConfirmedLifecycleEventOnceResult> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .rpc("process_confirmed_completed_event_once", {
+      p_completed_at: input.completedAt.toISOString(),
+      p_event_type: input.eventType,
+      p_onchain_deal_id: input.onchainDealId,
+      p_tx_hash: input.txHash,
+    })
+    .returns<{
+      already_processed: boolean;
+      deal_id: string | null;
+    }[]>()
+    .single();
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to process confirmed completed event once: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return {
+    alreadyProcessed: data.already_processed,
+    dealId: data.deal_id,
+  };
+}
+
+export async function processConfirmedReleasedEventOnce(input: {
+  eventType: string;
+  onchainDealId: string;
+  releasedAt: Date;
+  txHash: string;
+}): Promise<ProcessConfirmedLifecycleEventOnceResult> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .rpc("process_confirmed_released_event_once", {
+      p_event_type: input.eventType,
+      p_onchain_deal_id: input.onchainDealId,
+      p_released_at: input.releasedAt.toISOString(),
+      p_tx_hash: input.txHash,
+    })
+    .returns<{
+      already_processed: boolean;
+      deal_id: string | null;
+    }[]>()
+    .single();
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to process confirmed released event once: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return {
+    alreadyProcessed: data.already_processed,
+    dealId: data.deal_id,
+  };
+}
+
+export async function processConfirmedDisputedEventOnce(input: {
+  eventType: string;
+  onchainDealId: string;
+  txHash: string;
+}): Promise<ProcessConfirmedLifecycleEventOnceResult> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .rpc("process_confirmed_disputed_event_once", {
+      p_event_type: input.eventType,
+      p_onchain_deal_id: input.onchainDealId,
+      p_tx_hash: input.txHash,
+    })
+    .returns<{
+      already_processed: boolean;
+      deal_id: string | null;
+    }[]>()
+    .single();
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to process confirmed disputed event once: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return {
+    alreadyProcessed: data.already_processed,
+    dealId: data.deal_id,
+  };
+}
+
+export async function processConfirmedRefundedEventOnce(input: {
+  eventType: string;
+  onchainDealId: string;
+  txHash: string;
+}): Promise<ProcessConfirmedLifecycleEventOnceResult> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .rpc("process_confirmed_refunded_event_once", {
+      p_event_type: input.eventType,
+      p_onchain_deal_id: input.onchainDealId,
+      p_tx_hash: input.txHash,
+    })
+    .returns<{
+      already_processed: boolean;
+      deal_id: string | null;
+    }[]>()
+    .single();
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to process confirmed refunded event once: ${error.message}`,
       error.code,
     );
   }

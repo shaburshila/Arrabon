@@ -10,18 +10,14 @@ import type {
 } from "@/lib/base/consult-escrow";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
-import { consumeLatestAdminResolutionIntent } from "@/server/repositories/admin-resolution-intents";
 import { getByLinkHash } from "@/server/repositories/consultation-links";
 import {
-  setConfirmPendingByOnchainDealId,
-  setDisputedByOnchainDealId,
-  setRefundedByOnchainDealId,
-  setReleasedByOnchainDealId,
-} from "@/server/repositories/deals";
-import {
   getByTxHash,
-  insertProcessedTransaction,
+  processConfirmedCompletedEventOnce,
+  processConfirmedDisputedEventOnce,
   processConfirmedFundedEventOnce,
+  processConfirmedRefundedEventOnce,
+  processConfirmedReleasedEventOnce,
   ProcessedTransactionsRepositoryError,
 } from "@/server/repositories/processed-transactions";
 import { screenWalletsBatch } from "@/server/services/compliance";
@@ -124,6 +120,17 @@ function createAlreadyProcessedResult(txHash: string): DealEventProcessingResult
     result: "already_processed",
     txHash,
   };
+}
+
+function requireProcessedDealId(
+  dealId: string | null,
+  txHash: string,
+): string {
+  if (!dealId) {
+    throw new Error(`Lifecycle event ${txHash} was processed without a linked deal id.`);
+  }
+
+  return dealId;
 }
 
 async function appendLifecycleSyncAuditLog(input: {
@@ -254,35 +261,27 @@ export async function processConfirmedFundedEvent(
 export async function processConfirmedCompletedEvent(
   event: NormalizedCompletedEvent,
 ): Promise<DealEventProcessingResult> {
-  const existingMarker = await getByTxHash(event.txHash);
-
-  if (existingMarker) {
-    return createAlreadyProcessedResult(event.txHash);
-  }
-
-  const deal = await setConfirmPendingByOnchainDealId(
-    event.onchainDealId,
-    event.completedAt,
-  );
-
-  const marker = await insertProcessedTransaction({
-    dealId: deal.id,
+  const processingResult = await processConfirmedCompletedEventOnce({
+    completedAt: event.completedAt,
     eventType: event.eventType,
+    onchainDealId: event.onchainDealId,
     txHash: event.txHash,
   });
 
-  if (marker.duplicate) {
+  if (processingResult.alreadyProcessed) {
     return createAlreadyProcessedResult(event.txHash);
   }
 
+  const dealId = requireProcessedDealId(processingResult.dealId, event.txHash);
+
   await appendLifecycleSyncAuditLog({
     action: "deal_event_completed_synced",
-    dealId: deal.id,
+    dealId,
     event,
   });
 
   return {
-    dealId: deal.id,
+    dealId,
     result: "processed",
     txHash: event.txHash,
   };
@@ -291,41 +290,27 @@ export async function processConfirmedCompletedEvent(
 export async function processConfirmedReleasedEvent(
   event: NormalizedReleasedEvent,
 ): Promise<DealEventProcessingResult> {
-  const existingMarker = await getByTxHash(event.txHash);
-
-  if (existingMarker) {
-    return createAlreadyProcessedResult(event.txHash);
-  }
-
-  const adminIntent = await consumeLatestAdminResolutionIntent({
-    onchainDealId: event.onchainDealId,
-    resolution: "release",
-  });
-
-  const deal = await setReleasedByOnchainDealId(
-    event.onchainDealId,
-    event.releasedAt,
-    adminIntent?.admin_wallet,
-  );
-
-  const marker = await insertProcessedTransaction({
-    dealId: deal.id,
+  const processingResult = await processConfirmedReleasedEventOnce({
     eventType: event.eventType,
+    onchainDealId: event.onchainDealId,
+    releasedAt: event.releasedAt,
     txHash: event.txHash,
   });
 
-  if (marker.duplicate) {
+  if (processingResult.alreadyProcessed) {
     return createAlreadyProcessedResult(event.txHash);
   }
 
+  const dealId = requireProcessedDealId(processingResult.dealId, event.txHash);
+
   await appendLifecycleSyncAuditLog({
     action: "deal_event_released_synced",
-    dealId: deal.id,
+    dealId,
     event,
   });
 
   return {
-    dealId: deal.id,
+    dealId,
     result: "processed",
     txHash: event.txHash,
   };
@@ -334,32 +319,26 @@ export async function processConfirmedReleasedEvent(
 export async function processConfirmedDisputedEvent(
   event: NormalizedDisputedEvent,
 ): Promise<DealEventProcessingResult> {
-  const existingMarker = await getByTxHash(event.txHash);
-
-  if (existingMarker) {
-    return createAlreadyProcessedResult(event.txHash);
-  }
-
-  const deal = await setDisputedByOnchainDealId(event.onchainDealId);
-
-  const marker = await insertProcessedTransaction({
-    dealId: deal.id,
+  const processingResult = await processConfirmedDisputedEventOnce({
     eventType: event.eventType,
+    onchainDealId: event.onchainDealId,
     txHash: event.txHash,
   });
 
-  if (marker.duplicate) {
+  if (processingResult.alreadyProcessed) {
     return createAlreadyProcessedResult(event.txHash);
   }
 
+  const dealId = requireProcessedDealId(processingResult.dealId, event.txHash);
+
   await appendLifecycleSyncAuditLog({
     action: "deal_event_disputed_synced",
-    dealId: deal.id,
+    dealId,
     event,
   });
 
   return {
-    dealId: deal.id,
+    dealId,
     result: "processed",
     txHash: event.txHash,
   };
@@ -368,41 +347,26 @@ export async function processConfirmedDisputedEvent(
 export async function processConfirmedRefundedEvent(
   event: NormalizedRefundedEvent,
 ): Promise<DealEventProcessingResult> {
-  const existingMarker = await getByTxHash(event.txHash);
-
-  if (existingMarker) {
-    return createAlreadyProcessedResult(event.txHash);
-  }
-
-  const adminIntent = await consumeLatestAdminResolutionIntent({
-    onchainDealId: event.onchainDealId,
-    resolution: "refund",
-  });
-
-  const deal = await setRefundedByOnchainDealId(
-    event.onchainDealId,
-    undefined,
-    adminIntent?.admin_wallet,
-  );
-
-  const marker = await insertProcessedTransaction({
-    dealId: deal.id,
+  const processingResult = await processConfirmedRefundedEventOnce({
     eventType: event.eventType,
+    onchainDealId: event.onchainDealId,
     txHash: event.txHash,
   });
 
-  if (marker.duplicate) {
+  if (processingResult.alreadyProcessed) {
     return createAlreadyProcessedResult(event.txHash);
   }
 
+  const dealId = requireProcessedDealId(processingResult.dealId, event.txHash);
+
   await appendLifecycleSyncAuditLog({
     action: "deal_event_refunded_synced",
-    dealId: deal.id,
+    dealId,
     event,
   });
 
   return {
-    dealId: deal.id,
+    dealId,
     result: "processed",
     txHash: event.txHash,
   };

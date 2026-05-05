@@ -18,17 +18,15 @@ import type {
 import type { ConsultationLinkRow } from "../../lib/db/types";
 
 interface DealEventMocks {
-  consumeLatestAdminResolutionIntent: (...args: unknown[]) => Promise<{ admin_wallet: string } | null>;
   createAuditLogEntry: (...args: unknown[]) => Promise<void>;
   getByLinkHash: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   getByTxHash: (...args: unknown[]) => Promise<unknown>;
-  insertProcessedTransaction: (...args: unknown[]) => Promise<{ duplicate: boolean; row: unknown }>;
+  processConfirmedCompletedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
+  processConfirmedDisputedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
+  processConfirmedRefundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
+  processConfirmedReleasedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   screenWalletsBatch: (...args: unknown[]) => Promise<unknown[]>;
-  setConfirmPendingByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
-  setDisputedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
-  setRefundedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
-  setReleasedByOnchainDealId: (...args: unknown[]) => Promise<{ id: string }>;
 }
 
 const mocks = (global as typeof globalThis & { __dealEventMocks: DealEventMocks }).__dealEventMocks;
@@ -36,12 +34,12 @@ const mocks = (global as typeof globalThis & { __dealEventMocks: DealEventMocks 
 const SELLER_ADDRESS = "0x0000000000000000000000000000000000000001" as `0x${string}`;
 const BUYER_ADDRESS = "0x0000000000000000000000000000000000000002" as `0x${string}`;
 const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000003" as `0x${string}`;
-const FUNDED_TX_HASH = ("0x" + "a".repeat(64)) as `0x${string}`;
-const COMPLETED_TX_HASH = ("0x" + "b".repeat(64)) as `0x${string}`;
-const RELEASED_TX_HASH = ("0x" + "c".repeat(64)) as `0x${string}`;
-const DISPUTED_TX_HASH = ("0x" + "d".repeat(64)) as `0x${string}`;
-const REFUNDED_TX_HASH = ("0x" + "e".repeat(64)) as `0x${string}`;
-const LINK_HASH = ("0x" + "1".repeat(64)) as `0x${string}`;
+const FUNDED_TX_HASH = (`0x${"a".repeat(64)}`) as `0x${string}`;
+const COMPLETED_TX_HASH = (`0x${"b".repeat(64)}`) as `0x${string}`;
+const RELEASED_TX_HASH = (`0x${"c".repeat(64)}`) as `0x${string}`;
+const DISPUTED_TX_HASH = (`0x${"d".repeat(64)}`) as `0x${string}`;
+const REFUNDED_TX_HASH = (`0x${"e".repeat(64)}`) as `0x${string}`;
+const LINK_HASH = (`0x${"1".repeat(64)}`) as `0x${string}`;
 
 const fundedEvent: NormalizedFundedEvent = {
   blockNumber: BigInt(1),
@@ -115,20 +113,30 @@ function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLin
 }
 
 beforeEach(() => {
-  mocks.consumeLatestAdminResolutionIntent = async () => null;
   mocks.createAuditLogEntry = async () => undefined;
   mocks.getByLinkHash = async () => makeLink();
   mocks.getByTxHash = async () => null;
-  mocks.insertProcessedTransaction = async () => ({ duplicate: false, row: { tx_hash: "0xtx" } });
+  mocks.processConfirmedCompletedEventOnce = async () => ({
+    alreadyProcessed: false,
+    dealId: "deal-id-completed",
+  });
+  mocks.processConfirmedDisputedEventOnce = async () => ({
+    alreadyProcessed: false,
+    dealId: "deal-id-disputed",
+  });
   mocks.processConfirmedFundedEventOnce = async () => ({
     alreadyProcessed: false,
     dealId: "deal-id-funded",
   });
+  mocks.processConfirmedRefundedEventOnce = async () => ({
+    alreadyProcessed: false,
+    dealId: "deal-id-refunded",
+  });
+  mocks.processConfirmedReleasedEventOnce = async () => ({
+    alreadyProcessed: false,
+    dealId: "deal-id-released",
+  });
   mocks.screenWalletsBatch = async () => [];
-  mocks.setConfirmPendingByOnchainDealId = async () => ({ id: "deal-id-completed" });
-  mocks.setDisputedByOnchainDealId = async () => ({ id: "deal-id-disputed" });
-  mocks.setRefundedByOnchainDealId = async () => ({ id: "deal-id-refunded" });
-  mocks.setReleasedByOnchainDealId = async () => ({ id: "deal-id-released" });
 });
 
 describe("deal event idempotency", () => {
@@ -331,7 +339,10 @@ describe("deal event idempotency", () => {
 
   test("completed duplicate marker returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
-    mocks.insertProcessedTransaction = async () => ({ duplicate: true, row: null });
+    mocks.processConfirmedCompletedEventOnce = async () => ({
+      alreadyProcessed: true,
+      dealId: "deal-id-completed",
+    });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
     };
@@ -345,9 +356,50 @@ describe("deal event idempotency", () => {
     assert.equal(auditCalls, 0);
   });
 
+  test("completed event passes completed timestamp to atomic repository", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.processConfirmedCompletedEventOnce = async (...args: unknown[]) => {
+      [capturedInput] = args;
+      return { alreadyProcessed: false, dealId: "deal-id-completed" };
+    };
+
+    const result = await processConfirmedCompletedEvent(completedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-completed",
+      result: "processed",
+      txHash: completedEvent.txHash,
+    });
+    assert.deepEqual(capturedInput, {
+      completedAt: completedEvent.completedAt,
+      eventType: completedEvent.eventType,
+      onchainDealId: completedEvent.onchainDealId,
+      txHash: completedEvent.txHash,
+    });
+  });
+
+  test("completed already-converged event with a new marker still returns processed", async () => {
+    mocks.processConfirmedCompletedEventOnce = async () => ({
+      alreadyProcessed: false,
+      dealId: "deal-id-completed",
+    });
+
+    const result = await processConfirmedCompletedEvent(completedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-completed",
+      result: "processed",
+      txHash: completedEvent.txHash,
+    });
+  });
+
   test("released duplicate marker returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
-    mocks.insertProcessedTransaction = async () => ({ duplicate: true, row: null });
+    mocks.processConfirmedReleasedEventOnce = async () => ({
+      alreadyProcessed: true,
+      dealId: "deal-id-released",
+    });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
     };
@@ -361,12 +413,12 @@ describe("deal event idempotency", () => {
     assert.equal(auditCalls, 0);
   });
 
-  test("released event passes onchain deal id and released timestamp to repository", async () => {
-    let capturedArgs: unknown[] | null = null;
+  test("released event passes onchain deal id and released timestamp to atomic repository", async () => {
+    let capturedInput: unknown = null;
 
-    mocks.setReleasedByOnchainDealId = async (...args: unknown[]) => {
-      capturedArgs = args;
-      return { id: "deal-id-released" };
+    mocks.processConfirmedReleasedEventOnce = async (...args: unknown[]) => {
+      [capturedInput] = args;
+      return { alreadyProcessed: false, dealId: "deal-id-released" };
     };
 
     const result = await processConfirmedReleasedEvent(releasedEvent);
@@ -376,25 +428,19 @@ describe("deal event idempotency", () => {
       result: "processed",
       txHash: releasedEvent.txHash,
     });
-    assert.deepEqual(capturedArgs, [
-      releasedEvent.onchainDealId,
-      releasedEvent.releasedAt,
-      undefined,
-    ]);
+    assert.deepEqual(capturedInput, {
+      eventType: releasedEvent.eventType,
+      onchainDealId: releasedEvent.onchainDealId,
+      releasedAt: releasedEvent.releasedAt,
+      txHash: releasedEvent.txHash,
+    });
   });
 
-  test("released event with admin intent passes resolved wallet to repository", async () => {
-    let intentInput: unknown = null;
-    let capturedArgs: unknown[] | null = null;
-
-    mocks.consumeLatestAdminResolutionIntent = async (...args: unknown[]) => {
-      intentInput = args[0];
-      return { admin_wallet: "0x0000000000000000000000000000000000000009" };
-    };
-    mocks.setReleasedByOnchainDealId = async (...args: unknown[]) => {
-      capturedArgs = args;
-      return { id: "deal-id-released" };
-    };
+  test("released already-converged event with a new marker still returns processed", async () => {
+    mocks.processConfirmedReleasedEventOnce = async () => ({
+      alreadyProcessed: false,
+      dealId: "deal-id-released",
+    });
 
     const result = await processConfirmedReleasedEvent(releasedEvent);
 
@@ -403,20 +449,14 @@ describe("deal event idempotency", () => {
       result: "processed",
       txHash: releasedEvent.txHash,
     });
-    assert.deepEqual(intentInput, {
-      onchainDealId: releasedEvent.onchainDealId,
-      resolution: "release",
-    });
-    assert.deepEqual(capturedArgs, [
-      releasedEvent.onchainDealId,
-      releasedEvent.releasedAt,
-      "0x0000000000000000000000000000000000000009",
-    ]);
   });
 
   test("disputed duplicate marker returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
-    mocks.insertProcessedTransaction = async () => ({ duplicate: true, row: null });
+    mocks.processConfirmedDisputedEventOnce = async () => ({
+      alreadyProcessed: true,
+      dealId: "deal-id-disputed",
+    });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
     };
@@ -430,9 +470,49 @@ describe("deal event idempotency", () => {
     assert.equal(auditCalls, 0);
   });
 
+  test("disputed event passes onchain deal id to atomic repository", async () => {
+    let capturedInput: unknown = null;
+
+    mocks.processConfirmedDisputedEventOnce = async (...args: unknown[]) => {
+      [capturedInput] = args;
+      return { alreadyProcessed: false, dealId: "deal-id-disputed" };
+    };
+
+    const result = await processConfirmedDisputedEvent(disputedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-disputed",
+      result: "processed",
+      txHash: disputedEvent.txHash,
+    });
+    assert.deepEqual(capturedInput, {
+      eventType: disputedEvent.eventType,
+      onchainDealId: disputedEvent.onchainDealId,
+      txHash: disputedEvent.txHash,
+    });
+  });
+
+  test("disputed already-converged event with a new marker still returns processed", async () => {
+    mocks.processConfirmedDisputedEventOnce = async () => ({
+      alreadyProcessed: false,
+      dealId: "deal-id-disputed",
+    });
+
+    const result = await processConfirmedDisputedEvent(disputedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-disputed",
+      result: "processed",
+      txHash: disputedEvent.txHash,
+    });
+  });
+
   test("refunded duplicate marker returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
-    mocks.insertProcessedTransaction = async () => ({ duplicate: true, row: null });
+    mocks.processConfirmedRefundedEventOnce = async () => ({
+      alreadyProcessed: true,
+      dealId: "deal-id-refunded",
+    });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
     };
@@ -446,12 +526,12 @@ describe("deal event idempotency", () => {
     assert.equal(auditCalls, 0);
   });
 
-  test("refunded event passes onchain deal id to repository", async () => {
-    let capturedArgs: unknown[] | null = null;
+  test("refunded event passes onchain deal id to atomic repository", async () => {
+    let capturedInput: unknown = null;
 
-    mocks.setRefundedByOnchainDealId = async (...args: unknown[]) => {
-      capturedArgs = args;
-      return { id: "deal-id-refunded" };
+    mocks.processConfirmedRefundedEventOnce = async (...args: unknown[]) => {
+      [capturedInput] = args;
+      return { alreadyProcessed: false, dealId: "deal-id-refunded" };
     };
 
     const result = await processConfirmedRefundedEvent(refundedEvent);
@@ -461,21 +541,18 @@ describe("deal event idempotency", () => {
       result: "processed",
       txHash: refundedEvent.txHash,
     });
-    assert.deepEqual(capturedArgs, [refundedEvent.onchainDealId, undefined, undefined]);
+    assert.deepEqual(capturedInput, {
+      eventType: refundedEvent.eventType,
+      onchainDealId: refundedEvent.onchainDealId,
+      txHash: refundedEvent.txHash,
+    });
   });
 
-  test("refunded event with admin intent passes resolved wallet to repository", async () => {
-    let intentInput: unknown = null;
-    let capturedArgs: unknown[] | null = null;
-
-    mocks.consumeLatestAdminResolutionIntent = async (...args: unknown[]) => {
-      intentInput = args[0];
-      return { admin_wallet: "0x0000000000000000000000000000000000000009" };
-    };
-    mocks.setRefundedByOnchainDealId = async (...args: unknown[]) => {
-      capturedArgs = args;
-      return { id: "deal-id-refunded" };
-    };
+  test("refunded already-converged event with a new marker still returns processed", async () => {
+    mocks.processConfirmedRefundedEventOnce = async () => ({
+      alreadyProcessed: false,
+      dealId: "deal-id-refunded",
+    });
 
     const result = await processConfirmedRefundedEvent(refundedEvent);
 
@@ -484,14 +561,5 @@ describe("deal event idempotency", () => {
       result: "processed",
       txHash: refundedEvent.txHash,
     });
-    assert.deepEqual(intentInput, {
-      onchainDealId: refundedEvent.onchainDealId,
-      resolution: "refund",
-    });
-    assert.deepEqual(capturedArgs, [
-      refundedEvent.onchainDealId,
-      undefined,
-      "0x0000000000000000000000000000000000000009",
-    ]);
   });
 });

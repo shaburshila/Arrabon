@@ -25,17 +25,15 @@ class ProcessedTransactionsRepositoryError extends Error {
 }
 
 const mocks = {
-  consumeLatestAdminResolutionIntent: async () => null,
   createAuditLogEntry: async () => undefined,
   getByLinkHash: async () => null,
   getByTxHash: async () => null,
-  insertProcessedTransaction: async () => ({ duplicate: false, row: { tx_hash: '0xtx' } }),
+  processConfirmedCompletedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-completed' }),
+  processConfirmedDisputedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-disputed' }),
   processConfirmedFundedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-1' }),
+  processConfirmedRefundedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-refunded' }),
+  processConfirmedReleasedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-released' }),
   screenWalletsBatch: async () => [],
-  setConfirmPendingByOnchainDealId: async () => ({ id: 'deal-id-1' }),
-  setDisputedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
-  setRefundedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
-  setReleasedByOnchainDealId: async () => ({ id: 'deal-id-1' }),
   ProcessedTransactionsRepositoryError,
 };
 
@@ -48,30 +46,20 @@ require.cache[auditLogPath] = makeEntry(auditLogPath, {
   createAuditLogEntry: (...args) => mocks.createAuditLogEntry(...args),
 });
 
-const adminResolutionIntentsRepoPath = path.resolve(root, 'server/repositories/admin-resolution-intents.ts');
-require.cache[adminResolutionIntentsRepoPath] = makeEntry(adminResolutionIntentsRepoPath, {
-  consumeLatestAdminResolutionIntent: (...args) => mocks.consumeLatestAdminResolutionIntent(...args),
-});
-
 const consultationLinksRepoPath = path.resolve(root, 'server/repositories/consultation-links.ts');
 require.cache[consultationLinksRepoPath] = makeEntry(consultationLinksRepoPath, {
   getByLinkHash: (...args) => mocks.getByLinkHash(...args),
-});
-
-const dealsRepoPath = path.resolve(root, 'server/repositories/deals.ts');
-require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
-  setConfirmPendingByOnchainDealId: (...args) => mocks.setConfirmPendingByOnchainDealId(...args),
-  setDisputedByOnchainDealId: (...args) => mocks.setDisputedByOnchainDealId(...args),
-  setRefundedByOnchainDealId: (...args) => mocks.setRefundedByOnchainDealId(...args),
-  setReleasedByOnchainDealId: (...args) => mocks.setReleasedByOnchainDealId(...args),
 });
 
 const processedTransactionsRepoPath = path.resolve(root, 'server/repositories/processed-transactions.ts');
 require.cache[processedTransactionsRepoPath] = makeEntry(processedTransactionsRepoPath, {
   ProcessedTransactionsRepositoryError,
   getByTxHash: (...args) => mocks.getByTxHash(...args),
-  insertProcessedTransaction: (...args) => mocks.insertProcessedTransaction(...args),
+  processConfirmedCompletedEventOnce: (...args) => mocks.processConfirmedCompletedEventOnce(...args),
+  processConfirmedDisputedEventOnce: (...args) => mocks.processConfirmedDisputedEventOnce(...args),
   processConfirmedFundedEventOnce: (...args) => mocks.processConfirmedFundedEventOnce(...args),
+  processConfirmedRefundedEventOnce: (...args) => mocks.processConfirmedRefundedEventOnce(...args),
+  processConfirmedReleasedEventOnce: (...args) => mocks.processConfirmedReleasedEventOnce(...args),
 });
 
 const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
