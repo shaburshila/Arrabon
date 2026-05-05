@@ -72,12 +72,12 @@ const benefitCards = [
 ] as const;
 
 const footerLinks = [
-  "Docs",
-  "Terms",
-  "Privacy",
-  "Contact",
-  "GitHub",
-  "Contract on Basescan",
+  { href: "/refund-policy", label: "Refund Policy" },
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "mailto:shaburshil@gmail.com", label: "Contact" },
+  { href: "https://github.com/shaburshila/base-consult-link", label: "GitHub" },
+  { href: "#", label: "Contract on Basescan" },
 ] as const;
 
 export default function HomePage() {
@@ -243,9 +243,9 @@ function HomeFooter() {
     <footer style={footerStyle}>
       <div style={footerInnerStyle}>
         <nav aria-label="Footer links" style={footerLinksStyle}>
-          {footerLinks.map((label) => (
-            <FooterLink href="#" key={label}>
-              {label}
+          {footerLinks.map((link) => (
+            <FooterLink href={link.href} key={link.label}>
+              {link.label}
             </FooterLink>
           ))}
         </nav>
@@ -376,7 +376,7 @@ function TrustIndicator({ label }: { label: string }) {
 
 function FooterLink({ children, href }: { children: ReactNode; href: string }) {
   return (
-    <a
+    <Link
       href={href}
       onMouseEnter={(event) => {
         event.currentTarget.style.opacity = "0.7";
@@ -390,7 +390,7 @@ function FooterLink({ children, href }: { children: ReactNode; href: string }) {
       }}
     >
       {children}
-    </a>
+    </Link>
   );
 }
 
