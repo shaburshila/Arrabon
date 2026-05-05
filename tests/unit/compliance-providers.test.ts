@@ -1,4 +1,4 @@
-import { beforeEach, describe, test } from "node:test";
+import { afterEach, beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { getAddress, type Address } from "viem";
 
@@ -13,6 +13,7 @@ import { createUsdcBlacklistProvider } from "@/lib/compliance/providers/usdc-bla
 import type { ComplianceProvider, ProviderScreeningResult } from "@/lib/compliance/types";
 
 const TEST_WALLET = getAddress("0x00000000000000000000000000000000000000AA");
+const CIRCUIT_BREAKER_EVENT = "compliance.circuit_breaker.state";
 
 function makeProvider(
   id: ComplianceProvider["id"],
@@ -338,5 +339,116 @@ describe("composite compliance provider", () => {
 
     assert.equal(calls, 2);
     assert.equal(cache.get("chainalysis_sanctions_oracle", TEST_WALLET.toLowerCase()), null);
+  });
+});
+
+describe("compliance circuit breaker monitoring", () => {
+  let events: Array<Record<string, unknown>>;
+  let originalConsoleInfo: typeof console.info;
+
+  beforeEach(() => {
+    events = [];
+    originalConsoleInfo = console.info;
+    console.info = (message, payload, ...rest) => {
+      if (message === CIRCUIT_BREAKER_EVENT && payload && typeof payload === "object") {
+        events.push(payload as Record<string, unknown>);
+        return;
+      }
+
+      return originalConsoleInfo(message, payload, ...rest);
+    };
+  });
+
+  afterEach(() => {
+    console.info = originalConsoleInfo;
+  });
+
+  test("logs closed to open when failure threshold is reached", () => {
+    const breaker = new ComplianceCircuitBreaker({
+      failureThreshold: 2,
+      resetMs: 15_000,
+      windowMs: 10_000,
+    });
+
+    breaker.recordFailure("chainalysis_sanctions_oracle", 1_000);
+    breaker.recordFailure("chainalysis_sanctions_oracle", 2_000);
+
+    assert.deepEqual(events, [
+      {
+        fromState: "closed",
+        provider: "chainalysis_sanctions_oracle",
+        timestamp: 2_000,
+        toState: "open",
+      },
+    ]);
+  });
+
+  test("logs open to half-open when reset window elapses", () => {
+    const breaker = new ComplianceCircuitBreaker({
+      failureThreshold: 1,
+      resetMs: 15_000,
+      windowMs: 10_000,
+    });
+
+    breaker.recordFailure("usdc_blacklist", 1_000);
+    events = [];
+
+    const state = breaker.getState("usdc_blacklist", 16_000);
+
+    assert.equal(state, "half-open");
+    assert.deepEqual(events, [
+      {
+        fromState: "open",
+        provider: "usdc_blacklist",
+        timestamp: 16_000,
+        toState: "half-open",
+      },
+    ]);
+  });
+
+  test("logs half-open to closed on successful recovery", () => {
+    const breaker = new ComplianceCircuitBreaker({
+      failureThreshold: 1,
+      resetMs: 15_000,
+      windowMs: 10_000,
+    });
+
+    breaker.recordFailure("local_denylist", 1_000);
+    breaker.getState("local_denylist", 16_000);
+    events = [];
+
+    breaker.recordSuccess("local_denylist", 17_000);
+
+    assert.deepEqual(events, [
+      {
+        fromState: "half-open",
+        provider: "local_denylist",
+        timestamp: 17_000,
+        toState: "closed",
+      },
+    ]);
+  });
+
+  test("does not log duplicate transition events for repeated reads", () => {
+    const breaker = new ComplianceCircuitBreaker({
+      failureThreshold: 1,
+      resetMs: 15_000,
+      windowMs: 10_000,
+    });
+
+    breaker.recordFailure("chainalysis_sanctions_oracle", 1_000);
+    events = [];
+
+    breaker.getState("chainalysis_sanctions_oracle", 16_000);
+    breaker.getState("chainalysis_sanctions_oracle", 17_000);
+
+    assert.deepEqual(events, [
+      {
+        fromState: "open",
+        provider: "chainalysis_sanctions_oracle",
+        timestamp: 16_000,
+        toState: "half-open",
+      },
+    ]);
   });
 });

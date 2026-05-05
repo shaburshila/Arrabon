@@ -27,6 +27,24 @@ export class ComplianceCircuitBreaker {
 
   constructor(private readonly options: ComplianceCircuitBreakerOptions) {}
 
+  private logStateTransition(
+    provider: ComplianceProviderId,
+    fromState: BreakerState,
+    toState: BreakerState,
+    now: number,
+  ): void {
+    if (fromState === toState) {
+      return;
+    }
+
+    console.info("compliance.circuit_breaker.state", {
+      fromState,
+      provider,
+      timestamp: now,
+      toState,
+    });
+  }
+
   private getProviderState(provider: ComplianceProviderId): ProviderState {
     const existing = this.states.get(provider);
     if (existing) {
@@ -51,9 +69,11 @@ export class ComplianceCircuitBreaker {
       state.openedAt !== null &&
       now - state.openedAt >= this.options.resetMs
     ) {
+      const previousState = state.state;
       state.state = "half-open";
       state.openedAt = null;
       state.failureTimestamps = [];
+      this.logStateTransition(provider, previousState, state.state, now);
     }
 
     return state.state;
@@ -68,9 +88,11 @@ export class ComplianceCircuitBreaker {
     const currentState = this.getState(provider, now);
 
     if (currentState === "half-open") {
+      const previousState = state.state;
       state.state = "open";
       state.openedAt = now;
       state.failureTimestamps = [];
+      this.logStateTransition(provider, previousState, state.state, now);
       return;
     }
 
@@ -78,17 +100,21 @@ export class ComplianceCircuitBreaker {
     state.failureTimestamps.push(now);
 
     if (state.failureTimestamps.length >= this.options.failureThreshold) {
+      const previousState = state.state;
       state.state = "open";
       state.openedAt = now;
       state.failureTimestamps = [];
+      this.logStateTransition(provider, previousState, state.state, now);
     }
   }
 
-  recordSuccess(provider: ComplianceProviderId): void {
+  recordSuccess(provider: ComplianceProviderId, now: number = Date.now()): void {
     const state = this.getProviderState(provider);
+    const previousState = state.state;
     state.state = "closed";
     state.openedAt = null;
     state.failureTimestamps = [];
+    this.logStateTransition(provider, previousState, state.state, now);
   }
 }
 
