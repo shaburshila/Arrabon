@@ -143,6 +143,26 @@ function extractProviderResultsOrThrow(
   return providerResults;
 }
 
+function emitProviderUnavailableEvents(
+  providerResults: readonly ProviderAuditScreeningResult[],
+  ctx: ComplianceScreeningContext,
+  walletCount: number,
+): void {
+  for (const providerResult of providerResults) {
+    if (providerResult.result !== "Blocked" || providerResult.reasonCode !== "PROVIDER_UNAVAILABLE") {
+      continue;
+    }
+
+    console.info("provider_unavailable_rate", {
+      action: ctx.action,
+      dealId: ctx.dealId,
+      provider: providerResult.provider,
+      walletAddress: providerResult.walletAddress,
+      walletCount,
+    });
+  }
+}
+
 export async function screenWalletForDeal(
   wallet: string,
   ctx: ComplianceScreeningContext,
@@ -179,6 +199,7 @@ export async function screenWalletForDeal(
   });
 
   const providerResults = extractProviderResultsOrThrow(result);
+  emitProviderUnavailableEvents(providerResults, ctx, 1);
   await persistProviderResults(providerResults, ctx);
 
   if (ctx.dealId) {
@@ -224,6 +245,7 @@ export async function screenWalletsBatch(
   });
 
   const providerResults = results.flatMap((result) => extractProviderResultsOrThrow(result));
+  emitProviderUnavailableEvents(providerResults, ctx, wallets.length);
   await persistProviderResults(providerResults, ctx);
 
   if (ctx.dealId) {

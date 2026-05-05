@@ -99,6 +99,7 @@ const mocks = {
     createComplianceCheck: [],
     getById: [],
     monitoringEvents: [],
+    providerUnavailableEvents: [],
     updateRiskStatusById: [],
   },
   reset() {
@@ -167,6 +168,7 @@ const mocks = {
       createComplianceCheck: [],
       getById: [],
       monitoringEvents: [],
+      providerUnavailableEvents: [],
       updateRiskStatusById: [],
     };
   },
@@ -177,6 +179,11 @@ global.__complianceServiceMocks = mocks;
 console.info = (message, payload, ...rest) => {
   if (message === 'compliance_check_duration' && payload && typeof payload === 'object') {
     mocks.calls.monitoringEvents.push(payload);
+    return;
+  }
+
+  if (message === 'provider_unavailable_rate' && payload && typeof payload === 'object') {
+    mocks.calls.providerUnavailableEvents.push(payload);
     return;
   }
 

@@ -16,6 +16,7 @@ interface ComplianceServiceMocks {
     createComplianceCheck: Array<Record<string, unknown>>;
     getById: string[];
     monitoringEvents: Array<Record<string, unknown>>;
+    providerUnavailableEvents: Array<Record<string, unknown>>;
     updateRiskStatusById: Array<[string, DealRow["risk_status"]]>;
   };
   createComplianceCheck: (...args: unknown[]) => Promise<unknown>;
@@ -174,6 +175,82 @@ describe("screenWalletForDeal", () => {
     });
     assert.equal(typeof mocks.calls.monitoringEvents[0].durationMs, "number");
   });
+
+  test("records one provider_unavailable event for a single unavailable provider", async () => {
+    const providerResults = [
+      makeProviderResult("chainalysis_sanctions_oracle", {
+        reasonCode: "PROVIDER_UNAVAILABLE",
+        result: "Blocked",
+      }),
+      makeProviderResult("usdc_blacklist"),
+      makeProviderResult("local_denylist"),
+    ];
+
+    mocks.provider.screenWallet = async () =>
+      makeCompositeResult(providerResults, {
+        provider: "chainalysis_sanctions_oracle",
+        reasonCode: "PROVIDER_UNAVAILABLE",
+        result: "Blocked",
+      });
+
+    await screenWalletForDeal(BUYER, {
+      action: "funding_prepare",
+      actorWallet: BUYER,
+      dealId: "deal-id-1",
+    });
+
+    assert.deepEqual(mocks.calls.providerUnavailableEvents, [{
+      action: "funding_prepare",
+      dealId: "deal-id-1",
+      provider: "chainalysis_sanctions_oracle",
+      walletAddress: BUYER,
+      walletCount: 1,
+    }]);
+  });
+
+  test("records separate provider_unavailable events for multiple unavailable providers", async () => {
+    const providerResults = [
+      makeProviderResult("chainalysis_sanctions_oracle", {
+        reasonCode: "PROVIDER_UNAVAILABLE",
+        result: "Blocked",
+      }),
+      makeProviderResult("usdc_blacklist", {
+        reasonCode: "PROVIDER_UNAVAILABLE",
+        result: "Blocked",
+      }),
+      makeProviderResult("local_denylist"),
+    ];
+
+    mocks.provider.screenWallet = async () =>
+      makeCompositeResult(providerResults, {
+        provider: "chainalysis_sanctions_oracle",
+        reasonCode: "PROVIDER_UNAVAILABLE",
+        result: "Blocked",
+      });
+
+    await screenWalletForDeal(BUYER, {
+      action: "funding_prepare",
+      actorWallet: BUYER,
+      dealId: "deal-id-1",
+    });
+
+    assert.deepEqual(mocks.calls.providerUnavailableEvents, [
+      {
+        action: "funding_prepare",
+        dealId: "deal-id-1",
+        provider: "chainalysis_sanctions_oracle",
+        walletAddress: BUYER,
+        walletCount: 1,
+      },
+      {
+        action: "funding_prepare",
+        dealId: "deal-id-1",
+        provider: "usdc_blacklist",
+        walletAddress: BUYER,
+        walletCount: 1,
+      },
+    ]);
+  });
 });
 
 describe("screenWalletsBatch", () => {
@@ -280,6 +357,100 @@ describe("screenWalletsBatch", () => {
     assert.equal(results.length, 1);
     assert.deepEqual(mocks.calls.getById, ["deal-id-1"]);
     assert.deepEqual(mocks.calls.updateRiskStatusById, [["deal-id-1", "Blocked"]]);
+  });
+
+  test("records provider_unavailable events per wallet and provider in batch flow", async () => {
+    mocks.provider.screenWallet = async (address: string) => {
+      if (getAddress(address) === BUYER) {
+        return makeCompositeResult(
+          [
+            makeProviderResult("chainalysis_sanctions_oracle", {
+              reasonCode: "PROVIDER_UNAVAILABLE",
+              result: "Blocked",
+              walletAddress: BUYER,
+            }),
+            makeProviderResult("usdc_blacklist", { walletAddress: BUYER }),
+            makeProviderResult("local_denylist", { walletAddress: BUYER }),
+          ],
+          {
+            provider: "chainalysis_sanctions_oracle",
+            reasonCode: "PROVIDER_UNAVAILABLE",
+            result: "Blocked",
+            walletAddress: BUYER,
+          },
+        );
+      }
+
+      return makeCompositeResult(
+        [
+          makeProviderResult("chainalysis_sanctions_oracle", { walletAddress: SELLER }),
+          makeProviderResult("usdc_blacklist", {
+            reasonCode: "PROVIDER_UNAVAILABLE",
+            result: "Blocked",
+            walletAddress: SELLER,
+          }),
+          makeProviderResult("local_denylist", { walletAddress: SELLER }),
+        ],
+        {
+          provider: "usdc_blacklist",
+          reasonCode: "PROVIDER_UNAVAILABLE",
+          result: "Blocked",
+          walletAddress: SELLER,
+        },
+      );
+    };
+
+    await screenWalletsBatch([BUYER, SELLER], {
+      action: "funding_prepare",
+      actorWallet: BUYER,
+      dealId: null,
+    });
+
+    assert.deepEqual(mocks.calls.providerUnavailableEvents, [
+      {
+        action: "funding_prepare",
+        dealId: null,
+        provider: "chainalysis_sanctions_oracle",
+        walletAddress: BUYER,
+        walletCount: 2,
+      },
+      {
+        action: "funding_prepare",
+        dealId: null,
+        provider: "usdc_blacklist",
+        walletAddress: SELLER,
+        walletCount: 2,
+      },
+    ]);
+  });
+
+  test("does not record provider_unavailable events for non-provider-unavailable blocked reasons", async () => {
+    mocks.provider.screenWallet = async () =>
+      makeCompositeResult(
+        [
+          makeProviderResult("chainalysis_sanctions_oracle", {
+            reasonCode: "OFAC_SANCTIONS",
+            result: "Blocked",
+            walletAddress: BUYER,
+          }),
+          makeProviderResult("usdc_blacklist", { walletAddress: BUYER }),
+          makeProviderResult("local_denylist", { walletAddress: BUYER }),
+        ],
+        {
+          provider: "chainalysis_sanctions_oracle",
+          reasonCode: "OFAC_SANCTIONS",
+          result: "Blocked",
+          walletAddress: BUYER,
+        },
+      );
+
+    await screenWalletsBatch([BUYER], {
+      action: "funding_prepare",
+      actorWallet: BUYER,
+      dealId: null,
+    });
+
+    assert.deepEqual(mocks.calls.providerUnavailableEvents, []);
   });
 
   test("fails closed on partial audit write failure and skips recompute", async () => {
