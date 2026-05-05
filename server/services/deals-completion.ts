@@ -159,26 +159,6 @@ function assertBuyer(currentUser: CurrentUserContext, buyerAddress: string) {
   }
 }
 
-function assertParticipantOrAdmin(
-  currentUser: CurrentUserContext,
-  buyerAddress: string,
-  sellerAddress: string,
-) {
-  if (
-    currentUser.is_admin ||
-    isSameWallet(currentUser.wallet_address, buyerAddress) ||
-    isSameWallet(currentUser.wallet_address, sellerAddress)
-  ) {
-    return;
-  }
-
-  throw new DealCompletionServiceError(
-    "Access denied.",
-    403,
-    "NOT_DEAL_PARTICIPANT",
-  );
-}
-
 function buildPreparedResult(dealId: string, contractCall: PreparedDealLifecycleCall) {
   return {
     contract_call: contractCall,
@@ -506,7 +486,6 @@ export async function prepareOpenDisputeForDeal(
 }
 
 export async function prepareAutoReleaseForDeal(
-  currentUser: CurrentUserContext,
   input: DealCompletionRouteParams,
   now: Date = new Date(),
 ): Promise<PreparedDealLifecycleResult> {
@@ -515,9 +494,6 @@ export async function prepareAutoReleaseForDeal(
   if (!context) {
     throw new DealCompletionServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
   }
-
-  assertParticipantOrAdmin(currentUser, context.buyer_address, context.seller_address);
-
   if (context.status !== "ConfirmPending") {
     throw new DealCompletionServiceError(
       "Deal cannot be auto-released in its current state.",
@@ -542,7 +518,7 @@ export async function prepareAutoReleaseForDeal(
 
   const screeningContext = {
     action: "lifecycle_auto_release" as const,
-    actorWallet: currentUser.wallet_address,
+    actorWallet: null,
     dealId: context.id,
   };
   const screeningResult = await screenWalletForDeal(

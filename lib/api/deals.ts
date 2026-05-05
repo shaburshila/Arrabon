@@ -188,7 +188,7 @@ export async function prepareDispute(dealId: string): Promise<LifecyclePrepareRe
   return parseResponse<LifecyclePrepareResult>(res);
 }
 
-// POST /api/deals/:id/auto-release — requires SIWE session for a participant or admin
+// POST /api/deals/:id/auto-release — permissionless prepare endpoint after deadline
 export async function prepareAutoRelease(dealId: string): Promise<LifecyclePrepareResult> {
   const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/auto-release`, {
     body: "{}",

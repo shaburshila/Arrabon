@@ -63,7 +63,7 @@ type RouteMocks = {
     params: { id?: string | undefined },
   ) => { dealId: string };
   prepareOpenDisputeForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
-  prepareAutoReleaseForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
+  prepareAutoReleaseForDeal: (params: unknown) => Promise<unknown>;
   prepareConfirmReleaseForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   prepareMarkCompletedForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   requireUser: () => Promise<RouteUser>;
@@ -100,8 +100,8 @@ const routeMocks: RouteMocks = {
   DealCompletionServiceError,
   prepareOpenDisputeForDeal: (currentUser: unknown, params: unknown) =>
     routeMocks.prepareOpenDisputeForDeal(currentUser, params),
-  prepareAutoReleaseForDeal: (currentUser: unknown, params: unknown) =>
-    routeMocks.prepareAutoReleaseForDeal(currentUser, params),
+  prepareAutoReleaseForDeal: (params: unknown) =>
+    routeMocks.prepareAutoReleaseForDeal(params),
   prepareConfirmReleaseForDeal: (currentUser: unknown, params: unknown) =>
     routeMocks.prepareConfirmReleaseForDeal(currentUser, params),
   prepareMarkCompletedForDeal: (currentUser: unknown, params: unknown) =>
@@ -194,10 +194,7 @@ describe("deal lifecycle compliance routes", () => {
   });
 
   test("auto-release route returns canonical 403 shape", async () => {
-    routeMocks.prepareAutoReleaseForDeal = async (
-      _currentUser: unknown,
-      _params: unknown,
-    ) => {
+    routeMocks.prepareAutoReleaseForDeal = async (_params: unknown) => {
       throw new ComplianceBlockedError({
         dealId: "deal-id-1",
         provider: "chainalysis_sanctions_oracle",
