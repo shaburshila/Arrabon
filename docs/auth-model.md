@@ -121,7 +121,7 @@ Client wallet                Frontend                  Backend
 - `Secure`
 - `SameSite=Lax` для MVP
 - короткий TTL
-- session invalidates on logout
+- session invalidates on logout only when server-side lookup succeeds and revoke is confirmed; lookup/revoke failure returns `500` and leaves the cookie intact
 
 ### Session fields
 
@@ -194,7 +194,7 @@ Session context, доступный в route handlers (`CurrentUserContext`):
 
 - `POST /api/auth/siwe/nonce` → returns nonce payload
 - `POST /api/auth/siwe/verify` → validates signature, sets session cookie
-- `POST /api/auth/logout` → clears session
+- `POST /api/auth/logout` → clears session only after successful lookup/revoke or when no active session exists; returns `500` on lookup/revoke failure
 - `GET /api/private/ping` → session probe: returns `{ ok, wallet_address, is_admin, expires_at }`
 - session context shape (доступен в route handlers):
   - `wallet_address: string`

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { getAddress } from "viem";
+import { readSessionCookie } from "@/lib/auth/cookies";
 import { createSession, getSession, revokeSession } from "@/server/repositories/sessions";
 
 export const AUTH_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -71,6 +72,16 @@ export async function getAuthSessionFromToken(token: string): Promise<AuthSessio
     session_id: session.id,
     wallet_address: session.wallet,
   };
+}
+
+export async function getAuthSessionFromCurrentCookieStrict(): Promise<AuthSessionContext | null> {
+  const sessionToken = await readSessionCookie();
+
+  if (!sessionToken) {
+    return null;
+  }
+
+  return getAuthSessionFromToken(sessionToken);
 }
 
 export async function revokeAuthSession(sessionId: string) {

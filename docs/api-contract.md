@@ -128,6 +128,16 @@ Response:
 }
 ```
 
+Errors:
+
+- `500` `LOGOUT_LOOKUP_FAILED`
+- `500` `LOGOUT_REVOKE_FAILED`
+
+Notes:
+
+- `200 { ok: true }` means either no active server-side session existed or session revoke was confirmed.
+- On lookup/revoke failure the route returns `500` and does not clear the session cookie.
+
 ---
 
 ## 4. Expert Endpoints
