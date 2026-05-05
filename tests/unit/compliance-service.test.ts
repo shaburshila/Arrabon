@@ -15,6 +15,7 @@ interface ComplianceServiceMocks {
   calls: {
     createComplianceCheck: Array<Record<string, unknown>>;
     getById: string[];
+    monitoringEvents: Array<Record<string, unknown>>;
     updateRiskStatusById: Array<[string, DealRow["risk_status"]]>;
   };
   createComplianceCheck: (...args: unknown[]) => Promise<unknown>;
@@ -130,6 +131,48 @@ describe("screenWalletForDeal", () => {
           call.actorWallet === BUYER.toLowerCase() && call.subjectType === "wallet",
       ),
     );
+    assert.equal(mocks.calls.monitoringEvents.length, 1);
+    assert.deepEqual(mocks.calls.monitoringEvents[0], {
+      action: "funding_prepare",
+      dealId: "deal-id-1",
+      durationMs: mocks.calls.monitoringEvents[0].durationMs,
+      outcome: "succeeded",
+      reasonCode: "NO_HIT",
+      walletCount: 1,
+    });
+    assert.equal(typeof mocks.calls.monitoringEvents[0].durationMs, "number");
+  });
+
+  test("records duration when single-wallet screening fails before persistence", async () => {
+    mocks.provider.screenWallet = async () => {
+      throw new Error("rpc down");
+    };
+
+    await assert.rejects(
+      () =>
+        screenWalletForDeal(BUYER, {
+          action: "funding_prepare",
+          actorWallet: BUYER,
+          dealId: "deal-id-1",
+        }),
+      (error) => {
+        assert.ok(error instanceof ComplianceServiceError);
+        assert.equal(error.code, "SCREENING_FAILED");
+        return true;
+      },
+    );
+
+    assert.equal(mocks.calls.createComplianceCheck.length, 0);
+    assert.equal(mocks.calls.monitoringEvents.length, 1);
+    assert.deepEqual(mocks.calls.monitoringEvents[0], {
+      action: "funding_prepare",
+      dealId: "deal-id-1",
+      durationMs: mocks.calls.monitoringEvents[0].durationMs,
+      errorCode: "SCREENING_FAILED",
+      outcome: "failed",
+      walletCount: 1,
+    });
+    assert.equal(typeof mocks.calls.monitoringEvents[0].durationMs, "number");
   });
 });
 
@@ -173,11 +216,20 @@ describe("screenWalletsBatch", () => {
     assert.equal(results[0].walletAddress, BUYER);
     assert.equal(results[1].walletAddress, SELLER);
     assert.equal(mocks.calls.createComplianceCheck.length, 6);
+    assert.equal(mocks.calls.monitoringEvents.length, 1);
     assert.ok(
       mocks.calls.createComplianceCheck.every(
         (call) => call.actorWallet === BUYER.toLowerCase(),
       ),
     );
+    assert.deepEqual(mocks.calls.monitoringEvents[0], {
+      action: "funding_prepare",
+      dealId: null,
+      durationMs: mocks.calls.monitoringEvents[0].durationMs,
+      outcome: "succeeded",
+      walletCount: 2,
+    });
+    assert.equal("reasonCode" in mocks.calls.monitoringEvents[0], false);
   });
 
   test("recomputes deal risk status after persisting batch results for a deal", async () => {
@@ -263,6 +315,38 @@ describe("screenWalletsBatch", () => {
 
     assert.equal(mocks.calls.getById.length, 0);
     assert.equal(mocks.calls.updateRiskStatusById.length, 0);
+    assert.equal(mocks.calls.monitoringEvents.length, 1);
+  });
+
+  test("records duration when provider screening fails before persistence", async () => {
+    mocks.provider.screenWallet = async () => {
+      throw new Error("rpc down");
+    };
+
+    await assert.rejects(
+      () =>
+        screenWalletsBatch([BUYER], {
+          action: "funding_prepare",
+          actorWallet: BUYER,
+          dealId: null,
+        }),
+      (error) => {
+        assert.ok(error instanceof ComplianceServiceError);
+        assert.equal(error.code, "SCREENING_FAILED");
+        return true;
+      },
+    );
+
+    assert.equal(mocks.calls.monitoringEvents.length, 1);
+    assert.deepEqual(mocks.calls.monitoringEvents[0], {
+      action: "funding_prepare",
+      dealId: null,
+      durationMs: mocks.calls.monitoringEvents[0].durationMs,
+      errorCode: "SCREENING_FAILED",
+      outcome: "failed",
+      walletCount: 1,
+    });
+    assert.equal(typeof mocks.calls.monitoringEvents[0].durationMs, "number");
   });
 });
 

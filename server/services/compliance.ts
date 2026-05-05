@@ -147,17 +147,36 @@ export async function screenWalletForDeal(
   wallet: string,
   ctx: ComplianceScreeningContext,
 ): Promise<ScreeningResult> {
+  const startedAt = Date.now();
   let result: ScreeningResult;
 
   try {
     result = await getCompositeProvider().screenWallet(wallet);
   } catch (error) {
+    console.info("compliance_check_duration", {
+      action: ctx.action,
+      dealId: ctx.dealId,
+      durationMs: Date.now() - startedAt,
+      errorCode: "SCREENING_FAILED",
+      outcome: "failed",
+      walletCount: 1,
+    });
+
     throw new ComplianceServiceError(
       "Failed to screen wallet.",
       "SCREENING_FAILED",
       error,
     );
   }
+
+  console.info("compliance_check_duration", {
+    action: ctx.action,
+    dealId: ctx.dealId,
+    durationMs: Date.now() - startedAt,
+    outcome: "succeeded",
+    reasonCode: result.reasonCode,
+    walletCount: 1,
+  });
 
   const providerResults = extractProviderResultsOrThrow(result);
   await persistProviderResults(providerResults, ctx);
@@ -173,18 +192,36 @@ export async function screenWalletsBatch(
   wallets: readonly string[],
   ctx: ComplianceScreeningContext,
 ): Promise<ScreeningResult[]> {
+  const startedAt = Date.now();
   let results: ScreeningResult[];
 
   try {
     const compositeProvider = getCompositeProvider();
     results = await Promise.all(wallets.map((wallet) => compositeProvider.screenWallet(wallet)));
   } catch (error) {
+    console.info("compliance_check_duration", {
+      action: ctx.action,
+      dealId: ctx.dealId,
+      durationMs: Date.now() - startedAt,
+      errorCode: "SCREENING_FAILED",
+      outcome: "failed",
+      walletCount: wallets.length,
+    });
+
     throw new ComplianceServiceError(
       "Failed to screen wallet batch.",
       "SCREENING_FAILED",
       error,
     );
   }
+
+  console.info("compliance_check_duration", {
+    action: ctx.action,
+    dealId: ctx.dealId,
+    durationMs: Date.now() - startedAt,
+    outcome: "succeeded",
+    walletCount: wallets.length,
+  });
 
   const providerResults = results.flatMap((result) => extractProviderResultsOrThrow(result));
   await persistProviderResults(providerResults, ctx);

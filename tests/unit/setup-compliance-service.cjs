@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const originalConsoleInfo = console.info;
 
 function makeEntry(id, exports) {
   return {
@@ -97,6 +98,7 @@ const mocks = {
   calls: {
     createComplianceCheck: [],
     getById: [],
+    monitoringEvents: [],
     updateRiskStatusById: [],
   },
   reset() {
@@ -164,12 +166,22 @@ const mocks = {
     this.calls = {
       createComplianceCheck: [],
       getById: [],
+      monitoringEvents: [],
       updateRiskStatusById: [],
     };
   },
 };
 
 global.__complianceServiceMocks = mocks;
+
+console.info = (message, payload, ...rest) => {
+  if (message === 'compliance_check_duration' && payload && typeof payload === 'object') {
+    mocks.calls.monitoringEvents.push(payload);
+    return;
+  }
+
+  return originalConsoleInfo(message, payload, ...rest);
+};
 
 const root = path.resolve(__dirname, '../../');
 
