@@ -96,18 +96,24 @@ export interface FundingContractCall {
   function_name: "createAndFundDeal";
 }
 
-// Shape returned by POST /api/links/:id/funding/prepare
-export interface FundingPrepareResult {
+export interface FundingGrantResult {
   approval_amount: string;
   buyer_address: string;
   consultation_link_id: string;
-  contract_call: FundingContractCall;
-  link_hash: string;
+  contract_address: string;
+  expires_at: string;
+  grant_token: string;
   schedule: {
     duration_minutes: number;
     scheduled_at: string;
   };
   seller_address: string;
+}
+
+// Shape returned by POST /api/links/:id/funding/execute
+export interface FundingPrepareResult {
+  consultation_link_id: string;
+  contract_call: FundingContractCall;
 }
 
 export interface FundingSyncSummary {
@@ -174,9 +180,21 @@ export async function fetchMyLinks(params?: FetchMyLinksParams): Promise<MyLink[
 }
 
 // POST /api/links/:id/funding/prepare — requires SIWE session
-export async function prepareFunding(linkId: string): Promise<FundingPrepareResult> {
+export async function prepareFunding(linkId: string): Promise<FundingGrantResult> {
   const res = await fetch(`/api/links/${encodeURIComponent(linkId)}/funding/prepare`, {
     body: "{}",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return parseResponse<FundingGrantResult>(res);
+}
+
+export async function exchangeFundingGrant(
+  linkId: string,
+  grantToken: string,
+): Promise<FundingPrepareResult> {
+  const res = await fetch(`/api/links/${encodeURIComponent(linkId)}/funding/execute`, {
+    body: JSON.stringify({ grant_token: grantToken }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });

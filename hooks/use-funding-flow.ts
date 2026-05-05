@@ -9,6 +9,7 @@ import { useConfig } from "wagmi";
 import { getAddress, type Address, type Hex } from "viem";
 
 import {
+  exchangeFundingGrant,
   prepareFunding,
   triggerFundingSync,
   type FundingSyncResult,
@@ -52,6 +53,34 @@ export function createInitialFundingState(): FundingState {
 export function getFundingErrorState(
   err: unknown,
 ): Pick<FundingState, "complianceReasonCode" | "complianceWallet" | "error" | "step"> {
+  if (
+    err instanceof ApiError &&
+    err.status === 410 &&
+    (err.code === "LINK_EXPIRED" ||
+      err.code === "LINK_CANCELLED" ||
+      err.code === "LINK_CONSUMED")
+  ) {
+    return {
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: err.message,
+      step: "failed",
+    };
+  }
+
+  if (
+    err instanceof ApiError &&
+    err.status === 500 &&
+    err.code === "FUNDING_PREPARATION_FAILED"
+  ) {
+    return {
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: "Funding preparation failed after authorization. Please restart from the beginning. Your USDC allowance may still be available.",
+      step: "failed",
+    };
+  }
+
   if (
     err instanceof ApiError &&
     err.status === 403 &&
@@ -171,13 +200,12 @@ export function useFundingFlow(
     });
 
     try {
-      // 1. Backend prepare — source of truth for all contract args
-      const prepared = await prepareFunding(linkId);
-      const { contract_call } = prepared;
-      const escrowAddress = getAddress(contract_call.contract_address);
-      const price = BigInt(prepared.approval_amount);
+      // 1. Backend grant — source of truth for funding authorization + approval amount
+      const grant = await prepareFunding(linkId);
+      const price = BigInt(grant.approval_amount);
       // walletAddress from prepared response (backend derives from session)
-      const buyerAddress = getAddress(prepared.buyer_address);
+      const buyerAddress = getAddress(grant.buyer_address);
+      const escrowAddress = getAddress(grant.contract_address);
 
       // 2. USDC approval if needed
       await ensureUsdcAllowance(config, buyerAddress, escrowAddress, price, {
@@ -185,15 +213,20 @@ export function useFundingFlow(
         onApprovePending: (hash) => set({ step: "approve_pending", txHash: hash }),
       });
 
-      // 3. createAndFundDeal
+      // 3. Exchange short-lived grant for final opaque calldata
+      set({ step: "preparing", txHash: null });
+      const prepared = await exchangeFundingGrant(linkId, grant.grant_token);
+      const { contract_call } = prepared;
+
+      // 4. createAndFundDeal
       set({ step: "fund_signature", txHash: null });
       const fundHash = await executeFundingCall(config, contract_call);
       set({ step: "fund_pending", txHash: fundHash });
 
-      // 4. Wait for on-chain confirmation
+      // 5. Wait for on-chain confirmation
       await waitForTx(config, fundHash);
 
-      // 5. Trigger sync once immediately, then poll + re-trigger until deal_id appears
+      // 6. Trigger sync once immediately, then poll + re-trigger until deal_id appears
       set({ step: "indexing" });
       const canContinueIndexing = await runSyncTrigger(fundHash);
 

@@ -19,6 +19,10 @@ export interface PrepareFundingParams {
   linkId: string;
 }
 
+export interface FundingExecutionGrantBody {
+  grant_token: string;
+}
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -51,5 +55,33 @@ export function parseLinkRouteParams(
 
   return {
     linkId: params.id!,
+  };
+}
+
+const GRANT_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
+
+export function parseFundingExecutionGrantBody(payload: unknown): FundingExecutionGrantBody {
+  const issues: ValidationIssue[] = [];
+  const body =
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>)
+      : {};
+
+  if (
+    typeof body.grant_token !== "string" ||
+    !GRANT_TOKEN_PATTERN.test(body.grant_token)
+  ) {
+    issues.push({
+      field: "grant_token",
+      message: "grant_token must be a 32-byte hex token.",
+    });
+  }
+
+  if (issues.length > 0) {
+    throw new FundingValidationError(issues);
+  }
+
+  return {
+    grant_token: body.grant_token as string,
   };
 }

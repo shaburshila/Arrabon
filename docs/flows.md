@@ -1,7 +1,8 @@
 # Flows — Base Consult Link (ТЗ v1.2)
 
-> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-05-05
 > Изменения v1.1: добавлен §8 Compliance Flows (6 subsections); обновлён §1 (добавлен Compliance Service).
+> Изменения v1.2: funding flow переведён на prepare-grant + execute exchange; добавлены stale funding и post-approve compliance notes.
 > Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ## 1. Акторы
@@ -506,29 +507,57 @@ Expert                       Backend
 
 ---
 
-### 8.2 Блокировка при подготовке funding
+### 8.2 Двухшаговый funding grant и блокировка на exchange
 
-**Точка:** `POST /api/links/:id/funding/prepare`
+**Точки:**
+- `POST /api/links/:id/funding/prepare`
+- `POST /api/links/:id/funding/execute`
 
 ```
 Client (buyer)               Backend
   │                            │
   │─── POST /funding/prepare ─►│
-  │    (link_id, buyer_wallet) │
+  │                            │ link exists?
+  │                            │ effective status == Open?
+  │                            │ buyer != seller?
+  │                            │ no existing deal?
+  │                            │
+  │◄─── 200 grant_token ───────┤
+  │     + approval_amount      │   no calldata yet
+  │                            │
+  │─── approve USDC onchain ──►│
+  │                            │
+  │─── POST /funding/execute ─►│
+  │    { grant_token }         │ link still Open?
+  │                            │ no existing deal?
+  │                            │ grant valid for
+  │                            │ session wallet + link?
+  │                            │
   │                            │ screenWalletsBatch([buyer, seller])
-  │                            │   → 3 провайдера × 2 кошелька
+  │                            │   → fresh compliance gate
   │                            │
-  │                            ├── [любой из 6 checks: Blocked]
+  │                            ├── [Blocked]
   │◄─── 403 COMPLIANCE_BLOCKED ┤
-  │     reason_code: ...       │   calldata не генерируется
+  │                            │ allowance remains
   │                            │
-  │                            ├── [все 6 checks: Clear]
+  │                            ├── [Expired / Cancelled / Consumed]
+  │◄─── 410 stale-link error ──┤
+  │                            │ grant not consumed early
+  │                            │
+  │                            ├── [all Clear]
+  │                            │ consume grant
   │◄─── 200 calldata ──────────┤
-  │     (abi-encoded           │
-  │      createAndFundDeal)    │
+  │     createAndFundDeal      │
 ```
 
-**Инвариант:** при наличии хотя бы одного `Blocked` результата среди buyer или seller — calldata не возвращается. Множественные hits разрешаются по приоритету: `OFAC_SANCTIONS > USDC_BLACKLISTED > LOCAL_DENYLIST > PROVIDER_UNAVAILABLE`.
+**Инварианты:**
+- `prepare` не возвращает `link_hash` или исполнимый calldata;
+- `execute` повторно проверяет link status, existing deal и fresh compliance для buyer/seller;
+- grant потребляется только после всех state/compliance checks;
+- множественные outstanding funding grants допустимы, но успешно профинансировать ссылку сможет только один buyer path;
+- если compliance fail происходит уже после `approve`, allowance остаётся; automatic revoke flow в MVP не вводится.
+
+**Residual risk:** после успешного `funding/execute` и до фактического wallet broadcast остаётся узкое окно stale-state риска; under frozen ABI контракт не умеет валидировать offchain `Cancelled` / `Expired` сам.
 
 ---
 

@@ -381,6 +381,38 @@ export interface PayoutExecutionGrantUpdate {
   created_at?: string;
 }
 
+export interface FundingExecutionGrantRow {
+  id: string;
+  consultation_link_id: string;
+  issued_to_wallet: string;
+  issued_by_wallet: string;
+  token_hash: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+}
+
+export interface FundingExecutionGrantInsert {
+  id?: string;
+  consultation_link_id: string;
+  issued_to_wallet: string;
+  issued_by_wallet: string;
+  token_hash: string;
+  expires_at: string;
+  used_at?: string | null;
+  created_at?: string;
+}
+
+export interface FundingExecutionGrantUpdate {
+  consultation_link_id?: string;
+  issued_to_wallet?: string;
+  issued_by_wallet?: string;
+  token_hash?: string;
+  expires_at?: string;
+  used_at?: string | null;
+  created_at?: string;
+}
+
 export interface AuditLogRow {
   id: string;
   entity_type: string;
@@ -551,6 +583,19 @@ export interface Database {
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      funding_execution_grants: {
+        Row: FundingExecutionGrantRow;
+        Insert: FundingExecutionGrantInsert;
+        Update: FundingExecutionGrantUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "funding_execution_grants_consultation_link_id_fkey";
+            columns: ["consultation_link_id"];
+            referencedRelation: "consultation_links";
             referencedColumns: ["id"];
           },
         ];

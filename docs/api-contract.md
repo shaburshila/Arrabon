@@ -1,8 +1,9 @@
 # API Contract — Base Consult Link
 
-> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Version: 1.3 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-05-05
 > Изменения v1.2: удалён ошибочный блок "Compliance errors" из GET /api/links/:id (GET не запускает compliance checks).
 > Изменения v1.1: GET /api/deals/:id перенесён в приватные endpoints (требует SIWE); добавлен §9 Operational & Internal Endpoints.
+> Изменения v1.3: funding flow переведён на двухшаговый grant/exchange; `POST /api/links/:id/funding/prepare` больше не возвращает calldata или `link_hash`; добавлен `POST /api/links/:id/funding/execute`.
 > Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
@@ -14,7 +15,7 @@
 - Chain is source of truth for deal state
 - Backend is source of truth for link metadata and encrypted `meeting_url`
 - Backend validates business rules but does not replace contract enforcement
-- Ограничение на funding endpoints в текущей фазе ослаблено: помимо замороженного funding flow через `createAndFundDeal`, backend API явно допускает `POST /api/links/:id/funding/prepare` как подготовительный endpoint без изменения самого onchain flow
+- Ограничение на funding endpoints в текущей фазе ослаблено: замороженный onchain flow по-прежнему использует `createAndFundDeal`, но backend API теперь выдаёт short-lived funding grant на `prepare` и возвращает финальный calldata только на `execute`
 
 ### Canonical Compliance Error
 
@@ -237,7 +238,7 @@ Errors:
 
 ### `POST /api/links/:id/funding/prepare`
 
-Requires SIWE session and returns structured `createAndFundDeal` call arguments for the authenticated buyer wallet.
+Requires SIWE session and returns a short-lived funding grant plus UI metadata for the authenticated buyer wallet. This step does not return executable calldata.
 
 Request:
 
@@ -250,14 +251,52 @@ Response:
 ```json
 {
   "consultation_link_id": "link_123",
-  "link_hash": "0xlinkhash",
+  "grant_token": "4d6c7e...64 hex chars...",
+  "expires_at": "2026-03-28T11:25:00Z",
   "approval_amount": "100000000",
   "buyer_address": "0xbuyer...",
+  "contract_address": "0xcontract...",
   "seller_address": "0xseller...",
   "schedule": {
     "scheduled_at": "2026-03-28T12:00:00Z",
     "duration_minutes": 30
-  },
+  }
+}
+```
+
+Errors:
+
+- `400` invalid `:id` UUID
+- `401` no SIWE session
+- `403` buyer wallet matches seller wallet
+- `404` link not found
+- `409` deal already exists for this link
+- `410` link expired / cancelled / consumed
+- `500` failed to issue funding authorization
+
+Notes:
+
+- Grant TTL is currently `300s` to cover approve-signature + approve-confirmation on mobile/Base App flows.
+- `approval_amount` is safe to return early because `price_usdc` is immutable after link creation.
+- `link_hash` no longer appears in the client-facing funding prepare response.
+
+### `POST /api/links/:id/funding/execute`
+
+Requires SIWE session and exchanges a valid funding grant for final opaque `createAndFundDeal` calldata.
+
+Request:
+
+```json
+{
+  "grant_token": "4d6c7e...64 hex chars..."
+}
+```
+
+Response:
+
+```json
+{
+  "consultation_link_id": "link_123",
   "contract_call": {
     "chain_id": 8453,
     "contract_address": "0xcontract...",
@@ -270,19 +309,25 @@ Response:
 Errors:
 
 - `400` invalid `:id` UUID
+- `400` invalid JSON body / invalid `grant_token`
 - `401` no SIWE session
 - `403` buyer wallet matches seller wallet
-- `403` `COMPLIANCE_BLOCKED` when buyer or seller wallet is blocked during funding prepare
+- `403` `COMPLIANCE_BLOCKED`
 - `404` link not found
+- `409` funding authorization invalid, expired, already used, or issued for another wallet / link
 - `409` deal already exists for this link
-- `410` link expired / cancelled / consumed
-- `500` contract config unavailable
+- `410` `LINK_EXPIRED`
+- `410` `LINK_CANCELLED`
+- `410` `LINK_CONSUMED`
+- `500` contract config unavailable / calldata preparation failed
 
 Notes:
 
-- Response contains backend-produced opaque calldata in `contract_call.data`.
-- The prepare response is a snapshot. By tx submission time, offchain state may already have changed.
-- Source-of-truth boundary: funding must be unavailable once `now >= expires_at`.
+- Exchange re-checks link status, existing deal, buyer/seller distinction, and fresh compliance for both wallets before consuming the grant.
+- Grant consumption happens after state/compliance checks and before returning calldata.
+- `contract_address` is returned on the grant step so the frontend uses the same backend-owned escrow address for USDC `approve`.
+- Residual risk remains between successful exchange and wallet broadcast; under the frozen ABI the contract still cannot validate offchain cancel/expiry on its own.
+- Rare failure case: if grant consumption succeeds but calldata generation returns `500`, the user must restart from `prepare`; repeating `approve` is usually unnecessary if allowance remains.
 
 ---
 

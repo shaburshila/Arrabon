@@ -52,6 +52,19 @@ class ComplianceBlockedError extends Error {
 
 const mocks = {
   assertCompliance: (...args) => undefined,
+  createFundingExecutionGrant: async () => ({
+    id: 'grant-id-1',
+  }),
+  consumeFundingExecutionGrant: async () => ({
+    consultation_link_id: 'link-id-1',
+    created_at: '2030-04-27T00:00:00.000Z',
+    expires_at: '2030-04-27T00:05:00.000Z',
+    id: 'grant-id-1',
+    issued_by_wallet: '0x00000000000000000000000000000000000000AA',
+    issued_to_wallet: '0x00000000000000000000000000000000000000AA',
+    token_hash: 'hash-1',
+    used_at: '2030-04-27T00:03:00.000Z',
+  }),
   getByConsultationLinkId: async () => null,
   getById: async () => null,
   prepareCreateAndFundDealCall: (input) => ({
@@ -63,11 +76,26 @@ const mocks = {
   screenWalletsBatch: async () => [],
   calls: {
     assertCompliance: [],
+    createFundingExecutionGrant: [],
+    consumeFundingExecutionGrant: [],
     prepareCreateAndFundDealCall: [],
     screenWalletsBatch: [],
   },
   reset() {
     this.assertCompliance = (...args) => undefined;
+    this.createFundingExecutionGrant = async () => ({
+      id: 'grant-id-1',
+    });
+    this.consumeFundingExecutionGrant = async () => ({
+      consultation_link_id: 'link-id-1',
+      created_at: '2030-04-27T00:00:00.000Z',
+      expires_at: '2030-04-27T00:05:00.000Z',
+      id: 'grant-id-1',
+      issued_by_wallet: '0x00000000000000000000000000000000000000AA',
+      issued_to_wallet: '0x00000000000000000000000000000000000000AA',
+      token_hash: 'hash-1',
+      used_at: '2030-04-27T00:03:00.000Z',
+    });
     this.getByConsultationLinkId = async () => null;
     this.getById = async () => null;
     this.prepareCreateAndFundDealCall = (input) => ({
@@ -79,6 +107,8 @@ const mocks = {
     this.screenWalletsBatch = async () => [];
     this.calls = {
       assertCompliance: [],
+      createFundingExecutionGrant: [],
+      consumeFundingExecutionGrant: [],
       prepareCreateAndFundDealCall: [],
       screenWalletsBatch: [],
     };
@@ -101,9 +131,29 @@ require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
   getByConsultationLinkId: (...args) => mocks.getByConsultationLinkId(...args),
 });
 
+const fundingExecutionGrantsRepoPath = path.resolve(root, 'server/repositories/funding-execution-grants.ts');
+require.cache[fundingExecutionGrantsRepoPath] = makeEntry(fundingExecutionGrantsRepoPath, {
+  FundingExecutionGrantsRepositoryError: class FundingExecutionGrantsRepositoryError extends Error {
+    constructor(message, code) {
+      super(message);
+      this.name = 'FundingExecutionGrantsRepositoryError';
+      this.code = code;
+    }
+  },
+  createFundingExecutionGrant: (...args) => {
+    mocks.calls.createFundingExecutionGrant.push(args);
+    return mocks.createFundingExecutionGrant(...args);
+  },
+  consumeFundingExecutionGrant: (...args) => {
+    mocks.calls.consumeFundingExecutionGrant.push(args);
+    return mocks.consumeFundingExecutionGrant(...args);
+  },
+});
+
 const escrowPath = path.resolve(root, 'lib/base/consult-escrow.ts');
 require.cache[escrowPath] = makeEntry(escrowPath, {
   ConsultEscrowConfigError,
+  getConsultEscrowContractAddress: () => '0x0000000000000000000000000000000000000001',
   prepareCreateAndFundDealCall: (...args) => {
     mocks.calls.prepareCreateAndFundDealCall.push(args[0]);
     return mocks.prepareCreateAndFundDealCall(...args);

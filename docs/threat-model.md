@@ -1,7 +1,8 @@
 # Threat Model — Base Consult Link
 
-> Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
+> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-05-05
 > Изменения v1.1: добавлены T-08 (sanctions evasion), T-09 (payout to blocked recipient), T-10 (admin bypass of legal hold).
+> Изменения v1.2: funding path переведён на short-lived execution grants; добавлен residual stale-window для funding exchange/broadcast.
 > Составил: Base Consult Link Team | Проверил: — | Утвердил: —
 
 ---
@@ -117,7 +118,8 @@ MVP должен гарантировать:
 - Impact: legal and regulatory exposure from facilitating prohibited transfers
 - Mitigation:
   - seller screening on link creation
-  - buyer + seller screening during funding prepare
+  - buyer + seller screening during funding exchange before calldata is returned
+  - short-lived one-time funding execution grants (TTL 300s)
   - canonical `403 COMPLIANCE_BLOCKED`
 
 ### T-09 Payout to a blocked recipient after funding
@@ -179,6 +181,7 @@ MVP должен гарантировать:
 | Backend helper can call autoRelease for UX | Not trusted for correctness; chain remains source of truth |
 | Funds already in escrow may become legally frozen post-funding | Accepted MVP trade-off; release/refund stays blocked pending manual legal review |
 | Access-controlled payout stale-window is narrowed, not eliminated | After grant exchange there is still a residual window before wallet broadcast |
+| Funding stale-window is narrowed, not eliminated | After funding grant exchange there is still a residual window before buyer broadcasts `createAndFundDeal` |
 | `autoRelease` remains stale-prepare-sensitive in v1 | Permissionless liveness is preserved; full revocation requires contract redesign |
 
 ---

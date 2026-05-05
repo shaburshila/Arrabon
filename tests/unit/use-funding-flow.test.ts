@@ -88,4 +88,37 @@ describe("useFundingFlow helpers", () => {
       step: "compliance_blocked",
     });
   });
+
+  test("keeps stale-link 410 errors on failed path with server message", () => {
+    const state = getFundingErrorState(
+      new ApiError(410, {
+        code: "LINK_EXPIRED",
+        error: "Link has expired.",
+        status: "Expired",
+      }),
+    );
+
+    assert.deepEqual(state, {
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: "Link has expired.",
+      step: "failed",
+    });
+  });
+
+  test("maps post-consume funding preparation failure to restart guidance", () => {
+    const state = getFundingErrorState(
+      new ApiError(500, {
+        code: "FUNDING_PREPARATION_FAILED",
+        error: "Failed to prepare funding call.",
+      }),
+    );
+
+    assert.deepEqual(state, {
+      complianceReasonCode: null,
+      complianceWallet: null,
+      error: "Funding preparation failed after authorization. Please restart from the beginning. Your USDC allowance may still be available.",
+      step: "failed",
+    });
+  });
 });

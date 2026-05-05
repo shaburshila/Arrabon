@@ -3,17 +3,23 @@ import assert from "node:assert/strict";
 
 import type { ConsultationLinkRow, DealRow } from "@/lib/db/types";
 import {
+  exchangeFundingGrantForLink,
   FundingServiceError,
   prepareFundingForLink,
 } from "@/server/services/funding";
+import { ConsultEscrowConfigError } from "@/lib/base/consult-escrow";
 
 interface FundingComplianceMocks {
   assertCompliance: (...args: unknown[]) => void;
   calls: {
     assertCompliance: unknown[][];
+    createFundingExecutionGrant: unknown[][];
+    consumeFundingExecutionGrant: unknown[][];
     prepareCreateAndFundDealCall: unknown[];
     screenWalletsBatch: unknown[][];
   };
+  createFundingExecutionGrant: (...args: unknown[]) => Promise<unknown>;
+  consumeFundingExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   getByConsultationLinkId: (...args: unknown[]) => Promise<DealRow | null>;
   getById: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   prepareCreateAndFundDealCall: (...args: unknown[]) => unknown;
@@ -86,8 +92,44 @@ beforeEach(() => {
 });
 
 describe("prepareFundingForLink compliance gate", () => {
-  test("screens buyer and seller before calldata generation", async () => {
+  test("issues funding grant without generating calldata", async () => {
     const result = await prepareFundingForLink(currentUser, { linkId: "link-id-1" });
+
+    assert.equal(result.consultation_link_id, "link-id-1");
+    assert.match(result.grant_token, /^[0-9a-f]{64}$/);
+    assert.equal(result.contract_address, "0x0000000000000000000000000000000000000001");
+    assert.equal(mocks.calls.screenWalletsBatch.length, 0);
+    assert.equal(mocks.calls.assertCompliance.length, 0);
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+  });
+
+  test("stores funding grant for the authenticated buyer wallet", async () => {
+    const result = await prepareFundingForLink(currentUser, { linkId: "link-id-1" });
+    const grantInput = mocks.calls.createFundingExecutionGrant[0][0] as {
+      consultationLinkId: string;
+      expiresAt: string;
+      issuedByWallet: string;
+      issuedToWallet: string;
+      tokenHash: string;
+    };
+
+    assert.equal(mocks.calls.createFundingExecutionGrant.length, 1);
+    assert.deepEqual(grantInput, {
+      consultationLinkId: "link-id-1",
+      expiresAt: result.expires_at,
+      issuedByWallet: currentUser.wallet_address,
+      issuedToWallet: currentUser.wallet_address,
+      tokenHash: grantInput.tokenHash,
+    });
+    assert.match(grantInput.tokenHash, /^[0-9a-f]{64}$/);
+  });
+
+  test("exchange screens buyer and seller before calldata generation", async () => {
+    const result = await exchangeFundingGrantForLink(
+      currentUser,
+      { linkId: "link-id-1" },
+      "a".repeat(64),
+    );
 
     assert.equal(result.consultation_link_id, "link-id-1");
     assert.equal(mocks.calls.screenWalletsBatch.length, 1);
@@ -101,9 +143,11 @@ describe("prepareFundingForLink compliance gate", () => {
     ]);
     assert.equal(mocks.calls.assertCompliance.length, 2);
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
+    assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 1);
+    assert.deepEqual(Object.keys(result).sort(), ["consultation_link_id", "contract_call"]);
   });
 
-  test("blocked buyer stops flow before calldata generation", async () => {
+  test("blocked buyer stops exchange before calldata generation", async () => {
     const blocked = new Error("blocked");
 
     mocks.screenWalletsBatch = async () => [
@@ -131,13 +175,14 @@ describe("prepareFundingForLink compliance gate", () => {
     };
 
     await assert.rejects(
-      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      () => exchangeFundingGrantForLink(currentUser, { linkId: "link-id-1" }, "a".repeat(64)),
       blocked,
     );
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+    assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 0);
   });
 
-  test("blocked seller stops flow before calldata generation", async () => {
+  test("blocked seller stops exchange before calldata generation", async () => {
     const blocked = new Error("blocked seller");
 
     mocks.screenWalletsBatch = async () => [
@@ -165,13 +210,14 @@ describe("prepareFundingForLink compliance gate", () => {
     };
 
     await assert.rejects(
-      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      () => exchangeFundingGrantForLink(currentUser, { linkId: "link-id-1" }, "a".repeat(64)),
       blocked,
     );
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+    assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 0);
   });
 
-  test("provider unavailable blocks the flow", async () => {
+  test("provider unavailable blocks exchange", async () => {
     const blocked = new Error("provider unavailable");
 
     mocks.screenWalletsBatch = async () => [
@@ -199,13 +245,14 @@ describe("prepareFundingForLink compliance gate", () => {
     };
 
     await assert.rejects(
-      () => prepareFundingForLink(currentUser, { linkId: "link-id-1" }),
+      () => exchangeFundingGrantForLink(currentUser, { linkId: "link-id-1" }, "a".repeat(64)),
       blocked,
     );
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+    assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 0);
   });
 
-  test("defensive Review does not block the flow", async () => {
+  test("defensive Review does not block exchange", async () => {
     mocks.screenWalletsBatch = async () => [
       {
         normalizedWallet: currentUser.wallet_address.toLowerCase(),
@@ -225,7 +272,11 @@ describe("prepareFundingForLink compliance gate", () => {
       },
     ];
 
-    const result = await prepareFundingForLink(currentUser, { linkId: "link-id-1" });
+    const result = await exchangeFundingGrantForLink(
+      currentUser,
+      { linkId: "link-id-1" },
+      "a".repeat(64),
+    );
 
     assert.equal(result.consultation_link_id, "link-id-1");
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
@@ -246,5 +297,35 @@ describe("prepareFundingForLink compliance gate", () => {
 
     assert.equal(mocks.calls.screenWalletsBatch.length, 0);
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);
+  });
+
+  test("exchange rejects invalid funding grant token", async () => {
+    await assert.rejects(
+      () => exchangeFundingGrantForLink(currentUser, { linkId: "link-id-1" }, "bad"),
+      (error) => {
+        assert.ok(error instanceof FundingServiceError);
+        assert.equal(error.code, "FUNDING_GRANT_INVALID");
+        return true;
+      },
+    );
+  });
+
+  test("exchange returns 500 after consume if calldata generation fails", async () => {
+    mocks.prepareCreateAndFundDealCall = () => {
+      throw new ConsultEscrowConfigError("Missing consult escrow address configuration.");
+    };
+
+    await assert.rejects(
+      () => exchangeFundingGrantForLink(currentUser, { linkId: "link-id-1" }, "a".repeat(64)),
+      (error) => {
+        assert.ok(error instanceof FundingServiceError);
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "CONTRACT_CONFIG_UNAVAILABLE");
+        return true;
+      },
+    );
+
+    assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 1);
+    assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
   });
 });

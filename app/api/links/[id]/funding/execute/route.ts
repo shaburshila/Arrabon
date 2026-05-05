@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-
+import { jsonError } from "@/lib/api/response";
 import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
   ComplianceBlockedError,
@@ -7,13 +6,13 @@ import {
 } from "@/lib/compliance/error-mapping";
 import {
   FundingValidationError,
+  parseFundingExecutionGrantBody,
   parsePrepareFundingParams,
 } from "@/lib/validators/funding";
 import {
+  exchangeFundingGrantForLink,
   FundingServiceError,
-  prepareFundingForLink,
 } from "@/server/services/funding";
-import { jsonError } from "@/lib/api/response";
 
 export const runtime = "nodejs";
 
@@ -23,7 +22,7 @@ function jsonFundingError(
   details?: unknown,
   statusValue?: "Cancelled" | "Consumed" | "Expired",
 ) {
-  return NextResponse.json(
+  return Response.json(
     {
       ...(details !== undefined ? { details } : {}),
       error: message,
@@ -34,15 +33,28 @@ function jsonFundingError(
 }
 
 export const POST = withComplianceErrorHandling(async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body.", 400);
+  }
+
   try {
     const currentUser = await requireUser();
     const parsedParams = parsePrepareFundingParams(await params);
-    const result = await prepareFundingForLink(currentUser, parsedParams);
+    const body = parseFundingExecutionGrantBody(payload);
+    const result = await exchangeFundingGrantForLink(
+      currentUser,
+      parsedParams,
+      body.grant_token,
+    );
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (error) {
     if (error instanceof ComplianceBlockedError) {
       throw error;
