@@ -33,9 +33,19 @@ function isDeadlinePassed(value: string | null): boolean {
   return !Number.isNaN(deadlineMs) && Date.now() > deadlineMs;
 }
 
-function isBuyerDisputable(status: string, releaseDeadlineAt: string | null): boolean {
+function hasScheduledTimeStarted(value: string): boolean {
+  const scheduledAtMs = new Date(value).getTime();
+
+  return !Number.isNaN(scheduledAtMs) && Date.now() >= scheduledAtMs;
+}
+
+function isBuyerDisputable(
+  status: string,
+  releaseDeadlineAt: string | null,
+  scheduledAt: string,
+): boolean {
   if (status === "Funded") {
-    return true;
+    return hasScheduledTimeStarted(scheduledAt);
   }
 
   return status === "ConfirmPending" && !isDeadlinePassed(releaseDeadlineAt);
@@ -197,6 +207,7 @@ export default function DealPage() {
             buyerDisputable={isBuyerDisputable(
               dealPage.deal.status,
               dealPage.deal.release_deadline_at,
+              dealPage.deal.scheduled_at,
             )}
             buyerReleasable={isBuyerReleasable(
               dealPage.deal.status,

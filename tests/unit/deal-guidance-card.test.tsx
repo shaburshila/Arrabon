@@ -35,6 +35,23 @@ describe("DealGuidanceCard compliance messaging", () => {
     assert.doesNotMatch(result, /payouts are temporarily paused/i);
   });
 
+  test("tells the buyer that funded dispute opens after scheduled time", () => {
+    const originalNow = Date.now;
+    Date.now = () => new Date("2026-05-06T11:00:00.000Z").getTime();
+
+    try {
+      const result = renderCard({
+        dealStatus: "Funded",
+        riskStatus: "Clear",
+        scheduledAt: "2026-05-06T12:00:00.000Z",
+      });
+
+      assert.match(result, /you can open a dispute after that time/i);
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+
   test("overrides active guidance for blocked deals", () => {
     const result = renderCard({
       dealStatus: "ConfirmPending",

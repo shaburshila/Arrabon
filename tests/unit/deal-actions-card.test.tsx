@@ -54,6 +54,27 @@ function makeIdleAction(): DealAction {
 }
 
 describe("DealActionsCard", () => {
+  test("hides open dispute when buyerDisputable is false", () => {
+    const html = renderToStaticMarkup(
+      createElement(DealActionsCard, {
+        autoRelease: makeIdleAction(),
+        autoReleaseAvailable: false,
+        buyerDisputable: false,
+        buyerReleasable: true,
+        complete: makeIdleAction(),
+        dealStatus: "Funded",
+        dispute: makeIdleAction(),
+        isAnyActionInFlight: false,
+        isBuyer: true,
+        isSeller: false,
+        release: makeIdleAction(),
+        session: makeSession(),
+      }),
+    );
+
+    assert.doesNotMatch(html, /Open dispute/);
+  });
+
   test("renders a blocked notice for one action while leaving other actions available", () => {
     const html = renderToStaticMarkup(
       createElement(DealActionsCard, {

@@ -28,6 +28,12 @@ function formatAbsoluteDate(iso: string): string {
   }
 }
 
+function hasScheduledTimeStarted(iso: string): boolean {
+  const scheduledAtMs = new Date(iso).getTime();
+
+  return !Number.isNaN(scheduledAtMs) && Date.now() >= scheduledAtMs;
+}
+
 function formatTimeLeft(iso: string | null): string | null {
   if (!iso) {
     return null;
@@ -87,7 +93,11 @@ function getGuidanceMessage({
   switch (dealStatus) {
     case "Funded":
       if (isBuyer) {
-        return `Your booking is confirmed. Reveal the meeting link below and join at the scheduled time (${scheduledTime}).`;
+        if (!hasScheduledTimeStarted(scheduledAt)) {
+          return `Your booking is confirmed. Reveal the meeting link below and join at the scheduled time (${scheduledTime}). If the seller does not show up, you can open a dispute after that time.`;
+        }
+
+        return `Your booking is confirmed. Reveal the meeting link below and join at the scheduled time (${scheduledTime}). If the consultation did not happen, you can now open a dispute.`;
       }
 
       if (isSeller) {
