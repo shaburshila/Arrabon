@@ -88,7 +88,9 @@ Scheduled consultation
 - expires_at > now
 - duration_minutes > 0
 
-`markCompleted` доступен продавцу сразу после funding:
+`markCompleted` доступен продавцу только после окончания консультационного слота:
+
+- `block.timestamp >= scheduled_at + duration_minutes * 60`
 
 `completed_at` фиксируется onchain в момент `markCompleted` и запускает 48-часовое окно buyer response.
 
@@ -199,7 +201,9 @@ Authorization model:
 
 ### 8.2 Completion
 
-После funding seller может вызвать:
+После funding seller может вызвать только после окончания консультационного слота:
+
+- `block.timestamp >= scheduled_at + duration_minutes * 60`
 
 `markCompleted(dealId)`
 

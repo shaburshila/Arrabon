@@ -282,6 +282,9 @@ contract ConsultEscrow is ReentrancyGuard {
         if (deal.status != Status.Funded) {
             revert InvalidStateTransition();
         }
+        if (block.timestamp < deal.scheduledAt + (deal.durationMinutes * 60)) {
+            revert InvalidStateTransition();
+        }
 
         deal.completedAt = block.timestamp;
         deal.status = Status.ConfirmPending;

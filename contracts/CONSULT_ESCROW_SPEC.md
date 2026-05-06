@@ -208,7 +208,9 @@ Refund path:
 
 `markCompleted` gate:
 
-- seller may call any time while the deal is `Funded`
+- seller may call only when:
+  - deal is `Funded`
+  - `block.timestamp >= deal.scheduledAt + deal.durationMinutes * 60`
 - this records `completedAt = block.timestamp` and starts the buyer response window
 
 Post-completion window:
@@ -366,7 +368,8 @@ Before considering contract done, verify:
 - duplicate `linkHash` funding fails
 - buyer-only funding enforced
 - seller cannot fund own link
-- `markCompleted` succeeds immediately after funding when called by seller
+- `markCompleted` fails before the consultation slot ends
+- `markCompleted` succeeds at the exact end of the consultation slot
 - `markCompleted` records `completedAt`
 - `confirmRelease` succeeds at exact deadline
 - `autoRelease` fails at exact deadline and succeeds after

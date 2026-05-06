@@ -732,11 +732,29 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("seller can mark completed immediately after funding and completedAt starts buyer window", async function () {
+    it("seller cannot mark completed before the consultation slot ends", async function () {
       const { seller, buyer, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
+      const threshold = funded.scheduledAt + funded.durationMinutes * 60n;
 
-      const tx = await escrow.connect(seller).markCompleted(funded.dealId);
+      await time.setNextBlockTimestamp(threshold - 1n);
+
+      await expect(escrow.connect(seller).markCompleted(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "InvalidStateTransition"
+      );
+    });
+
+    it("seller can mark completed at the end of the consultation slot and completedAt starts buyer window", async function () {
+      const { seller, buyer, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+      const { tx, threshold } = await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: funded.dealId,
+        scheduledAt: funded.scheduledAt,
+        durationMinutes: funded.durationMinutes,
+      });
       const receipt = await tx.wait();
       const block = await ethers.provider.getBlock(receipt.blockNumber);
 
@@ -744,6 +762,7 @@ describe("ConsultEscrow", function () {
 
       const deal = await escrow.deals(funded.dealId);
       expect(deal.completedAt).to.equal(block.timestamp);
+      expect(deal.completedAt).to.equal(threshold);
       expect(deal.status).to.equal(2n);
     });
 
@@ -854,7 +873,13 @@ describe("ConsultEscrow", function () {
     it("reverts when payout is blocked", async function () {
       const { seller, buyer, admin, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
-      await escrow.connect(seller).markCompleted(funded.dealId);
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: funded.dealId,
+        scheduledAt: funded.scheduledAt,
+        durationMinutes: funded.durationMinutes,
+      });
       await escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true);
 
       await expect(escrow.connect(buyer).confirmRelease(funded.dealId)).to.be.revertedWithCustomError(
