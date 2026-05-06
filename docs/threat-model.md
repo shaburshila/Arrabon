@@ -132,6 +132,7 @@ MVP должен гарантировать:
   - legal hold on all payout-path backend exchange / prepare endpoints
   - short-lived one-time execution grants for access-controlled payout paths (`confirmRelease`, `adminResolve*`)
   - SIWE-bound exchange step re-checks `issued_to_wallet`, `deal_id`, legal hold, and payout recipient before returning calldata
+  - upon `risk_status` transitioning to `Blocked`, deal-events indexer automatically calls `setDealPayoutBlocked(dealId, true)` onchain via indexer wallet — closes the direct-contract bypass window (see C-16)
 
 ### T-10 Admin bypass of legal hold
 
@@ -182,7 +183,7 @@ MVP должен гарантировать:
 | Funds already in escrow may become legally frozen post-funding | Accepted MVP trade-off; release/refund stays blocked pending manual legal review |
 | Access-controlled payout stale-window is narrowed, not eliminated | After grant exchange there is still a residual window before wallet broadcast |
 | Funding stale-window is narrowed, not eliminated | After funding grant exchange there is still a residual window before buyer broadcasts `createAndFundDeal` |
-| `autoRelease` remains stale-prepare-sensitive in v1 | Permissionless liveness is preserved; full revocation requires contract redesign |
+| `autoRelease` direct-contract bypass window | Closed by automatic `setDealPayoutBlocked` from indexer upon `Blocked` detection (C-16); residual window is indexer confirmation latency only |
 
 ---
 

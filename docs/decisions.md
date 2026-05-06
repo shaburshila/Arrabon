@@ -55,6 +55,8 @@
 - `C-13` `risk_status = Blocked` is sticky during normal operation; automatic transition back to `Clear`/`Review` is not allowed.
 - `C-14` `PROVIDER_UNAVAILABLE` is never address-cached. Provider protection uses the circuit breaker, not negative cache.
 - `C-15` `403 COMPLIANCE_BLOCKED` is a single canonical API shape formed by one backend mapping path and consumed by frontend as a stable contract.
+- `C-16` When `risk_status` transitions to `Blocked`, the deal-events indexer automatically calls `setDealPayoutBlocked(dealId, true)` onchain via a dedicated indexer wallet. This closes the compliance race window where a seller could bypass the backend gate by calling `autoRelease` directly on the contract. The indexer wallet is a separate hot wallet added to the contract `admins` list; it has no power to transfer funds, only to set the block flag.
+- `C-17` `fundingAuthorizer` is rotatable via `setFundingAuthorizer(address)` callable by owner (multisig) only. Rotation immediately invalidates all signatures issued by the previous key. This function must be called immediately upon any confirmed or suspected compromise of the backend signing key.
 
 ---
 
