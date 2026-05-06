@@ -23,29 +23,31 @@ describe("ConsultEscrow", function () {
   };
 
   async function deployFixture() {
-    const [deployer, seller, buyer, treasury, admin, outsider, fundingAuthorizer] = await ethers.getSigners();
+    const [deployer, seller, buyer, treasury, owner, admin, outsider, fundingAuthorizer] = await ethers.getSigners();
     const token = await ethers.deployContract("MockUSDC");
     const escrow = await ethers.deployContract("ConsultEscrow", [
       token.target,
       treasury.address,
+      owner.address,
       [admin.address],
       fundingAuthorizer.address,
     ]);
 
-    return { admin, authorizer: fundingAuthorizer, buyer, deployer, escrow, outsider, seller, token, treasury };
+    return { admin, authorizer: fundingAuthorizer, buyer, deployer, escrow, outsider, owner, seller, token, treasury };
   }
 
   async function deployReentrantFixture() {
-    const [deployer, treasury, admin, outsider] = await ethers.getSigners();
+    const [deployer, treasury, owner, admin, outsider] = await ethers.getSigners();
     const token = await ethers.deployContract("ReentrantToken");
     const escrow = await ethers.deployContract("ConsultEscrow", [
       token.target,
       treasury.address,
+      owner.address,
       [admin.address],
       deployer.address,
     ]);
 
-    return { admin, authorizer: deployer, deployer, escrow, outsider, token, treasury };
+    return { admin, authorizer: deployer, deployer, escrow, outsider, owner, token, treasury };
   }
 
   function feeFor(price) {
@@ -191,12 +193,136 @@ describe("ConsultEscrow", function () {
 
   describe("constructor", function () {
     it("requires at least one admin", async function () {
-      const [, , , treasury] = await ethers.getSigners();
+      const [, , , treasury, owner] = await ethers.getSigners();
       const token = await ethers.deployContract("MockUSDC");
+      const Escrow = await ethers.getContractFactory("ConsultEscrow");
 
       await expect(
-        ethers.deployContract("ConsultEscrow", [token.target, treasury.address, [], treasury.address])
-      ).to.be.revertedWith("Need at least one admin");
+        Escrow.deploy(token.target, treasury.address, owner.address, [], treasury.address)
+      ).to.be.revertedWithCustomError(Escrow, "EmptyAdminList");
+    });
+
+    it("rejects duplicate initial admins", async function () {
+      const [, , , treasury, owner, admin] = await ethers.getSigners();
+      const token = await ethers.deployContract("MockUSDC");
+      const Escrow = await ethers.getContractFactory("ConsultEscrow");
+
+      await expect(
+        Escrow.deploy(token.target, treasury.address, owner.address, [admin.address, admin.address], treasury.address)
+      ).to.be.revertedWithCustomError(Escrow, "AdminAlreadyExists");
+    });
+  });
+
+  describe("admin governance", function () {
+    it("tracks owner and adminCount on deploy", async function () {
+      const { admin, escrow, owner } = await deployFixture();
+
+      expect(await escrow.owner()).to.equal(owner.address);
+      expect(await escrow.admins(admin.address)).to.equal(true);
+      expect(await escrow.adminCount()).to.equal(1n);
+    });
+
+    it("owner can add admin and outsider cannot", async function () {
+      const { escrow, owner, outsider, seller } = await deployFixture();
+
+      await expect(escrow.connect(outsider).addAdmin(seller.address)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotOwner"
+      );
+
+      await expect(escrow.connect(owner).addAdmin(seller.address))
+        .to.emit(escrow, "AdminAdded")
+        .withArgs(seller.address);
+
+      expect(await escrow.admins(seller.address)).to.equal(true);
+      expect(await escrow.adminCount()).to.equal(2n);
+    });
+
+    it("existing admin cannot manage admin list without owner role", async function () {
+      const { admin, escrow, seller } = await deployFixture();
+
+      await expect(escrow.connect(admin).addAdmin(seller.address)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotOwner"
+      );
+      await expect(escrow.connect(admin).removeAdmin(admin.address)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotOwner"
+      );
+    });
+
+    it("duplicate addAdmin reverts", async function () {
+      const { admin, escrow, owner } = await deployFixture();
+
+      await expect(escrow.connect(owner).addAdmin(admin.address)).to.be.revertedWithCustomError(
+        escrow,
+        "AdminAlreadyExists"
+      );
+    });
+
+    it("removeAdmin for missing admin reverts", async function () {
+      const { escrow, owner, seller } = await deployFixture();
+
+      await expect(escrow.connect(owner).removeAdmin(seller.address)).to.be.revertedWithCustomError(
+        escrow,
+        "AdminNotFound"
+      );
+    });
+
+    it("cannot remove last admin", async function () {
+      const { admin, escrow, owner } = await deployFixture();
+
+      await expect(escrow.connect(owner).removeAdmin(admin.address)).to.be.revertedWithCustomError(
+        escrow,
+        "LastAdminRemovalForbidden"
+      );
+    });
+
+    it("owner can remove admin when another admin exists", async function () {
+      const { admin, escrow, owner, seller } = await deployFixture();
+
+      await escrow.connect(owner).addAdmin(seller.address);
+
+      await expect(escrow.connect(owner).removeAdmin(admin.address))
+        .to.emit(escrow, "AdminRemoved")
+        .withArgs(admin.address);
+
+      expect(await escrow.admins(admin.address)).to.equal(false);
+      expect(await escrow.admins(seller.address)).to.equal(true);
+      expect(await escrow.adminCount()).to.equal(1n);
+    });
+
+    it("removed admin loses admin-only access and added admin gains it", async function () {
+      const { admin, buyer, escrow, owner, seller, token } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+
+      await escrow.connect(buyer).openDispute(funded.dealId);
+      await escrow.connect(owner).addAdmin(seller.address);
+      await escrow.connect(owner).removeAdmin(admin.address);
+
+      await expect(escrow.connect(admin).adminResolveRefund(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotAdmin"
+      );
+
+      await expect(escrow.connect(seller).adminResolveRefund(funded.dealId)).to.not.be.reverted;
+    });
+
+    it("owner can transfer ownership", async function () {
+      const { escrow, outsider, owner, seller } = await deployFixture();
+
+      await expect(escrow.connect(owner).transferOwnership(outsider.address))
+        .to.emit(escrow, "OwnershipTransferred")
+        .withArgs(owner.address, outsider.address);
+
+      expect(await escrow.owner()).to.equal(outsider.address);
+
+      await expect(escrow.connect(owner).addAdmin(seller.address)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotOwner"
+      );
+
+      await expect(escrow.connect(outsider).addAdmin(seller.address)).to.not.be.reverted;
     });
   });
 

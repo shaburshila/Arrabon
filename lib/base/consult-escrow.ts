@@ -10,6 +10,10 @@ import {
 
 import { assertLinkHash } from "@/lib/crypto/link-hash";
 import {
+  addAdminFunctionAbi,
+  adminCountFunctionAbi,
+  adminAddedEventAbi,
+  adminRemovedEventAbi,
   adminResolveRefundFunctionAbi,
   adminResolveReleaseFunctionAbi,
   autoReleaseFunctionAbi,
@@ -17,7 +21,11 @@ import {
   createAndFundDealFunctionAbi,
   markCompletedFunctionAbi,
   openDisputeFunctionAbi,
+  ownerFunctionAbi,
+  ownershipTransferredEventAbi,
+  removeAdminFunctionAbi,
   setDealPayoutBlockedFunctionAbi,
+  transferOwnershipFunctionAbi,
 } from "@/lib/base/consult-escrow-abi";
 import { baseRuntimeConfig } from "@/lib/base/config";
 
@@ -76,6 +84,14 @@ export const consultEscrowAbi = [
   adminResolveReleaseFunctionAbi,
   adminResolveRefundFunctionAbi,
   setDealPayoutBlockedFunctionAbi,
+  ownerFunctionAbi,
+  adminCountFunctionAbi,
+  addAdminFunctionAbi,
+  removeAdminFunctionAbi,
+  transferOwnershipFunctionAbi,
+  adminAddedEventAbi,
+  adminRemovedEventAbi,
+  ownershipTransferredEventAbi,
   dealFundedEventAbi,
   completedEventAbi,
   releasedEventAbi,

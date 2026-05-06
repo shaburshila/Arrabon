@@ -28,6 +28,10 @@ function parseFundingAuthorizerAddress() {
   return parseAddress("FUNDING_AUTHORIZER_ADDRESS");
 }
 
+function parseEscrowOwnerAddress() {
+  return parseAddress("ESCROW_OWNER_ADDRESS");
+}
+
 function parseOptionalComplianceHoldSignerAddress() {
   const rawKey = process.env.COMPLIANCE_HOLD_SIGNER_PRIVATE_KEY?.trim();
 
@@ -43,6 +47,7 @@ async function main() {
   const balance = await hre.ethers.provider.getBalance(deployer.address);
   const usdcAddress = parseAddress("USDC_ADDRESS");
   const treasuryAddress = parseAddress("TREASURY_ADDRESS");
+  const escrowOwnerAddress = parseEscrowOwnerAddress();
   const adminWallets = parseAdminWallets();
   const fundingAuthorizerAddress = parseFundingAuthorizerAddress();
   const complianceHoldSignerAddress = parseOptionalComplianceHoldSignerAddress();
@@ -57,6 +62,7 @@ async function main() {
   console.log(`Balance: ${hre.ethers.formatEther(balance)} ETH`);
   console.log(`USDC: ${usdcAddress}`);
   console.log(`Treasury: ${treasuryAddress}`);
+  console.log(`Owner: ${escrowOwnerAddress}`);
   console.log(`Admins: ${adminWallets.join(", ")}`);
   console.log(`Funding authorizer: ${fundingAuthorizerAddress}`);
   if (complianceHoldSignerAddress) {
@@ -66,6 +72,7 @@ async function main() {
   const escrow = await hre.ethers.deployContract("ConsultEscrow", [
     usdcAddress,
     treasuryAddress,
+    escrowOwnerAddress,
     adminWallets,
     fundingAuthorizerAddress,
   ]);

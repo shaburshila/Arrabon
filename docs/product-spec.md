@@ -303,7 +303,13 @@ require SIWE
 
 ### Admin
 
-- whitelist wallet
+- operational `admin` allowlist для:
+  - `adminResolveRelease`
+  - `adminResolveRefund`
+  - `setDealPayoutBlocked`
+- governance `owner` = `2-of-3` multisig
+- multisig управляет `admins` через `addAdmin/removeAdmin`
+- один и тот же адрес может быть и участником multisig, и `admin`, если это осознанный security tradeoff
 
 ## 13. Meeting URL security
 

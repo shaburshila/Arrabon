@@ -53,7 +53,12 @@ contract ConsultEscrow is ReentrancyGuard {
     error ConfirmDisputeWindowExpired();
     error AutoReleaseTooEarly();
     error CallerNotAdmin();
+    error CallerNotOwner();
     error InvalidAddress();
+    error EmptyAdminList();
+    error AdminAlreadyExists();
+    error AdminNotFound();
+    error LastAdminRemovalForbidden();
     error FundingAuthorizationExpired();
     error FundingNonceAlreadyUsed();
     error InvalidFundingSignature();
@@ -65,11 +70,15 @@ contract ConsultEscrow is ReentrancyGuard {
     event Disputed(uint256 indexed dealId);
     event Refunded(uint256 indexed dealId);
     event DealPayoutBlockUpdated(uint256 indexed dealId, bool blocked);
+    event AdminAdded(address indexed admin);
+    event AdminRemoved(address indexed admin);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     IERC20 public immutable usdc;
     address public immutable treasury;
     address public immutable fundingAuthorizer;
     bytes32 public immutable DOMAIN_SEPARATOR;
+    address public owner;
 
     mapping(uint256 => Deal) public deals;
     mapping(uint256 => bool) public dealPayoutBlocked;
@@ -77,21 +86,31 @@ contract ConsultEscrow is ReentrancyGuard {
     mapping(bytes32 => bool) public usedFundingNonces;
     mapping(address => bool) public admins;
     uint256 public nextDealId;
+    uint256 public adminCount;
 
     constructor(
         address usdcAddress,
         address treasuryAddress,
+        address ownerAddress,
         address[] memory initialAdmins,
         address fundingAuthorizerAddress
     ) {
-        if (usdcAddress == address(0) || treasuryAddress == address(0) || fundingAuthorizerAddress == address(0)) {
+        if (
+            usdcAddress == address(0)
+                || treasuryAddress == address(0)
+                || ownerAddress == address(0)
+                || fundingAuthorizerAddress == address(0)
+        ) {
             revert InvalidAddress();
         }
-        require(initialAdmins.length > 0, "Need at least one admin");
+        if (initialAdmins.length == 0) {
+            revert EmptyAdminList();
+        }
 
         usdc = IERC20(usdcAddress);
         treasury = treasuryAddress;
         fundingAuthorizer = fundingAuthorizerAddress;
+        owner = ownerAddress;
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 EIP712_DOMAIN_TYPEHASH,
@@ -109,8 +128,60 @@ contract ConsultEscrow is ReentrancyGuard {
             if (admin == address(0)) {
                 revert InvalidAddress();
             }
+            if (admins[admin]) {
+                revert AdminAlreadyExists();
+            }
             admins[admin] = true;
+            adminCount += 1;
         }
+    }
+
+    function addAdmin(address admin) external {
+        if (msg.sender != owner) {
+            revert CallerNotOwner();
+        }
+        if (admin == address(0)) {
+            revert InvalidAddress();
+        }
+        if (admins[admin]) {
+            revert AdminAlreadyExists();
+        }
+
+        admins[admin] = true;
+        adminCount += 1;
+
+        emit AdminAdded(admin);
+    }
+
+    function removeAdmin(address admin) external {
+        if (msg.sender != owner) {
+            revert CallerNotOwner();
+        }
+        if (!admins[admin]) {
+            revert AdminNotFound();
+        }
+        if (adminCount == 1) {
+            revert LastAdminRemovalForbidden();
+        }
+
+        admins[admin] = false;
+        adminCount -= 1;
+
+        emit AdminRemoved(admin);
+    }
+
+    function transferOwnership(address newOwner) external {
+        if (msg.sender != owner) {
+            revert CallerNotOwner();
+        }
+        if (newOwner == address(0)) {
+            revert InvalidAddress();
+        }
+
+        address previousOwner = owner;
+        owner = newOwner;
+
+        emit OwnershipTransferred(previousOwner, newOwner);
     }
 
     function createAndFundDeal(

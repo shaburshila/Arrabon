@@ -31,19 +31,25 @@ Recommended admin/config methods needed for deployability:
 - constructor/init for:
   - USDC address
   - treasury address
+  - owner address (production: `2-of-3` multisig)
   - initial admin allowlist
   - funding authorizer address
-- optional admin management methods only if mutable allowlist is needed
+- required admin management methods:
+  - `addAdmin(address)`
+  - `removeAdmin(address)`
+  - `transferOwnership(address)`
 
 ## Core State
 
 Contract must keep:
 
+- `address owner`
 - `mapping(uint256 => Deal) deals`
 - `mapping(uint256 => bool) dealPayoutBlocked`
 - `mapping(bytes32 => bool) usedLinkHashes`
 - `mapping(bytes32 => bool) usedFundingNonces`
 - `mapping(address => bool) admins`
+- `uint256 adminCount`
 - `uint256 nextDealId`
 
 Deal must store:
@@ -105,10 +111,22 @@ Must enforce:
 - `markCompleted`: `msg.sender == deal.seller`
 - `confirmRelease`: `msg.sender == deal.buyer`
 - `openDispute`: `msg.sender == deal.buyer`
+- `addAdmin`: `msg.sender == owner`
+- `removeAdmin`: `msg.sender == owner`
+- `transferOwnership`: `msg.sender == owner`
 - `adminResolveRelease`: `admins[msg.sender] == true`
 - `adminResolveRefund`: `admins[msg.sender] == true`
 - `setDealPayoutBlocked`: `admins[msg.sender] == true`
 - `autoRelease`: permissionless
+
+Admin rotation model:
+
+- `owner` is governance authority and should be a `2-of-3` multisig in production
+- `admins` are operational resolvers for disputes / legal hold operations
+- one address may be both a multisig participant and an `admin`
+- `initialAdmins.length > 0` is required
+- duplicate addresses in `initialAdmins` must revert
+- `removeAdmin` must revert when `adminCount == 1`
 
 ## Funding Path
 
@@ -311,6 +329,11 @@ Implementation should have explicit revert paths for:
 - confirm/dispute window expired
 - auto-release too early
 - caller not admin
+- caller not owner
+- empty initial admin list
+- admin already exists
+- admin not found
+- last admin removal forbidden
 
 ## Verification Checklist For Solidity Dev
 

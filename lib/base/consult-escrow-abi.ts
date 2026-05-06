@@ -74,3 +74,67 @@ export const setDealPayoutBlockedFunctionAbi = {
   ],
   outputs: [],
 } as const;
+
+export const ownerFunctionAbi = {
+  type: "function",
+  name: "owner",
+  stateMutability: "view",
+  inputs: [],
+  outputs: [{ name: "", type: "address" }],
+} as const;
+
+export const adminCountFunctionAbi = {
+  type: "function",
+  name: "adminCount",
+  stateMutability: "view",
+  inputs: [],
+  outputs: [{ name: "", type: "uint256" }],
+} as const;
+
+export const addAdminFunctionAbi = {
+  type: "function",
+  name: "addAdmin",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "admin", type: "address" }],
+  outputs: [],
+} as const;
+
+export const removeAdminFunctionAbi = {
+  type: "function",
+  name: "removeAdmin",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "admin", type: "address" }],
+  outputs: [],
+} as const;
+
+export const transferOwnershipFunctionAbi = {
+  type: "function",
+  name: "transferOwnership",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "newOwner", type: "address" }],
+  outputs: [],
+} as const;
+
+export const adminAddedEventAbi = {
+  type: "event",
+  name: "AdminAdded",
+  inputs: [{ indexed: true, name: "admin", type: "address" }],
+  anonymous: false,
+} as const;
+
+export const adminRemovedEventAbi = {
+  type: "event",
+  name: "AdminRemoved",
+  inputs: [{ indexed: true, name: "admin", type: "address" }],
+  anonymous: false,
+} as const;
+
+export const ownershipTransferredEventAbi = {
+  type: "event",
+  name: "OwnershipTransferred",
+  inputs: [
+    { indexed: true, name: "previousOwner", type: "address" },
+    { indexed: true, name: "newOwner", type: "address" },
+  ],
+  anonymous: false,
+} as const;
