@@ -211,10 +211,14 @@ describe("ConsultEscrow", function () {
     scheduledAt,
     durationMinutes = 60n,
   }) {
-    const threshold = scheduledAt + durationMinutes * 60n;
+    const threshold = scheduledAt;
     await time.setNextBlockTimestamp(threshold);
     const tx = await escrow.connect(seller).markCompleted(dealId);
     return { tx, threshold };
+  }
+
+  function releaseDeadlineFor(funded) {
+    return funded.scheduledAt + funded.durationMinutes * 60n + DISPUTE_WINDOW;
   }
 
   describe("constructor", function () {
@@ -832,10 +836,10 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("seller cannot mark completed before the consultation slot ends", async function () {
+    it("seller cannot mark completed before the consultation slot starts", async function () {
       const { seller, buyer, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
-      const threshold = funded.scheduledAt + funded.durationMinutes * 60n;
+      const threshold = funded.scheduledAt;
 
       await time.setNextBlockTimestamp(threshold - 1n);
 
@@ -845,7 +849,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("seller can mark completed at the end of the consultation slot and completedAt starts buyer window", async function () {
+    it("seller can mark completed at the start of the consultation slot and completedAt is recorded", async function () {
       const { seller, buyer, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
       const { tx, threshold } = await markCompletedAtThreshold({
@@ -928,8 +932,7 @@ describe("ConsultEscrow", function () {
         durationMinutes: funded.durationMinutes,
       });
 
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      const deadline = completedAt + DISPUTE_WINDOW;
+      const deadline = releaseDeadlineFor(funded);
       const fee = feeFor(price);
       const sellerNet = price - fee;
 
@@ -961,8 +964,8 @@ describe("ConsultEscrow", function () {
         durationMinutes: funded.durationMinutes,
       });
 
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline + 1n);
 
       await expect(escrow.connect(buyer).confirmRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
@@ -1041,8 +1044,8 @@ describe("ConsultEscrow", function () {
         durationMinutes: funded.durationMinutes,
       });
 
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline);
 
       await expect(escrow.connect(buyer).openDispute(funded.dealId))
         .to.emit(escrow, "Disputed")
@@ -1062,8 +1065,8 @@ describe("ConsultEscrow", function () {
         durationMinutes: funded.durationMinutes,
       });
 
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline + 1n);
 
       await expect(escrow.connect(buyer).openDispute(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
@@ -1103,8 +1106,8 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded2.scheduledAt,
         durationMinutes: funded2.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded2.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      const deadline = releaseDeadlineFor(funded2);
+      await time.setNextBlockTimestamp(deadline);
       await escrow.connect(buyer).confirmRelease(funded2.dealId);
 
       await expect(escrow.connect(buyer).openDispute(funded2.dealId)).to.be.revertedWithCustomError(
@@ -1117,8 +1120,8 @@ describe("ConsultEscrow", function () {
   });
 
   describe("autoRelease", function () {
-    it("is permissionless", async function () {
-      const { seller, buyer, outsider, token, escrow } = await deployFixture();
+    it("reverts for non-seller callers", async function () {
+      const { seller, buyer, admin, outsider, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
       await markCompletedAtThreshold({
         escrow,
@@ -1128,17 +1131,27 @@ describe("ConsultEscrow", function () {
         durationMinutes: funded.durationMinutes,
       });
 
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      await expect(escrow.connect(buyer).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "UnauthorizedCaller"
+      );
 
-      await expect(escrow.connect(outsider).autoRelease(funded.dealId)).to.not.be.reverted;
+      await expect(escrow.connect(admin).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "UnauthorizedCaller"
+      );
+
+      await expect(escrow.connect(outsider).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "UnauthorizedCaller"
+      );
     });
 
     it("reverts when status is Funded", async function () {
       const { seller, buyer, token, escrow } = await deployFixture();
       const funded = await fundDeal({ escrow, token, seller, buyer });
 
-      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+      await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "InvalidStateTransition"
       );
@@ -1154,17 +1167,17 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline);
 
-      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+      await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "AutoReleaseTooEarly"
       );
     });
 
-    it("succeeds only after deadline and accrues seller net plus treasury fee", async function () {
-      const { seller, buyer, treasury, outsider, token, escrow } = await deployFixture();
+    it("succeeds for seller only after deadline and accrues seller net plus treasury fee", async function () {
+      const { seller, buyer, treasury, token, escrow } = await deployFixture();
       const price = 300_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
       await markCompletedAtThreshold({
@@ -1174,10 +1187,10 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline + 1n);
 
-      const tx = await escrow.connect(outsider).autoRelease(funded.dealId);
+      const tx = await escrow.connect(seller).autoRelease(funded.dealId);
       const receipt = await tx.wait();
       const block = await ethers.provider.getBlock(receipt.blockNumber);
 
@@ -1196,7 +1209,7 @@ describe("ConsultEscrow", function () {
       const funded = await fundDeal({ escrow, token, seller, buyer });
       await escrow.connect(buyer).openDispute(funded.dealId);
 
-      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+      await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "InvalidStateTransition"
       );
@@ -1213,10 +1226,10 @@ describe("ConsultEscrow", function () {
         durationMinutes: funded.durationMinutes,
       });
       await escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true);
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline + 1n);
 
-      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+      await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "DealPayoutBlocked"
       );
@@ -1333,8 +1346,8 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      const deadline = releaseDeadlineFor(funded);
+      await time.setNextBlockTimestamp(deadline);
       await escrow.connect(buyer).confirmRelease(funded.dealId);
 
       await expect(escrow.connect(seller).withdrawPayout())
@@ -1375,8 +1388,7 @@ describe("ConsultEscrow", function () {
         scheduledAt: first.scheduledAt,
         durationMinutes: first.durationMinutes,
       });
-      let completedAt = (await escrow.deals(first.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await time.setNextBlockTimestamp(releaseDeadlineFor(first));
       await escrow.connect(buyer).confirmRelease(first.dealId);
 
       await markCompletedAtThreshold({
@@ -1386,8 +1398,7 @@ describe("ConsultEscrow", function () {
         scheduledAt: second.scheduledAt,
         durationMinutes: second.durationMinutes,
       });
-      completedAt = (await escrow.deals(second.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await time.setNextBlockTimestamp(releaseDeadlineFor(second));
       await escrow.connect(buyer).confirmRelease(second.dealId);
 
       expect(await escrow.pendingPayouts(seller.address)).to.equal(
@@ -1416,8 +1427,7 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await time.setNextBlockTimestamp(releaseDeadlineFor(funded));
       await escrow.connect(buyer).confirmRelease(funded.dealId);
 
       await expect(escrow.connect(outsider).withdrawTreasuryFees()).to.be.revertedWithCustomError(
@@ -1454,8 +1464,7 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await time.setNextBlockTimestamp(releaseDeadlineFor(funded));
       await escrow.connect(buyer).confirmRelease(funded.dealId);
 
       await expect(escrow.connect(owner).setTreasury(outsider.address))
@@ -1486,8 +1495,7 @@ describe("ConsultEscrow", function () {
         scheduledAt: funded.scheduledAt,
         durationMinutes: funded.durationMinutes,
       });
-      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await time.setNextBlockTimestamp(releaseDeadlineFor(funded));
       await escrow.connect(buyer).confirmRelease(funded.dealId);
 
       await expect(escrow.connect(buyer).confirmRelease(funded.dealId)).to.be.revertedWithCustomError(
@@ -1498,7 +1506,7 @@ describe("ConsultEscrow", function () {
         escrow,
         "InvalidStateTransition"
       );
-      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+      await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "InvalidStateTransition"
       );
@@ -1522,7 +1530,7 @@ describe("ConsultEscrow", function () {
         escrow,
         "InvalidStateTransition"
       );
-      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+      await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "InvalidStateTransition"
       );
@@ -1668,8 +1676,9 @@ describe("ConsultEscrow", function () {
 
       await time.setNextBlockTimestamp(scheduledAt + 30n * 60n);
       await escrow.connect(outsider).markCompleted(1n);
-      const completedAt = (await escrow.deals(1n)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      await time.setNextBlockTimestamp(
+        releaseDeadlineFor({ scheduledAt, durationMinutes: 30n }) + 1n
+      );
       await escrow.connect(outsider).autoRelease(1n);
 
       await token.setHook(hook.target);
