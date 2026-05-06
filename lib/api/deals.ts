@@ -72,6 +72,7 @@ export interface DealReadModel {
   buyer_address: string;
   completed_at: string | null;
   consultation_link_id: string;
+  duration_minutes: number;
   id: string;
   onchain_deal_id: string;
   price_usdc: string;

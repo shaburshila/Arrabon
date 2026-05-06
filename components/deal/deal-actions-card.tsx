@@ -124,11 +124,11 @@ export function DealActionsCard({
         </div>
       )}
 
-      {/* Anyone: auto-release after buyer window closes */}
+      {/* Seller: auto-release after buyer window closes */}
       {showAutoRelease && (
         <ActionGroup
           action={autoRelease}
-          description="The buyer dispute window has closed. Anyone can finalize the escrow release to the seller."
+          description="The buyer dispute window has closed. You can now finalize the escrow release to your wallet."
           disabled={needsWallet}
           disabledByOtherAction={isAnyActionInFlight}
           disabledReason="Connect your wallet on the correct network to finalize auto-release."

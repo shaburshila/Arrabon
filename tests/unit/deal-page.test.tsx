@@ -4,6 +4,8 @@ import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import type { DealReadModel } from "@/lib/api/deals";
+
 function makeEntry(id: string, exports: unknown) {
   return {
     children: [],
@@ -62,28 +64,31 @@ const session = {
   switchToCorrectChain: async () => {},
 };
 
+const baseDeal: DealReadModel = {
+  buyer_address: "0x00000000000000000000000000000000000000AA",
+  completed_at: null,
+  consultation_link_id: "link-id-1",
+  duration_minutes: 60,
+  id: "deal-id-1",
+  onchain_deal_id: "1",
+  price_usdc: "100.00",
+  release_deadline_at: null,
+  resolved_at: null,
+  resolved_by_wallet: null,
+  resolved_from_status: null,
+  resolution_type: null,
+  risk_status: "Clear",
+  scheduled_at: "2026-05-06T12:00:00.000Z",
+  seller_address: "0x00000000000000000000000000000000000000BB",
+  status: "Funded",
+  tx_hash: null,
+};
+
 const mocks = {
   params: { id: "deal-id-1" },
   session,
   dealPage: {
-    deal: {
-      buyer_address: "0x00000000000000000000000000000000000000AA",
-      completed_at: null,
-      consultation_link_id: "link-id-1",
-      id: "deal-id-1",
-      onchain_deal_id: "1",
-      price_usdc: "100.00",
-      release_deadline_at: null,
-      resolved_at: null,
-      resolved_by_wallet: null,
-      resolved_from_status: null,
-      risk_status: "Clear" as const,
-      scheduled_at: "2026-05-06T12:00:00.000Z",
-      seller_address: "0x00000000000000000000000000000000000000BB",
-      status: "Funded" as const,
-      tx_hash: null,
-      resolution_type: null,
-    },
+    deal: baseDeal,
     error: null,
     isBuyer: true,
     isParticipant: true,
@@ -151,10 +156,23 @@ const { default: DealPage } = require("../../app/deal/[id]/page");
 describe("DealPage funded dispute timing", () => {
   beforeEach(() => {
     mocks.dealPage.deal = {
-      ...mocks.dealPage.deal,
+      ...baseDeal,
+      completed_at: null,
+      duration_minutes: 60,
+      release_deadline_at: null,
+      resolved_at: null,
+      resolved_by_wallet: null,
+      resolved_from_status: null,
+      risk_status: "Clear",
       scheduled_at: "2026-05-06T12:00:00.000Z",
       status: "Funded",
+      resolution_type: null,
+      tx_hash: null,
     };
+    mocks.dealPage.isBuyer = true;
+    mocks.dealPage.isParticipant = true;
+    mocks.dealPage.isSeller = false;
+    mocks.dealPage.role = "buyer";
   });
 
   test("hides open dispute before scheduled_at", () => {
@@ -176,6 +194,45 @@ describe("DealPage funded dispute timing", () => {
     try {
       const html = renderToStaticMarkup(createElement(DealPage));
       assert.match(html, /Open dispute/);
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+
+  test("shows auto-release only for the seller after the fixed deadline", () => {
+    const originalNow = Date.now;
+    Date.now = () => new Date("2026-05-08T13:00:01.000Z").getTime();
+    mocks.dealPage.deal = {
+      ...baseDeal,
+      completed_at: "2026-05-06T12:30:00.000Z",
+      release_deadline_at: "2026-05-08T13:00:00.000Z",
+      status: "ConfirmPending",
+    };
+    mocks.dealPage.isBuyer = false;
+    mocks.dealPage.isSeller = true;
+    mocks.dealPage.role = "seller";
+
+    try {
+      const html = renderToStaticMarkup(createElement(DealPage));
+      assert.match(html, /Auto-release to seller/);
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+
+  test("hides auto-release for the buyer even after the fixed deadline", () => {
+    const originalNow = Date.now;
+    Date.now = () => new Date("2026-05-08T13:00:01.000Z").getTime();
+    mocks.dealPage.deal = {
+      ...baseDeal,
+      completed_at: "2026-05-06T12:30:00.000Z",
+      release_deadline_at: "2026-05-08T13:00:00.000Z",
+      status: "ConfirmPending",
+    };
+
+    try {
+      const html = renderToStaticMarkup(createElement(DealPage));
+      assert.doesNotMatch(html, /Auto-release to seller/);
     } finally {
       Date.now = originalNow;
     }

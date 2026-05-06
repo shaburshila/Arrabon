@@ -21,43 +21,11 @@ import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { LiveBadge } from "@/components/shared/live-badge";
 import { Notice } from "@/components/shared/notice";
 import { isDealStatusPollable, type DealReadModel } from "@/lib/api/deals";
-
-// Buyer can dispute from Funded (no-show) or ConfirmPending (within window)
-function isDeadlinePassed(value: string | null): boolean {
-  if (!value) {
-    return false;
-  }
-
-  const deadlineMs = new Date(value).getTime();
-
-  return !Number.isNaN(deadlineMs) && Date.now() > deadlineMs;
-}
-
-function hasScheduledTimeStarted(value: string): boolean {
-  const scheduledAtMs = new Date(value).getTime();
-
-  return !Number.isNaN(scheduledAtMs) && Date.now() >= scheduledAtMs;
-}
-
-function isBuyerDisputable(
-  status: string,
-  releaseDeadlineAt: string | null,
-  scheduledAt: string,
-): boolean {
-  if (status === "Funded") {
-    return hasScheduledTimeStarted(scheduledAt);
-  }
-
-  return status === "ConfirmPending" && !isDeadlinePassed(releaseDeadlineAt);
-}
-
-function isBuyerReleasable(status: string, releaseDeadlineAt: string | null): boolean {
-  return status === "ConfirmPending" && !isDeadlinePassed(releaseDeadlineAt);
-}
-
-function isAutoReleaseAvailable(status: string, releaseDeadlineAt: string | null): boolean {
-  return status === "ConfirmPending" && isDeadlinePassed(releaseDeadlineAt);
-}
+import {
+  isBuyerDisputable,
+  isBuyerReleasable,
+  isSellerAutoReleaseAvailable,
+} from "@/lib/ui/deal-timing";
 
 function shouldShowDisputeThread(status: string, resolvedFromStatus: string | null): boolean {
   return status === "Disputed" || resolvedFromStatus === "Disputed";
@@ -200,19 +168,22 @@ export default function DealPage() {
 
           <DealActionsCard
             autoRelease={actions.autoRelease}
-            autoReleaseAvailable={isAutoReleaseAvailable(
-              dealPage.deal.status,
-              dealPage.deal.release_deadline_at,
-            )}
-            buyerDisputable={isBuyerDisputable(
-              dealPage.deal.status,
-              dealPage.deal.release_deadline_at,
-              dealPage.deal.scheduled_at,
-            )}
-            buyerReleasable={isBuyerReleasable(
-              dealPage.deal.status,
-              dealPage.deal.release_deadline_at,
-            )}
+            autoReleaseAvailable={isSellerAutoReleaseAvailable({
+              durationMinutes: dealPage.deal.duration_minutes,
+              isSeller: dealPage.isSeller,
+              scheduledAt: dealPage.deal.scheduled_at,
+              status: dealPage.deal.status,
+            })}
+            buyerDisputable={isBuyerDisputable({
+              durationMinutes: dealPage.deal.duration_minutes,
+              scheduledAt: dealPage.deal.scheduled_at,
+              status: dealPage.deal.status,
+            })}
+            buyerReleasable={isBuyerReleasable({
+              durationMinutes: dealPage.deal.duration_minutes,
+              scheduledAt: dealPage.deal.scheduled_at,
+              status: dealPage.deal.status,
+            })}
             complete={actions.complete}
             dealStatus={dealPage.deal.status}
             dispute={actions.dispute}

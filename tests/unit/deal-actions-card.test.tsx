@@ -68,6 +68,52 @@ function makeSyncFailedAction(): DealAction {
 }
 
 describe("DealActionsCard", () => {
+  test("shows seller-only auto-release copy", () => {
+    const html = renderToStaticMarkup(
+      createElement(DealActionsCard, {
+        autoRelease: makeIdleAction(),
+        autoReleaseAvailable: true,
+        buyerDisputable: false,
+        buyerReleasable: false,
+        complete: makeIdleAction(),
+        dealStatus: "ConfirmPending",
+        dispute: makeIdleAction(),
+        isAnyActionInFlight: false,
+        isBuyer: false,
+        isSeller: true,
+        onRefreshStatus: async () => null,
+        release: makeIdleAction(),
+        session: makeSession(),
+      }),
+    );
+
+    assert.match(html, /Auto-release to seller/);
+    assert.match(html, /You can now finalize the escrow release to your wallet/);
+    assert.doesNotMatch(html, /Anyone can finalize/i);
+  });
+
+  test("does not render auto-release for a buyer when availability is false", () => {
+    const html = renderToStaticMarkup(
+      createElement(DealActionsCard, {
+        autoRelease: makeIdleAction(),
+        autoReleaseAvailable: false,
+        buyerDisputable: false,
+        buyerReleasable: false,
+        complete: makeIdleAction(),
+        dealStatus: "ConfirmPending",
+        dispute: makeIdleAction(),
+        isAnyActionInFlight: false,
+        isBuyer: true,
+        isSeller: false,
+        onRefreshStatus: async () => null,
+        release: makeIdleAction(),
+        session: makeSession(),
+      }),
+    );
+
+    assert.doesNotMatch(html, /Auto-release to seller/);
+  });
+
   test("hides open dispute when buyerDisputable is false", () => {
     const html = renderToStaticMarkup(
       createElement(DealActionsCard, {

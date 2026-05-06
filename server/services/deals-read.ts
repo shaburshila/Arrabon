@@ -25,6 +25,7 @@ export interface DealReadModel {
   buyer_address: string;
   completed_at: string | null;
   consultation_link_id: string;
+  duration_minutes: number;
   id: string;
   onchain_deal_id: string;
   price_usdc: string;
@@ -201,6 +202,7 @@ export async function getDealReadModel(
     buyer_address: deal.buyer_address,
     completed_at: deal.completed_at,
     consultation_link_id: deal.consultation_link_id,
+    duration_minutes: deal.duration_minutes,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: deal.price_usdc,
