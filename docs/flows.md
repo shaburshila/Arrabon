@@ -9,11 +9,10 @@
 
 | Актор | Роль |
 |---|---|
-| Expert | Создаёт ссылку, проводит консультацию, вызывает `markCompleted` |
+| Expert | Создаёт ссылку, проводит консультацию, вызывает `markCompleted`, вызывает `autoRelease` после истечения deadline |
 | Client | Открывает ссылку, оплачивает, подтверждает или открывает dispute |
 | Admin | Разрешает dispute через `adminResolveRelease` / `adminResolveRefund`; управляет denylist |
-| Anyone | Permissionless вызов `autoRelease` (любой адрес) |
-| Backend | Индексирует events, вызывает `autoRelease` для UX (не обязательно) |
+| Backend | Индексирует events; готовит calldata для seller по запросу |
 | Compliance Service | Проверяет wallet адреса через трёх провайдеров; управляет `risk_status` на уровне сделки |
 
 ---
@@ -61,9 +60,8 @@
      ┌────┴──────────────┐
      │                   │
   markCompleted        openDispute
-  (seller, after        (buyer,
-  scheduled_at +        no-show)
-  duration + grace)     │
+  (seller, at or        (buyer,
+  after scheduled_at)   no-show)
      │              ┌───▼────┐
   ┌──▼──────────┐   │Disputed│
   │ConfirmPend- │   └───┬────┘
@@ -73,7 +71,7 @@
   ┌──┴──────────────►│Released │      │Refunded │
   │                  └─────────┘      └─────────┘
   ├── confirmRelease (buyer, ≤48h)
-  ├── autoRelease (anyone, >48h)
+  ├── autoRelease (seller, >48h)
   └── openDispute (buyer, ≤48h)
            │
        ┌───▼────┐
@@ -89,7 +87,7 @@
 | Funded | ConfirmPending | Seller (`markCompleted`) | Deal status is Funded |
 | Funded | Disputed | Buyer (`openDispute`) | Консультация не состоялась (no-show) |
 | ConfirmPending | Released | Buyer (`confirmRelease`) | Статус ConfirmPending, dispute не открыт |
-| ConfirmPending | Released | Anyone (`autoRelease`) | Статус ConfirmPending, нет dispute, `now > completed_at + 48h` |
+| ConfirmPending | Released | Seller (`autoRelease`) | Статус ConfirmPending, нет dispute, `now > scheduled_at + duration_minutes * 60 + 48h` |
 | ConfirmPending | Disputed | Buyer (`openDispute`) | Статус ConfirmPending, в пределах 48h окна |
 | Disputed | Released | Admin (`adminResolveRelease`) | Статус Disputed |
 | Disputed | Refunded | Admin (`adminResolveRefund`) | Статус Disputed |
@@ -131,8 +129,7 @@ Expert                     Client                   Contract / Backend
   │  [консультация проходит]   │                           │
   │                            │                           │
   │─── markCompleted ─────────────────────────────────────►│
-  │    (after scheduled_at +   │                           │
-  │     duration + grace)      │                           │
+  │    (at or after scheduled_at)                          │
   │◄── ConfirmPending event ───────────────────────────────│
   │                            │    deal → ConfirmPending  │
   │                            │                           │
@@ -159,12 +156,12 @@ Expert                     Client                   Contract / Backend
 
   Client молчит 48 часов
         │
-  Anyone (или backend) вызывает autoRelease(dealId)
+  Seller вызывает autoRelease(dealId)
         │
   Contract проверяет:
     ✓ статус == ConfirmPending
     ✓ dispute == false
-    ✓ now > ConfirmPending_timestamp + 48h
+    ✓ now > scheduled_at + duration_minutes * 60 + 48h
         │
   deal → Released
   funds → seller (price - fee)
@@ -220,15 +217,27 @@ Expert вызывает cancel (offchain):
 
 ---
 
-### 4.4 markCompleted сразу после funding
+### 4.4 markCompleted до начала консультации (до scheduled_at)
 
 ```
-Состояние: deal → Funded
+Состояние: deal → Funded, block.timestamp < scheduled_at
+
+Seller вызывает markCompleted:
+  → Contract: revert InvalidStateTransition
+    (block.timestamp < scheduled_at — слот ещё не начался)
+  → Deal остаётся Funded
+```
+
+### 4.5 markCompleted в момент или после начала слота (штатный сценарий)
+
+```
+Состояние: deal → Funded, block.timestamp >= scheduled_at
 
 Seller вызывает markCompleted:
   → Contract: status = ConfirmPending
-  → completed_at = block.timestamp
-  → стартует 48h buyer response window
+  → completed_at = block.timestamp (audit trail)
+  → deadline = scheduled_at + duration_minutes * 60 + 48h (фиксирован)
+  → Buyer может confirmRelease / openDispute до deadline
 ```
 
 ---
@@ -237,9 +246,9 @@ Seller вызывает markCompleted:
 
 ```
 Состояние: deal → ConfirmPending
-Условие: now ≤ markCompleted_timestamp + 48h
+Условие: now ≤ scheduled_at + duration_minutes * 60 + 48h
 
-Anyone вызывает autoRelease:
+Seller вызывает autoRelease:
   → Contract: revert ("deadline not reached")
   → Deal остаётся ConfirmPending
 ```
@@ -251,7 +260,7 @@ Anyone вызывает autoRelease:
 ```
 Состояние: deal → Disputed
 
-Anyone вызывает autoRelease:
+Seller вызывает autoRelease:
   → Contract: revert ("deal in dispute")
   → Только admin может разрешить
 ```
@@ -425,7 +434,7 @@ Expert/Client вызывают adminResolveRelease или adminResolveRefund:
 
 ```
 grace_period_minutes отсутствует в контракте, API payload, backend model и DB schema.
-Seller может вызвать markCompleted в любой момент после funding.
+Seller может вызвать markCompleted начиная с `scheduled_at`.
 ```
 
 ### 7.2 Граница expires_at
@@ -462,7 +471,28 @@ processed_transactions.tx_hash UNIQUE → повторная обработка 
 offchain state синхронизируется с onchain.
 ```
 
-### 7.6 Пользователь открывает ссылку в обычном браузере (не Base App)
+### 7.6 Seller вызывает markCompleted после истечения deadline
+
+```
+Состояние: deal → Funded
+Условие: block.timestamp > scheduled_at + duration_minutes * 60 + 48h
+
+Seller вызывает markCompleted:
+  → Contract: status = ConfirmPending
+  → completed_at = block.timestamp
+  → deadline = scheduled_at + duration_minutes * 60 + 48h уже в прошлом
+  → block.timestamp > deadline
+  → autoRelease доступен немедленно после markCompleted
+  → confirmRelease: revert ConfirmDisputeWindowExpired
+  → openDispute (из ConfirmPending): revert ConfirmDisputeWindowExpired
+
+Замечание: до вызова markCompleted buyer мог открыть dispute из Funded (no-show).
+Если buyer этого не сделал — dispute window из ConfirmPending уже закрыт.
+```
+
+**Инвариант:** deadline не сдвигается при поздней отметке seller. Это намеренно.
+
+### 7.7 Пользователь открывает ссылку в обычном браузере (не Base App)
 
 ```
 Приложение работает как standard web app.
@@ -650,9 +680,9 @@ User / Admin                  Backend
 **Инварианты:**
 - для `confirmRelease` и admin resolve выдача исполнимого calldata перенесена на exchange шаг;
 - два уровня gate: (1) `assertDealNotBlocked` проверяет исторические checks сделки; (2) свежая проверка recipient wallet;
-- `autoRelease` остаётся direct-prepare path без grant и потому сохраняет отдельный residual risk между prepare и broadcast.
+- `autoRelease` остаётся direct-prepare path без grant, но prepare теперь должен быть seller-authenticated.
 
-**Residual risk:** grant-flow сужает stale-window для access-controlled payout path до окна между успешным exchange и фактическим wallet broadcast. Для `autoRelease` такого сужения в v1 нет: permissionless liveness важнее полного устранения stale-window.
+**Residual risk:** grant-flow сужает stale-window для access-controlled payout path до окна между успешным exchange и фактическим wallet broadcast. Для `autoRelease` отдельный stale-window между prepare и broadcast сохраняется, но actor-surface уже ограничен seller, а не произвольным внешним адресом.
 
 ---
 

@@ -14,7 +14,7 @@
 
 **assertDealNotBlocked** — backend guard-функция, вызываемая на всех payout-path prepare endpoints. Читает `compliance_checks` для сделки; если найдена хоть одна запись с `result = Blocked` — выбрасывает `ComplianceBlockedError` до генерации calldata.
 
-**autoRelease** — permissionless onchain метод. Может вызвать любой адрес при условии: `deal.status == ConfirmPending`, нет открытого dispute, `now > completed_at + 48h`. Backend вызывает его для UX, но это не обязательно.
+**autoRelease** — onchain метод, вызываемый только seller после истечения fixed deadline: `now > scheduled_at + duration_minutes * 60 + 48h`. Требует `deal.status == ConfirmPending` и отсутствия dispute. Backend может помогать seller с prepare-flow, но больше не рассматривается как permissionless helper path.
 
 ---
 

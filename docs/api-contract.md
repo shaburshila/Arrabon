@@ -569,7 +569,7 @@ Prepares an `openDispute` call. Callable only by the buyer.
 Allowed from two states:
 
 - `Funded` — no-show or pre-completion dispute; no time gate.
-- `ConfirmPending` — post-completion dispute; allowed only while `now <= completed_at + 48h`.
+- `ConfirmPending` — post-completion dispute; allowed only while `now <= scheduled_at + duration_minutes * 60 + 48h`.
 
 Errors:
 
@@ -582,22 +582,23 @@ Errors:
 
 ### `POST /api/deals/:id/auto-release`
 
-Prepares an `autoRelease` call. Callable after the buyer response window has closed.
+Prepares an `autoRelease` call. Callable only by the seller after the buyer response window has closed.
 
-The endpoint does not require the caller to be the buyer or seller because the contract function is public. It only prepares calldata; the caller still signs the transaction in their own wallet.
+The endpoint requires a SIWE session for the seller wallet. It only prepares calldata; the seller still signs the transaction in their own wallet.
 
 Allowed only when:
 
 - deal status is `ConfirmPending`
-- `now > completed_at + 48h`
+- `now > scheduled_at + duration_minutes * 60 + 48h`
 
 Errors:
 
 - `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` session wallet is not the deal seller
 - `403` `COMPLIANCE_BLOCKED` when seller payout is blocked by compliance or the deal is already in legal hold
 - `409` deal not in `ConfirmPending` state
 - `409` auto-release is not available yet
-- `500` `completed_at` is missing (integrity error — indexer has not yet converged or data is corrupt)
 - `500` contract config unavailable
 
 ### `GET /api/deals/:id/dispute-messages`

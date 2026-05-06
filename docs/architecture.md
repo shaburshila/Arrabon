@@ -191,8 +191,8 @@ created_at
 | `link_hash` uniqueness (`usedLinkHashes`) | Onchain enforcement single-use, revert on replay |
 | Deal state machine (Funded → ConfirmPending → Released/Refunded/Disputed) | Tamper-proof state transitions |
 | `createAndFundDeal` — atomic creation + funding | No split tx race conditions |
-| `markCompleted` seller assertion | Seller can mark a funded deal completed; buyer controls release/dispute response |
-| `autoRelease` — permissionless | Any caller, contract checks deadline; backend не обязателен |
+| `markCompleted` seller assertion | Seller can mark a funded deal completed starting from `scheduled_at`; buyer controls release/dispute response |
+| `autoRelease` — seller-only | Only seller can call after the fixed deadline; backend is not the settlement authority |
 | Fee calculation + treasury transfer | On-chain at funding time, autonomous contract logic; backend does not prepare fee params in the current ABI |
 | Event log (Funded, Completed, Released, Refunded, Disputed) | Source of truth для indexer |
 
@@ -207,7 +207,7 @@ created_at
 | Offchain cancel до funding | Нет смысла писать в chain |
 | Analytics aggregation | Read-only, производные данные |
 | Paymaster proxy | Backend проверяет allowlist перед отправкой к Coinbase |
-| Auto-release trigger (UX helper) | Permissionless на chain; backend вызывает для UX, не обязателен |
+| Auto-release prepare/helper | Backend может помогать seller с prepare-flow и UI countdown, но не заменяет seller wallet |
 | Admin whitelist | Env var / DB, не onchain в MVP |
 
 ### Sync Boundary
@@ -291,7 +291,7 @@ Backend is source of truth for link metadata and meeting_url.
 | F-06 | **`meeting_url` хранится encrypted на backend**, не onchain | Privacy; reveal только через SIWE-аутентифицированный endpoint |
 | F-07 | **Fee = 2%, фиксируется при funding**, выплачивается treasury только на release paths | Нет post-hoc fee; snapshot в момент создания сделки |
 | F-08 | **Fee waiver отсутствует в v1** | Fee всегда рассчитывается как фиксированные 2%; backend не передаёт fee-параметры |
-| F-09 | **`autoRelease` permissionless** — любой может вызвать | Decentralized UX fallback; backend вызывает как helper, не owner |
+| F-09 | **`autoRelease` seller-only** — вызвать может только seller | Снижает actor-surface; backend остаётся prepare/helper слоем, а не settlement authority |
 | F-10 | **Dispute window = 48 часов** | Фиксировано в ТЗ; не конфигурируется per-deal в MVP |
 | F-11 | **Paymaster через backend proxy** с allowlist методов | Безопасность: нельзя спонсировать произвольные вызовы |
 | F-12 | **Admin = whitelist wallet**, без onchain role contract | MVP-simple; достаточно для manual dispute resolution |
@@ -300,7 +300,7 @@ Backend is source of truth for link metadata and meeting_url.
 | F-15 | **`deals.consultation_link_id UNIQUE`** — одна ссылка = одна сделка в DB | Дублирует onchain `link_hash`; двойная защита |
 | F-16 | **`processed_transactions.tx_hash UNIQUE`** — идемпотентный indexer | Повторная обработка события не меняет state |
 | F-17 | **Все timestamps в UTC** | Единственный формат хранения; timezone — display only |
-| F-18 | **`markCompleted` доступен продавцу сразу после funding** | Buyer release/dispute decision and 48h window protect payout |
+| F-18 | **`markCompleted` доступен продавцу с `scheduled_at`** | Buyer window стартует не раньше начала слота; fixed deadline считается от `scheduled_at + duration` |
 | F-19 | **Лимиты сделки $10–$1000 USDC** | Enforced в контракте при `createAndFundDeal` |
 | F-20 | **mobile-first, Base App built-in browser** — primary target | Все UI решения принимаются с этим ограничением |
 | F-21 | **`deals.risk_status` — отдельная ось** от `deal.status` | Compliance не создаёт новых lifecycle-статусов; `risk_status = Blocked` влечёт legal hold без изменения `deal.status`. Подробнее: `decisions.md` §3.1 |

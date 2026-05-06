@@ -40,7 +40,7 @@
 - escrow;
 - seller completion + buyer confirmation;
 - dispute window = 48 часов;
-- permissionless auto-release;
+- seller-initiated auto-release;
 - buyer dispute при no-show;
 - hidden meeting URL;
 - offchain cancel до funding;
@@ -88,11 +88,17 @@ Scheduled consultation
 - expires_at > now
 - duration_minutes > 0
 
-`markCompleted` доступен продавцу только после окончания консультационного слота:
+`markCompleted` доступен продавцу с момента начала консультационного слота:
 
-- `block.timestamp >= scheduled_at + duration_minutes * 60`
+- `block.timestamp >= scheduled_at`
 
-`completed_at` фиксируется onchain в момент `markCompleted` и запускает 48-часовое окно buyer response.
+`completed_at` фиксируется onchain в момент `markCompleted` и сохраняется для audit trail.
+
+48-часовое окно buyer response отсчитывается от момента окончания запланированного слота:
+
+- `autoRelease_deadline = scheduled_at + duration_minutes * 60 + 48h`
+
+Deadline фиксирован и не зависит от момента вызова `markCompleted`.
 
 ## 5. Single-use модель
 
@@ -233,16 +239,18 @@ Execution model:
 
 Правила:
 
-- permissionless (любой может вызвать)
+- вызывать может только seller (deal.seller)
 - контракт проверяет:
+  - msg.sender == deal.seller
   - статус ConfirmPending
   - нет dispute
-  - deadline истёк
+  - deadline истёк (`block.timestamp > scheduled_at + duration_minutes * 60 + 48h`)
 
-Backend:
+UI:
 
-- может вызывать для UX
-- не является обязательным
+- seller видит неактивную кнопку с countdown после markCompleted
+- кнопка становится активной после истечения deadline
+- кнопка исчезает если buyer вызвал confirmRelease или openDispute
 
 ## 9. Dispute
 

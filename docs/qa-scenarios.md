@@ -96,17 +96,17 @@
 
 ## 3. markCompleted
 
-### QA-013 markCompleted сразу после funding — успех
+### QA-013 markCompleted до scheduled_at — revert
 **[CONTRACT]**
-- Given: deal.status == Funded
+- Given: deal.status == Funded; `block.timestamp < scheduled_at`
 - When: seller вызывает `markCompleted(dealId)`
-- Then: событие `Completed` эмитируется; deal.status == ConfirmPending; completed_at установлен
+- Then: revert; deal остаётся Funded
 
 ### QA-014 markCompleted запускает buyer response window
 **[CONTRACT]**
-- Given: seller вызвал `markCompleted`
+- Given: seller вызывает `markCompleted` на `scheduled_at` или позже
 - When: seller вызывает `markCompleted(dealId)`
-- Then: 48h окно confirm/dispute считается от completed_at
+- Then: deal.status == ConfirmPending; `completed_at` записан для audit trail; deadline для confirm/dispute/autoRelease считается как `scheduled_at + duration_minutes * 60 + 48h`
 
 ### QA-015 markCompleted не от seller — revert
 **[CONTRACT]**
@@ -148,27 +148,27 @@
 
 ### QA-020 autoRelease до дедлайна — revert
 **[CONTRACT]**
-- Given: deal.status == ConfirmPending; now ≤ markCompleted_ts + 48h
-- When: anyone вызывает `autoRelease(dealId)`
+- Given: deal.status == ConfirmPending; now ≤ scheduled_at + duration_minutes * 60 + 48h
+- When: seller вызывает `autoRelease(dealId)`
 - Then: revert; deal остаётся ConfirmPending
 
 ### QA-021 autoRelease после дедлайна — успех
 **[CONTRACT]**
-- Given: deal.status == ConfirmPending; no dispute; now > markCompleted_ts + 48h
-- When: anyone вызывает `autoRelease(dealId)`
+- Given: deal.status == ConfirmPending; no dispute; now > scheduled_at + duration_minutes * 60 + 48h
+- When: seller вызывает `autoRelease(dealId)`
 - Then: событие `Released`; deal.status == Released; funds → seller; fee → treasury
 
 ### QA-022 autoRelease при открытом dispute — revert
 **[CONTRACT]**
 - Given: deal.status == Disputed
-- When: anyone вызывает `autoRelease(dealId)`
+- When: seller вызывает `autoRelease(dealId)`
 - Then: revert
 
-### QA-023 autoRelease permissionless (вызов не от backend)
+### QA-023 autoRelease seller-only access control
 **[CONTRACT]**
 - Given: deal.status == ConfirmPending; дедлайн истёк
-- When: произвольный внешний адрес (не backend) вызывает `autoRelease(dealId)`
-- Then: транзакция успешна; Released
+- When: buyer, admin или произвольный внешний адрес вызывает `autoRelease(dealId)`
+- Then: `UnauthorizedCaller`; Released не происходит
 
 ---
 
@@ -481,7 +481,7 @@
 | # | Инвариант | Уровень |
 |---|---|---|
 | I-1 | Повторный funding с тем же link_hash → revert | CONTRACT |
-| I-2 | markCompleted сразу после funding от seller → ConfirmPending | CONTRACT |
+| I-2 | markCompleted до `scheduled_at` → revert | CONTRACT |
 | I-3 | autoRelease до дедлайна → revert | CONTRACT |
 | I-4 | autoRelease при dispute → revert | CONTRACT |
 | I-5 | autoRelease после дедлайна (нет dispute) → Released | CONTRACT |

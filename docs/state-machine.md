@@ -72,8 +72,8 @@
 | Funded | ConfirmPending | `markCompleted` | Seller | deal is Funded |
 | Funded | Disputed | `openDispute` | Buyer | no-show or service issue before completion |
 | ConfirmPending | Released | `confirmRelease` | Buyer | within dispute window |
-| ConfirmPending | Released | `autoRelease` | Anyone | `now > completed_at + 48h`, no dispute |
-| ConfirmPending | Disputed | `openDispute` | Buyer | `now <= completed_at + 48h` |
+| ConfirmPending | Released | `autoRelease` | Seller | `now > scheduled_at + duration_minutes * 60 + 48h`, no dispute |
+| ConfirmPending | Disputed | `openDispute` | Buyer | `now <= scheduled_at + duration_minutes * 60 + 48h` |
 | Disputed | Released | `adminResolveRelease` | Admin | admin allowlist |
 | Disputed | Refunded | `adminResolveRefund` | Admin | admin allowlist |
 
@@ -105,11 +105,11 @@
 
 ### Deal windows
 
-- `markCompleted` доступен продавцу сразу после funding
-- `completed_at` выставляется onchain в момент `markCompleted`
-- dispute/confirm окно после completion:
-  - `48 hours`
-- `autoRelease` доступен только после завершения dispute window
+- `markCompleted` доступен продавцу с `scheduled_at` (с момента начала слота)
+- `completed_at` выставляется onchain в момент `markCompleted` (audit trail; не определяет deadline)
+- deadline для confirmRelease / openDispute (ConfirmPending) / autoRelease:
+  - `scheduled_at + duration_minutes * 60 + 48 hours` (фиксирован; не зависит от `completed_at`)
+- `autoRelease` доступен только если `block.timestamp > scheduled_at + duration_minutes * 60 + DISPUTE_WINDOW`
 
 ---
 
