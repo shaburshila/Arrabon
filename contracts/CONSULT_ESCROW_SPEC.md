@@ -183,7 +183,7 @@ Locked fee model:
 - fixed 2%
 - no waiver
 - snapshot at funding
-- treasury paid only on release paths
+- treasury fees accrue only on release paths
 
 Formula:
 
@@ -196,8 +196,8 @@ Usage:
 
 Release paths:
 
-- seller gets `price - feeAmount`
-- treasury gets `feeAmount`
+- seller accrues `price - feeAmount` into `pendingPayouts[seller]`
+- treasury accrues `feeAmount` into `pendingTreasuryFees`
 
 Refund path:
 
@@ -234,11 +234,10 @@ Implementation invariant:
 
 ## Payout Invariants
 
-For all token-moving terminal paths:
+For all token-moving paths:
 
-- `confirmRelease`
-- `autoRelease`
-- `adminResolveRelease`
+- `withdrawPayout`
+- `withdrawTreasuryFees`
 - `adminResolveRefund`
 
 Must hold:
@@ -280,7 +279,9 @@ Must not use:
 Token flows:
 
 - funding: contract pulls full `price` from buyer
-- release: contract pays seller net and treasury fee
+- release: contract accrues seller net and treasury fee without external token transfers
+- seller withdraw: contract pays seller from `pendingPayouts[msg.sender]`
+- treasury withdraw: contract pays current treasury from `pendingTreasuryFees`
 - refund: contract pays buyer full price
 
 ## Event Contract
@@ -306,6 +307,26 @@ Implement exactly these events:
 
 - `Refunded`
   - `dealId` indexed
+
+- `PayoutAccrued`
+  - `seller` indexed
+  - `amount`
+
+- `PayoutWithdrawn`
+  - `seller` indexed
+  - `amount`
+
+- `TreasuryFeesAccrued`
+  - `treasury` indexed
+  - `amount`
+
+- `TreasuryFeesWithdrawn`
+  - `treasury` indexed
+  - `amount`
+
+- `TreasuryUpdated`
+  - `previousTreasury` indexed
+  - `newTreasury` indexed
 
 Event invariants:
 
@@ -334,6 +355,9 @@ Implementation should have explicit revert paths for:
 - admin already exists
 - admin not found
 - last admin removal forbidden
+- no pending payout
+- no pending treasury fees
+- caller not treasury
 
 ## Verification Checklist For Solidity Dev
 
@@ -351,7 +375,9 @@ Before considering contract done, verify:
 - `openDispute` fails after release
 - admin-only resolution enforced
 - refund returns full `price`
-- release pays net to seller and fee to treasury
+- release accrues net to seller and fee to treasury
+- seller can withdraw accrued payout exactly once per balance
+- treasury can withdraw accrued fees exactly once per balance
 - terminal states cannot be reopened
 - timestamps in `Completed` and `Released` events are exact
 - no second payout is possible after terminal transition
@@ -365,5 +391,5 @@ Once contract is implemented, repo must be aligned in:
 - QA/docs wording for:
   - `DealFunded` naming
   - no fee waiver in v1
-  - treasury payout only on release paths
+  - treasury fees accrue only on release paths
   - accepted offchain funding-validity limitation

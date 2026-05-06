@@ -9,6 +9,10 @@ describe("ConsultEscrow", function () {
   const FEE_DENOMINATOR = 10_000n;
   const DISPUTE_WINDOW = 48n * 60n * 60n;
   const FUNDING_AUTHORIZATION_LIFETIME = 180n;
+  const ATTACK_AUTO_RELEASE = 0;
+  const ATTACK_ADMIN_RESOLVE_REFUND = 1;
+  const ATTACK_WITHDRAW_PAYOUT = 2;
+  const ATTACK_WITHDRAW_TREASURY_FEES = 3;
   const FUNDING_AUTHORIZATION_TYPES = {
     FundingAuthorization: [
       { name: "buyer", type: "address" },
@@ -793,7 +797,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("allowed at exact deadline, pays seller net, pays treasury fee, and emits exact timestamp", async function () {
+    it("allowed at exact deadline, accrues seller net and treasury fee, and emits exact timestamp", async function () {
       const { seller, buyer, treasury, token, escrow } = await deployFixture();
       const price = 250_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
@@ -820,9 +824,11 @@ describe("ConsultEscrow", function () {
 
       const deal = await escrow.deals(funded.dealId);
       expect(deal.status).to.equal(3n);
-      expect(await token.balanceOf(seller.address)).to.equal(sellerNet);
-      expect(await token.balanceOf(treasury.address)).to.equal(fee);
-      expect(await token.balanceOf(escrow.target)).to.equal(0n);
+      expect(await escrow.pendingPayouts(seller.address)).to.equal(sellerNet);
+      expect(await escrow.pendingTreasuryFees()).to.equal(fee);
+      expect(await token.balanceOf(seller.address)).to.equal(0n);
+      expect(await token.balanceOf(treasury.address)).to.equal(0n);
+      expect(await token.balanceOf(escrow.target)).to.equal(price);
     });
 
     it("reverts after deadline", async function () {
@@ -981,7 +987,7 @@ describe("ConsultEscrow", function () {
         "InvalidStateTransition"
       );
 
-      expect(await token.balanceOf(treasury.address)).to.be.greaterThan(0n);
+      expect(await escrow.pendingTreasuryFees()).to.be.greaterThan(0n);
     });
   });
 
@@ -1032,7 +1038,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("succeeds only after deadline and pays seller net plus treasury fee", async function () {
+    it("succeeds only after deadline and accrues seller net plus treasury fee", async function () {
       const { seller, buyer, treasury, outsider, token, escrow } = await deployFixture();
       const price = 300_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
@@ -1053,8 +1059,10 @@ describe("ConsultEscrow", function () {
       await expect(tx).to.emit(escrow, "Released").withArgs(funded.dealId, block.timestamp);
 
       const fee = feeFor(price);
-      expect(await token.balanceOf(seller.address)).to.equal(price - fee);
-      expect(await token.balanceOf(treasury.address)).to.equal(fee);
+      expect(await escrow.pendingPayouts(seller.address)).to.equal(price - fee);
+      expect(await escrow.pendingTreasuryFees()).to.equal(fee);
+      expect(await token.balanceOf(seller.address)).to.equal(0n);
+      expect(await token.balanceOf(treasury.address)).to.equal(0n);
       expect((await escrow.deals(funded.dealId)).status).to.equal(3n);
     });
 
@@ -1106,7 +1114,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("adminResolveRelease only from Disputed and returns net to seller plus fee to treasury", async function () {
+    it("adminResolveRelease only from Disputed and accrues net to seller plus fee to treasury", async function () {
       const { seller, buyer, treasury, admin, token, escrow } = await deployFixture();
       const price = 80_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
@@ -1124,8 +1132,10 @@ describe("ConsultEscrow", function () {
       await expect(tx).to.emit(escrow, "Released").withArgs(funded.dealId, block.timestamp);
 
       const fee = feeFor(price);
-      expect(await token.balanceOf(seller.address)).to.equal(price - fee);
-      expect(await token.balanceOf(treasury.address)).to.equal(fee);
+      expect(await escrow.pendingPayouts(seller.address)).to.equal(price - fee);
+      expect(await escrow.pendingTreasuryFees()).to.equal(fee);
+      expect(await token.balanceOf(seller.address)).to.equal(0n);
+      expect(await token.balanceOf(treasury.address)).to.equal(0n);
       expect((await escrow.deals(funded.dealId)).status).to.equal(3n);
     });
 
@@ -1164,8 +1174,10 @@ describe("ConsultEscrow", function () {
       await escrow.connect(admin).setDealPayoutBlocked(fundedRelease.dealId, true);
 
       await expect(escrow.connect(admin).adminResolveRelease(fundedRelease.dealId)).to.not.be.reverted;
-      expect(await token.balanceOf(seller.address)).to.equal(price - feeFor(price));
-      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(price));
+      expect(await escrow.pendingPayouts(seller.address)).to.equal(price - feeFor(price));
+      expect(await escrow.pendingTreasuryFees()).to.equal(feeFor(price));
+      expect(await token.balanceOf(seller.address)).to.equal(0n);
+      expect(await token.balanceOf(treasury.address)).to.equal(0n);
 
       const fundedRefund = await fundDeal({
         escrow,
@@ -1180,6 +1192,161 @@ describe("ConsultEscrow", function () {
 
       await expect(escrow.connect(admin).adminResolveRefund(fundedRefund.dealId)).to.not.be.reverted;
       expect(await token.balanceOf(buyer.address)).to.equal(price);
+    });
+  });
+
+  describe("pull payments and treasury rotation", function () {
+    it("seller can withdraw pending payout once after release accrual", async function () {
+      const { seller, buyer, token, escrow } = await deployFixture();
+      const price = 210_000_000n;
+      const fee = feeFor(price);
+      const funded = await fundDeal({ escrow, token, seller, buyer, price });
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: funded.dealId,
+        scheduledAt: funded.scheduledAt,
+        durationMinutes: funded.durationMinutes,
+      });
+      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await escrow.connect(buyer).confirmRelease(funded.dealId);
+
+      await expect(escrow.connect(seller).withdrawPayout())
+        .to.emit(escrow, "PayoutWithdrawn")
+        .withArgs(seller.address, price - fee);
+
+      expect(await escrow.pendingPayouts(seller.address)).to.equal(0n);
+      expect(await token.balanceOf(seller.address)).to.equal(price - fee);
+      expect(await token.balanceOf(escrow.target)).to.equal(fee);
+    });
+
+    it("seller payout accrual aggregates across multiple releases", async function () {
+      const { seller, buyer, token, escrow } = await deployFixture();
+      const firstPrice = 120_000_000n;
+      const secondPrice = 140_000_000n;
+      const first = await fundDeal({
+        escrow,
+        token,
+        seller,
+        buyer,
+        price: firstPrice,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("aggregate-first")),
+      });
+      const second = await fundDeal({
+        escrow,
+        token,
+        seller,
+        buyer,
+        price: secondPrice,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("aggregate-second")),
+        scheduledAt: first.scheduledAt + 200_000n,
+      });
+
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: first.dealId,
+        scheduledAt: first.scheduledAt,
+        durationMinutes: first.durationMinutes,
+      });
+      let completedAt = (await escrow.deals(first.dealId)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await escrow.connect(buyer).confirmRelease(first.dealId);
+
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: second.dealId,
+        scheduledAt: second.scheduledAt,
+        durationMinutes: second.durationMinutes,
+      });
+      completedAt = (await escrow.deals(second.dealId)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await escrow.connect(buyer).confirmRelease(second.dealId);
+
+      expect(await escrow.pendingPayouts(seller.address)).to.equal(
+        (firstPrice - feeFor(firstPrice)) + (secondPrice - feeFor(secondPrice))
+      );
+    });
+
+    it("withdrawPayout reverts when seller has no pending payout", async function () {
+      const { seller, escrow } = await deployFixture();
+
+      await expect(escrow.connect(seller).withdrawPayout()).to.be.revertedWithCustomError(
+        escrow,
+        "NoPendingPayout"
+      );
+    });
+
+    it("treasury can withdraw pending fees and outsider cannot", async function () {
+      const { seller, buyer, treasury, outsider, token, escrow } = await deployFixture();
+      const price = 180_000_000n;
+      const fee = feeFor(price);
+      const funded = await fundDeal({ escrow, token, seller, buyer, price });
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: funded.dealId,
+        scheduledAt: funded.scheduledAt,
+        durationMinutes: funded.durationMinutes,
+      });
+      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await escrow.connect(buyer).confirmRelease(funded.dealId);
+
+      await expect(escrow.connect(outsider).withdrawTreasuryFees()).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotTreasury"
+      );
+
+      await expect(escrow.connect(treasury).withdrawTreasuryFees())
+        .to.emit(escrow, "TreasuryFeesWithdrawn")
+        .withArgs(treasury.address, fee);
+
+      expect(await escrow.pendingTreasuryFees()).to.equal(0n);
+      expect(await token.balanceOf(treasury.address)).to.equal(fee);
+    });
+
+    it("withdrawTreasuryFees reverts when no fees are pending", async function () {
+      const { treasury, escrow } = await deployFixture();
+
+      await expect(escrow.connect(treasury).withdrawTreasuryFees()).to.be.revertedWithCustomError(
+        escrow,
+        "NoPendingTreasuryFees"
+      );
+    });
+
+    it("owner can rotate treasury and new treasury can withdraw accumulated fees", async function () {
+      const { seller, buyer, treasury, owner, outsider, token, escrow } = await deployFixture();
+      const price = 190_000_000n;
+      const fee = feeFor(price);
+      const funded = await fundDeal({ escrow, token, seller, buyer, price });
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: funded.dealId,
+        scheduledAt: funded.scheduledAt,
+        durationMinutes: funded.durationMinutes,
+      });
+      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW);
+      await escrow.connect(buyer).confirmRelease(funded.dealId);
+
+      await expect(escrow.connect(owner).setTreasury(outsider.address))
+        .to.emit(escrow, "TreasuryUpdated")
+        .withArgs(treasury.address, outsider.address);
+
+      expect(await escrow.treasury()).to.equal(outsider.address);
+
+      await expect(escrow.connect(treasury).withdrawTreasuryFees()).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotTreasury"
+      );
+
+      await expect(escrow.connect(outsider).withdrawTreasuryFees())
+        .to.emit(escrow, "TreasuryFeesWithdrawn")
+        .withArgs(outsider.address, fee);
     });
   });
 
@@ -1259,13 +1426,12 @@ describe("ConsultEscrow", function () {
   });
 
   describe("reentrancy and CEI", function () {
-    // These same-deal tests validate CEI ordering; the cross-deal test below isolates the global nonReentrant guard.
-    it("release path rejects reentry during seller transfer and still settles correctly", async function () {
-      const { treasury, outsider, token, escrow, authorizer } = await deployReentrantFixture();
+    it("withdrawPayout rejects reentry and clears seller balance only once", async function () {
+      const { admin, outsider, token, escrow, authorizer } = await deployReentrantFixture();
       const Hook = await ethers.getContractFactory("ReentrancyHook");
-
       const buyer = ethers.Wallet.createRandom().address;
-      const seller = outsider.address;
+      const hook = await Hook.deploy(escrow.target, 1n, ATTACK_WITHDRAW_PAYOUT);
+      await hook.waitForDeployment();
 
       await token.mint(buyer, MIN_PRICE);
       await ethers.provider.send("hardhat_impersonateAccount", [buyer]);
@@ -1280,31 +1446,26 @@ describe("ConsultEscrow", function () {
         caller: buyerSigner,
         durationMinutes: 30n,
         escrow,
-        linkHash: ethers.keccak256(ethers.toUtf8Bytes("reentrant-release")),
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("reentrant-withdraw-payout")),
         price: MIN_PRICE,
         scheduledAt,
-        seller,
+        seller: hook.target,
       });
 
-      await time.setNextBlockTimestamp(scheduledAt + 30n * 60n);
-      await escrow.connect(outsider).markCompleted(1n);
+      await escrow.connect(buyerSigner).openDispute(1n);
+      await escrow.connect(admin).adminResolveRelease(1n);
 
-      const hook = await Hook.deploy(escrow.target, 1n, true);
-      await hook.waitForDeployment();
       await token.setHook(hook.target);
       await token.setReenterOnTransfer(true);
 
-      const completedAt = (await escrow.deals(1n)).completedAt;
-      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
-
-      await expect(escrow.connect(outsider).autoRelease(1n)).to.not.be.reverted;
+      await expect(hook.executePrimary()).to.not.be.reverted;
 
       expect(await hook.attempted()).to.equal(true);
       expect(await hook.reentrantCallSucceeded()).to.equal(false);
-      expect((await escrow.deals(1n)).status).to.equal(3n);
-      expect(await token.balanceOf(escrow.target)).to.equal(0n);
-      expect(await token.balanceOf(seller)).to.equal(MIN_PRICE - feeFor(MIN_PRICE));
-      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(MIN_PRICE));
+      expect(await escrow.pendingPayouts(hook.target)).to.equal(0n);
+      expect(await token.balanceOf(hook.target)).to.equal(MIN_PRICE - feeFor(MIN_PRICE));
+      expect(await token.balanceOf(escrow.target)).to.equal(feeFor(MIN_PRICE));
+      expect(await escrow.pendingTreasuryFees()).to.equal(feeFor(MIN_PRICE));
 
       await ethers.provider.send("hardhat_stopImpersonatingAccount", [buyer]);
     });
@@ -1336,7 +1497,7 @@ describe("ConsultEscrow", function () {
       await escrow.connect(buyerSigner).openDispute(1n);
 
       const Hook = await ethers.getContractFactory("ReentrancyHook");
-      const hook = await Hook.deploy(escrow.target, 1n, false);
+      const hook = await Hook.deploy(escrow.target, 1n, ATTACK_ADMIN_RESOLVE_REFUND);
       await hook.waitForDeployment();
       await token.setHook(hook.target);
       await token.setReenterOnTransfer(true);
@@ -1353,76 +1514,89 @@ describe("ConsultEscrow", function () {
       await ethers.provider.send("hardhat_stopImpersonatingAccount", [buyer]);
     });
 
-    it("cross-deal autoRelease reentry is blocked by nonReentrant while the second deal remains otherwise releasable", async function () {
-      const { treasury, outsider, token, escrow, authorizer } = await deployReentrantFixture();
+    it("withdrawTreasuryFees rejects reentry and clears treasury fees only once", async function () {
+      const { outsider, owner, token, escrow, authorizer } = await deployReentrantFixture();
       const Hook = await ethers.getContractFactory("ReentrancyHook");
-
       const buyer = ethers.Wallet.createRandom().address;
       const seller = outsider.address;
+      const hook = await Hook.deploy(escrow.target, 1n, ATTACK_WITHDRAW_TREASURY_FEES);
+      await hook.waitForDeployment();
 
-      await token.mint(buyer, MIN_PRICE * 2n);
+      await token.mint(buyer, MIN_PRICE);
       await ethers.provider.send("hardhat_impersonateAccount", [buyer]);
       const buyerSigner = await ethers.getSigner(buyer);
       await outsider.sendTransaction({ to: buyer, value: ethers.parseEther("1") });
-      await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE * 2n);
+      await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE);
 
-      const now = BigInt(await time.latest());
-      const firstScheduledAt = now + 3600n;
-      const secondScheduledAt = now + 7200n;
-
+      const scheduledAt = BigInt(await time.latest()) + 3600n;
       await createAndFundDealAuthorized({
         authorizer,
         buyer,
         caller: buyerSigner,
         durationMinutes: 30n,
         escrow,
-        linkHash: ethers.keccak256(ethers.toUtf8Bytes("cross-reentrant-a")),
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("reentrant-treasury-withdraw")),
         price: MIN_PRICE,
-        scheduledAt: firstScheduledAt,
+        scheduledAt,
         seller,
       });
 
-      await createAndFundDealAuthorized({
-        authorizer,
-        buyer,
-        caller: buyerSigner,
-        durationMinutes: 30n,
-        escrow,
-        linkHash: ethers.keccak256(ethers.toUtf8Bytes("cross-reentrant-b")),
-        price: MIN_PRICE,
-        scheduledAt: secondScheduledAt,
-        seller,
-      });
-
-      await time.setNextBlockTimestamp(firstScheduledAt + 30n * 60n);
+      await time.setNextBlockTimestamp(scheduledAt + 30n * 60n);
       await escrow.connect(outsider).markCompleted(1n);
+      const completedAt = (await escrow.deals(1n)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+      await escrow.connect(outsider).autoRelease(1n);
 
-      await time.setNextBlockTimestamp(secondScheduledAt + 30n * 60n);
-      await escrow.connect(outsider).markCompleted(2n);
-
-      const firstCompletedAt = (await escrow.deals(1n)).completedAt;
-      const secondCompletedAt = (await escrow.deals(2n)).completedAt;
-      const releaseTime = secondCompletedAt + DISPUTE_WINDOW + 1n;
-      expect(releaseTime).to.be.greaterThan(firstCompletedAt + DISPUTE_WINDOW);
-
-      const hook = await Hook.deploy(escrow.target, 2n, true);
-      await hook.waitForDeployment();
       await token.setHook(hook.target);
       await token.setReenterOnTransfer(true);
+      await escrow.connect(owner).setTreasury(hook.target);
 
-      await time.setNextBlockTimestamp(releaseTime);
-      await expect(escrow.connect(outsider).autoRelease(1n)).to.not.be.reverted;
+      await expect(hook.executePrimary()).to.not.be.reverted;
 
       expect(await hook.attempted()).to.equal(true);
       expect(await hook.reentrantCallSucceeded()).to.equal(false);
-      expect((await escrow.deals(1n)).status).to.equal(3n);
-      expect((await escrow.deals(2n)).status).to.equal(2n);
+      expect(await escrow.pendingTreasuryFees()).to.equal(0n);
+      expect(await token.balanceOf(hook.target)).to.equal(feeFor(MIN_PRICE));
+      expect(await token.balanceOf(escrow.target)).to.equal(MIN_PRICE - feeFor(MIN_PRICE));
 
-      await expect(escrow.connect(outsider).autoRelease(2n)).to.not.be.reverted;
-      expect((await escrow.deals(2n)).status).to.equal(3n);
-      expect(await token.balanceOf(escrow.target)).to.equal(0n);
-      expect(await token.balanceOf(seller)).to.equal((MIN_PRICE - feeFor(MIN_PRICE)) * 2n);
-      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(MIN_PRICE) * 2n);
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [buyer]);
+    });
+
+    it("release path no longer performs token transfers and leaves pull balances pending", async function () {
+      const { admin, outsider, token, escrow, authorizer } = await deployReentrantFixture();
+      const Hook = await ethers.getContractFactory("ReentrancyHook");
+      const buyer = ethers.Wallet.createRandom().address;
+      const hook = await Hook.deploy(escrow.target, 1n, ATTACK_AUTO_RELEASE);
+      await hook.waitForDeployment();
+
+      await token.mint(buyer, MIN_PRICE);
+      await ethers.provider.send("hardhat_impersonateAccount", [buyer]);
+      const buyerSigner = await ethers.getSigner(buyer);
+      await outsider.sendTransaction({ to: buyer, value: ethers.parseEther("1") });
+      await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE);
+
+      const scheduledAt = BigInt(await time.latest()) + 3600n;
+      await createAndFundDealAuthorized({
+        authorizer,
+        buyer,
+        caller: buyerSigner,
+        durationMinutes: 30n,
+        escrow,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("release-no-transfer-hook")),
+        price: MIN_PRICE,
+        scheduledAt,
+        seller: hook.target,
+      });
+
+      await escrow.connect(buyerSigner).openDispute(1n);
+      await token.setHook(hook.target);
+      await token.setReenterOnTransfer(true);
+      await expect(escrow.connect(admin).adminResolveRelease(1n)).to.not.be.reverted;
+
+      expect(await hook.attempted()).to.equal(false);
+      expect(await token.balanceOf(hook.target)).to.equal(0n);
+      expect(await escrow.pendingPayouts(hook.target)).to.equal(MIN_PRICE - feeFor(MIN_PRICE));
+      expect(await escrow.pendingTreasuryFees()).to.equal(feeFor(MIN_PRICE));
 
       await ethers.provider.send("hardhat_stopImpersonatingAccount", [buyer]);
     });

@@ -63,6 +63,9 @@ contract ConsultEscrow is ReentrancyGuard {
     error FundingNonceAlreadyUsed();
     error InvalidFundingSignature();
     error DealPayoutBlocked();
+    error NoPendingPayout();
+    error NoPendingTreasuryFees();
+    error CallerNotTreasury();
 
     event DealFunded(uint256 indexed dealId, bytes32 indexed link_hash, address seller, address buyer);
     event Completed(uint256 indexed dealId, uint256 completedAt);
@@ -73,20 +76,27 @@ contract ConsultEscrow is ReentrancyGuard {
     event AdminAdded(address indexed admin);
     event AdminRemoved(address indexed admin);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event PayoutAccrued(address indexed seller, uint256 amount);
+    event PayoutWithdrawn(address indexed seller, uint256 amount);
+    event TreasuryFeesAccrued(address indexed treasury, uint256 amount);
+    event TreasuryFeesWithdrawn(address indexed treasury, uint256 amount);
+    event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
 
     IERC20 public immutable usdc;
-    address public immutable treasury;
     address public immutable fundingAuthorizer;
     bytes32 public immutable DOMAIN_SEPARATOR;
     address public owner;
+    address public treasury;
 
     mapping(uint256 => Deal) public deals;
     mapping(uint256 => bool) public dealPayoutBlocked;
     mapping(bytes32 => bool) public usedLinkHashes;
     mapping(bytes32 => bool) public usedFundingNonces;
     mapping(address => bool) public admins;
+    mapping(address => uint256) public pendingPayouts;
     uint256 public nextDealId;
     uint256 public adminCount;
+    uint256 public pendingTreasuryFees;
 
     constructor(
         address usdcAddress,
@@ -182,6 +192,20 @@ contract ConsultEscrow is ReentrancyGuard {
         owner = newOwner;
 
         emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
+    function setTreasury(address newTreasury) external {
+        if (msg.sender != owner) {
+            revert CallerNotOwner();
+        }
+        if (newTreasury == address(0)) {
+            revert InvalidAddress();
+        }
+
+        address previousTreasury = treasury;
+        treasury = newTreasury;
+
+        emit TreasuryUpdated(previousTreasury, newTreasury);
     }
 
     function createAndFundDeal(
@@ -370,6 +394,34 @@ contract ConsultEscrow is ReentrancyGuard {
         emit Refunded(dealId);
     }
 
+    function withdrawPayout() external nonReentrant {
+        uint256 amount = pendingPayouts[msg.sender];
+        if (amount == 0) {
+            revert NoPendingPayout();
+        }
+
+        pendingPayouts[msg.sender] = 0;
+        usdc.safeTransfer(msg.sender, amount);
+
+        emit PayoutWithdrawn(msg.sender, amount);
+    }
+
+    function withdrawTreasuryFees() external nonReentrant {
+        if (msg.sender != treasury) {
+            revert CallerNotTreasury();
+        }
+
+        uint256 amount = pendingTreasuryFees;
+        if (amount == 0) {
+            revert NoPendingTreasuryFees();
+        }
+
+        pendingTreasuryFees = 0;
+        usdc.safeTransfer(msg.sender, amount);
+
+        emit TreasuryFeesWithdrawn(msg.sender, amount);
+    }
+
     function _getDealOrRevert(uint256 dealId) internal view returns (Deal storage deal) {
         deal = deals[dealId];
         if (deal.seller == address(0)) {
@@ -385,11 +437,12 @@ contract ConsultEscrow is ReentrancyGuard {
         uint256 sellerAmount = deal.price - deal.feeAmount;
 
         deal.status = Status.Released;
-
-        usdc.safeTransfer(deal.seller, sellerAmount);
-        usdc.safeTransfer(treasury, deal.feeAmount);
+        pendingPayouts[deal.seller] += sellerAmount;
+        pendingTreasuryFees += deal.feeAmount;
 
         emit Released(dealId, block.timestamp);
+        emit PayoutAccrued(deal.seller, sellerAmount);
+        emit TreasuryFeesAccrued(treasury, deal.feeAmount);
     }
 
     function _recoverFundingAuthorizationSigner(

@@ -183,6 +183,8 @@ Authorization model:
 - Funded
 - ConfirmPending
 - Released
+  - payout зафиксирован onchain
+  - seller и treasury выводят средства отдельными claim-транзакциями
 - Refunded
 - Disputed
 
@@ -275,7 +277,8 @@ Onchain методы:
 - 2% с эксперта
 - фиксируется в момент funding
 - округление вниз
-- отправка сразу на treasury
+- при release комиссия сначала начисляется в pending treasury fees
+- treasury выводит её отдельной транзакцией
 
 ## 12. Auth и Session
 
