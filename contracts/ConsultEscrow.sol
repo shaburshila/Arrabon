@@ -17,7 +17,7 @@ contract ConsultEscrow is ReentrancyGuard {
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 public constant FUNDING_AUTHORIZATION_TYPEHASH =
         keccak256(
-            "FundingAuthorization(address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 deadline,bytes32 nonce)"
+            "FundingAuthorization(bytes32 consultationLinkIdHash,address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 linkExpiresAt,uint256 deadline,bytes32 nonce)"
         );
     uint256 private constant SECP256K1N_HALF =
         0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
@@ -62,6 +62,7 @@ contract ConsultEscrow is ReentrancyGuard {
     error FundingAuthorizationExpired();
     error FundingNonceAlreadyUsed();
     error InvalidFundingSignature();
+    error LinkExpired();
     error DealPayoutBlocked();
     error NoPendingPayout();
     error NoPendingTreasuryFees();
@@ -209,12 +210,14 @@ contract ConsultEscrow is ReentrancyGuard {
     }
 
     function createAndFundDeal(
+        bytes32 consultation_link_id_hash,
         bytes32 link_hash,
         address seller,
         address buyer,
         uint256 price,
         uint256 scheduled_at,
         uint256 duration_minutes,
+        uint256 link_expires_at,
         uint256 deadline,
         bytes32 nonce,
         bytes calldata signature
@@ -240,13 +243,30 @@ contract ConsultEscrow is ReentrancyGuard {
         if (duration_minutes == 0) {
             revert InvalidDuration();
         }
+        if (link_expires_at <= block.timestamp) {
+            revert LinkExpired();
+        }
         if (deadline < block.timestamp) {
             revert FundingAuthorizationExpired();
         }
         if (usedFundingNonces[nonce]) {
             revert FundingNonceAlreadyUsed();
         }
-        if (_recoverFundingAuthorizationSigner(buyer, seller, link_hash, price, scheduled_at, duration_minutes, deadline, nonce, signature) != fundingAuthorizer) {
+        if (
+            _recoverFundingAuthorizationSigner(
+                consultation_link_id_hash,
+                buyer,
+                seller,
+                link_hash,
+                price,
+                scheduled_at,
+                duration_minutes,
+                link_expires_at,
+                deadline,
+                nonce,
+                signature
+            ) != fundingAuthorizer
+        ) {
             revert InvalidFundingSignature();
         }
 
@@ -449,12 +469,14 @@ contract ConsultEscrow is ReentrancyGuard {
     }
 
     function _recoverFundingAuthorizationSigner(
+        bytes32 consultation_link_id_hash,
         address buyer,
         address seller,
         bytes32 link_hash,
         uint256 price,
         uint256 scheduled_at,
         uint256 duration_minutes,
+        uint256 link_expires_at,
         uint256 deadline,
         bytes32 nonce,
         bytes calldata signature
@@ -466,12 +488,14 @@ contract ConsultEscrow is ReentrancyGuard {
         bytes32 structHash = keccak256(
             abi.encode(
                 FUNDING_AUTHORIZATION_TYPEHASH,
+                consultation_link_id_hash,
                 buyer,
                 seller,
                 link_hash,
                 price,
                 scheduled_at,
                 duration_minutes,
+                link_expires_at,
                 deadline,
                 nonce
             )

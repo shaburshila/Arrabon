@@ -1,5 +1,6 @@
 import { beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { keccak256, stringToBytes } from "viem";
 
 import type { ConsultationLinkRow, DealRow } from "@/lib/db/types";
 import {
@@ -154,9 +155,11 @@ describe("prepareFundingForLink compliance gate", () => {
 
     const signingInput = mocks.calls.signFundingAuthorization[0][0] as {
       buyer: string;
+      consultationLinkIdHash: string;
       deadline: bigint;
       durationMinutes: bigint;
       linkHash: string;
+      linkExpiresAt: bigint;
       nonce: string;
       price: bigint;
       scheduledAt: bigint;
@@ -164,9 +167,11 @@ describe("prepareFundingForLink compliance gate", () => {
     };
     const preparedCallInput = mocks.calls.prepareCreateAndFundDealCall[0] as {
       buyerAddress: string;
+      consultationLinkIdHash: string;
       deadline: bigint;
       durationMinutes: number;
       linkHash: string;
+      linkExpiresAt: bigint;
       nonce: string;
       priceUsdc: string;
       scheduledAt: Date;
@@ -176,12 +181,16 @@ describe("prepareFundingForLink compliance gate", () => {
 
     assert.equal(signingInput.buyer, currentUser.wallet_address);
     assert.equal(signingInput.seller, "0x00000000000000000000000000000000000000bb");
+    assert.equal(signingInput.consultationLinkIdHash, keccak256(stringToBytes("link-id-1")));
     assert.equal(signingInput.linkHash, "0x" + "1".repeat(64));
     assert.equal(signingInput.price, BigInt(100_000_000));
     assert.equal(signingInput.scheduledAt, BigInt(1903608000));
     assert.equal(signingInput.durationMinutes, BigInt(30));
+    assert.equal(signingInput.linkExpiresAt, BigInt(1903604400));
     assert.equal(signingInput.deadline, preparedCallInput.deadline);
     assert.equal(signingInput.nonce, "0x" + "2".repeat(64));
+    assert.equal(preparedCallInput.consultationLinkIdHash, signingInput.consultationLinkIdHash);
+    assert.equal(preparedCallInput.linkExpiresAt, signingInput.linkExpiresAt);
     assert.equal(preparedCallInput.nonce, "0x" + "2".repeat(64));
     assert.equal(preparedCallInput.signature, "0x" + "3".repeat(130));
   });

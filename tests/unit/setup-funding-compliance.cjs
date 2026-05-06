@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const { keccak256, stringToBytes } = require('viem');
 
 function makeEntry(id, exports) {
   return {
@@ -41,7 +42,24 @@ class ConsultEscrowConfigError extends Error {
 
 class ComplianceBlockedError extends Error {
   constructor(input) {
-    super('Compliance blocked');
+    let message = 'Wallet blocked by compliance screening.';
+
+    switch (input.reasonCode) {
+      case 'OFAC_SANCTIONS':
+        message = 'Wallet flagged by sanctions screening.';
+        break;
+      case 'USDC_BLACKLISTED':
+        message = 'Wallet blocked by token blacklist screening.';
+        break;
+      case 'LOCAL_DENYLIST':
+        message = 'Wallet blocked by compliance screening.';
+        break;
+      case 'PROVIDER_UNAVAILABLE':
+        message = 'Compliance screening is temporarily unavailable.';
+        break;
+    }
+
+    super(message);
     this.name = 'ComplianceBlockedError';
     this.dealId = input.dealId;
     this.provider = input.provider;
@@ -175,6 +193,7 @@ require.cache[fundingAuthorizationPath] = makeEntry(fundingAuthorizationPath, {
     mocks.calls.createFundingAuthorizationNonce.push(args);
     return mocks.createFundingAuthorizationNonce(...args);
   },
+  hashConsultationLinkId: (linkId) => keccak256(stringToBytes(linkId)),
   signFundingAuthorization: (...args) => {
     mocks.calls.signFundingAuthorization.push(args);
     return mocks.signFundingAuthorization(...args);
@@ -196,6 +215,32 @@ require.cache[errorMappingPath] = makeEntry(errorMappingPath, {
     mocks.calls.assertCompliance.push(args);
     return mocks.assertCompliance(...args);
   },
-  complianceErrorToHttpResponse: () => { throw new Error('not mocked'); },
-  withComplianceErrorHandling: (handler) => handler,
+  complianceErrorToHttpResponse: (error) => Response.json(
+    {
+      code: 'COMPLIANCE_BLOCKED',
+      error: error.message,
+      reason_code: error.reasonCode,
+      wallet_address: error.walletAddress.toLowerCase(),
+    },
+    { status: 403 },
+  ),
+  withComplianceErrorHandling: (handler) => async (...args) => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      if (error instanceof ComplianceBlockedError) {
+        return Response.json(
+          {
+            code: 'COMPLIANCE_BLOCKED',
+            error: error.message,
+            reason_code: error.reasonCode,
+            wallet_address: error.walletAddress.toLowerCase(),
+          },
+          { status: 403 },
+        );
+      }
+
+      throw error;
+    }
+  },
 });

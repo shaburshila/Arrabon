@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
-import { getAddress, type Hex } from "viem";
+import { getAddress, keccak256, stringToBytes, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 import {
@@ -21,12 +21,14 @@ export const FUNDING_AUTHORIZATION_DOMAIN = {
 
 export const FUNDING_AUTHORIZATION_TYPES = {
   FundingAuthorization: [
+    { name: "consultationLinkIdHash", type: "bytes32" },
     { name: "buyer", type: "address" },
     { name: "seller", type: "address" },
     { name: "linkHash", type: "bytes32" },
     { name: "price", type: "uint256" },
     { name: "scheduledAt", type: "uint256" },
     { name: "durationMinutes", type: "uint256" },
+    { name: "linkExpiresAt", type: "uint256" },
     { name: "deadline", type: "uint256" },
     { name: "nonce", type: "bytes32" },
   ],
@@ -34,9 +36,11 @@ export const FUNDING_AUTHORIZATION_TYPES = {
 
 export interface FundingAuthorizationMessage {
   buyer: `0x${string}`;
+  consultationLinkIdHash: `0x${string}`;
   deadline: bigint;
   durationMinutes: bigint;
   linkHash: `0x${string}`;
+  linkExpiresAt: bigint;
   nonce: `0x${string}`;
   price: bigint;
   scheduledAt: bigint;
@@ -73,6 +77,10 @@ export function getFundingAuthorizerAddress(): `0x${string}` {
 
 export function createFundingAuthorizationNonce(): Hex {
   return `0x${randomBytes(32).toString("hex")}` as Hex;
+}
+
+export function hashConsultationLinkId(linkId: string): Hex {
+  return keccak256(stringToBytes(linkId));
 }
 
 export async function signFundingAuthorization(

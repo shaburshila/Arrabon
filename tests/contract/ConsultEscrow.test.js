@@ -15,12 +15,14 @@ describe("ConsultEscrow", function () {
   const ATTACK_WITHDRAW_TREASURY_FEES = 3;
   const FUNDING_AUTHORIZATION_TYPES = {
     FundingAuthorization: [
+      { name: "consultationLinkIdHash", type: "bytes32" },
       { name: "buyer", type: "address" },
       { name: "seller", type: "address" },
       { name: "linkHash", type: "bytes32" },
       { name: "price", type: "uint256" },
       { name: "scheduledAt", type: "uint256" },
       { name: "durationMinutes", type: "uint256" },
+      { name: "linkExpiresAt", type: "uint256" },
       { name: "deadline", type: "uint256" },
       { name: "nonce", type: "bytes32" },
     ],
@@ -67,6 +69,8 @@ describe("ConsultEscrow", function () {
     linkHash,
     scheduledAt,
     durationMinutes,
+    consultationLinkIdHash,
+    linkExpiresAt,
     deadline,
     nonce,
   }) {
@@ -81,12 +85,14 @@ describe("ConsultEscrow", function () {
       },
       FUNDING_AUTHORIZATION_TYPES,
       {
+        consultationLinkIdHash,
         buyer,
         seller,
         linkHash,
         price,
         scheduledAt,
         durationMinutes,
+        linkExpiresAt,
         deadline,
         nonce,
       }
@@ -103,12 +109,17 @@ describe("ConsultEscrow", function () {
     linkHash,
     scheduledAt,
     durationMinutes,
+    consultationLinkIdHash,
+    linkExpiresAt,
     deadline,
     nonce,
     signature,
   }) {
     const effectiveDeadline = deadline ?? (BigInt(await time.latest()) + FUNDING_AUTHORIZATION_LIFETIME);
     const effectiveNonce = nonce ?? ethers.hexlify(ethers.randomBytes(32));
+    const effectiveConsultationLinkIdHash =
+      consultationLinkIdHash ?? ethers.keccak256(ethers.toUtf8Bytes("link-id-1"));
+    const effectiveLinkExpiresAt = linkExpiresAt ?? (scheduledAt + 7n * 24n * 60n * 60n);
     const effectiveSignature = signature ?? await signFundingAuthorization({
       escrow,
       authorizer,
@@ -118,17 +129,21 @@ describe("ConsultEscrow", function () {
       linkHash,
       scheduledAt,
       durationMinutes,
+      consultationLinkIdHash: effectiveConsultationLinkIdHash,
+      linkExpiresAt: effectiveLinkExpiresAt,
       deadline: effectiveDeadline,
       nonce: effectiveNonce,
     });
 
     return escrow.connect(caller).createAndFundDeal(
+      effectiveConsultationLinkIdHash,
       linkHash,
       seller,
       buyer,
       price,
       scheduledAt,
       durationMinutes,
+      effectiveLinkExpiresAt,
       effectiveDeadline,
       effectiveNonce,
       effectiveSignature
@@ -143,11 +158,14 @@ describe("ConsultEscrow", function () {
     authorizer,
     price = MIN_PRICE,
     linkHash = ethers.keccak256(ethers.toUtf8Bytes("link-1")),
+    consultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-1")),
     durationMinutes = 60n,
     scheduledAt,
+    linkExpiresAt,
   }) {
     const now = BigInt(await time.latest());
     const effectiveScheduledAt = scheduledAt ?? (now + 24n * 60n * 60n);
+    const effectiveLinkExpiresAt = linkExpiresAt ?? (effectiveScheduledAt + 7n * 24n * 60n * 60n);
     const dealId = await escrow.nextDealId();
     let effectiveAuthorizer = authorizer;
 
@@ -164,9 +182,11 @@ describe("ConsultEscrow", function () {
       authorizer: effectiveAuthorizer,
       buyer: buyer.address,
       caller: buyer,
+      consultationLinkIdHash,
       durationMinutes,
       escrow,
       linkHash,
+      linkExpiresAt: effectiveLinkExpiresAt,
       price,
       scheduledAt: effectiveScheduledAt,
       seller: seller.address,
@@ -175,6 +195,8 @@ describe("ConsultEscrow", function () {
     return {
       tx,
       dealId,
+      consultationLinkIdHash,
+      linkExpiresAt: effectiveLinkExpiresAt,
       linkHash,
       scheduledAt: effectiveScheduledAt,
       durationMinutes,
@@ -596,6 +618,30 @@ describe("ConsultEscrow", function () {
       ).to.be.revertedWithCustomError(escrow, "FundingAuthorizationExpired");
     });
 
+    it("rejects expired link state when link expiry is already in the past", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkExpiresAt: now,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("expired-link-state")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "LinkExpired");
+    });
+
     it("rejects reused funding nonce", async function () {
       const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
@@ -639,15 +685,19 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
       const linkHash = ethers.keccak256(ethers.toUtf8Bytes("bad-signature"));
+      const consultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-1"));
+      const linkExpiresAt = scheduledAt + 7n * 24n * 60n * 60n;
       const deadline = now + FUNDING_AUTHORIZATION_LIFETIME;
       const nonce = ethers.hexlify(ethers.randomBytes(32));
       const signature = await signFundingAuthorization({
         authorizer: outsider,
         buyer: buyer.address,
+        consultationLinkIdHash,
         deadline,
         durationMinutes: 30n,
         escrow,
         linkHash,
+        linkExpiresAt,
         nonce,
         price: MIN_PRICE,
         scheduledAt,
@@ -662,10 +712,60 @@ describe("ConsultEscrow", function () {
           authorizer,
           buyer: buyer.address,
           caller: buyer,
+          consultationLinkIdHash,
           deadline,
           durationMinutes: 30n,
           escrow,
           linkHash,
+          linkExpiresAt,
+          nonce,
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+          signature,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidFundingSignature");
+    });
+
+    it("rejects mismatched consultationLinkIdHash", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+      const linkHash = ethers.keccak256(ethers.toUtf8Bytes("bad-link-id-hash"));
+      const deadline = now + FUNDING_AUTHORIZATION_LIFETIME;
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      const signedConsultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-1"));
+      const suppliedConsultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-2"));
+      const linkExpiresAt = scheduledAt + 7n * 24n * 60n * 60n;
+      const signature = await signFundingAuthorization({
+        authorizer,
+        buyer: buyer.address,
+        consultationLinkIdHash: signedConsultationLinkIdHash,
+        deadline,
+        durationMinutes: 30n,
+        escrow,
+        linkHash,
+        linkExpiresAt,
+        nonce,
+        price: MIN_PRICE,
+        scheduledAt,
+        seller: seller.address,
+      });
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          consultationLinkIdHash: suppliedConsultationLinkIdHash,
+          deadline,
+          durationMinutes: 30n,
+          escrow,
+          linkHash,
+          linkExpiresAt,
           nonce,
           price: MIN_PRICE,
           scheduledAt,

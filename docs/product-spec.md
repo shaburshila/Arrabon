@@ -127,12 +127,14 @@ Funding = contract call через wagmi/viem + paymaster
 
 Входные параметры:
 
+- consultation_link_id_hash
 - link_hash
 - seller
 - buyer
 - amount
 - scheduled_at
 - duration
+- link_expires_at
 - deadline
 - nonce
 - signature
@@ -145,6 +147,7 @@ Funding = contract call через wagmi/viem + paymaster
 - один вызов = одна сделка
 - нет `createDeal + fundDeal`
 - funding требует short-lived onchain authorization от backend signer по EIP-712
+- funding authorization привязана к конкретной DB-ссылке и её approved `Open`-состоянию на момент exchange
 
 Authorization model:
 
@@ -154,17 +157,25 @@ Authorization model:
   - `chainId = block.chainid`
   - `verifyingContract = address(this)`
 - struct:
-  - `FundingAuthorization(address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 deadline,bytes32 nonce)`
+  - `FundingAuthorization(bytes32 consultationLinkIdHash,address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 linkExpiresAt,uint256 deadline,bytes32 nonce)`
 - encoding rules:
+  - `consultationLinkIdHash = keccak256(stringToBytes(link.id))`
   - `price = parseUnits(String(link.price_usdc), 6)`
   - `scheduledAt = Unix seconds`
+  - `linkExpiresAt = Unix seconds`
   - `deadline = Unix seconds`
   - `nonce = bytes32`
+- backend подписывает authorization только если effective status ссылки в момент exchange = `Open`
+- onchain funding дополнительно проверяет:
+  - `linkExpiresAt > block.timestamp`
 - replay protection:
   - `usedFundingNonces[nonce] = true`
 - lifetime policy:
   - funding grant TTL = 5 минут
   - onchain authorization deadline = 3 минуты
+- boundary behavior:
+  - `linkExpiresAt == block.timestamp` считается expired и funding ревертит
+  - `deadline == block.timestamp` ещё допустим для authorization deadline check
 
 ### 6.3 Base Pay
 

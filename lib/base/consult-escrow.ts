@@ -123,9 +123,11 @@ export const consultEscrowAbi = [
 
 export interface CreateAndFundDealInput {
   buyerAddress: string;
+  consultationLinkIdHash: Hex;
   deadline: bigint;
   durationMinutes: number;
   linkHash: string;
+  linkExpiresAt: bigint;
   nonce: Hex;
   priceUsdc: string;
   scheduledAt: Date;
@@ -539,12 +541,14 @@ export function prepareCreateAndFundDealCall(
   const data = encodeFunctionData({
     abi: [createAndFundDealFunctionAbi],
     args: [
+      input.consultationLinkIdHash,
       linkHash,
       seller,
       buyer,
       price,
       scheduledAt,
       durationMinutes,
+      input.linkExpiresAt,
       input.deadline,
       input.nonce,
       input.signature,

@@ -17,6 +17,7 @@ import {
 } from "@/lib/base/consult-escrow";
 import {
   createFundingAuthorizationNonce,
+  hashConsultationLinkId,
   signFundingAuthorization,
 } from "@/lib/base/funding-authorization";
 import {
@@ -400,15 +401,19 @@ export async function exchangeFundingGrantForLink(
 
   try {
     const price = parseUnits(String(link.price_usdc), 6);
+    const consultationLinkIdHash = hashConsultationLinkId(link.id);
     const linkHash = assertLinkHash(link.link_hash);
     const scheduledAt = BigInt(Math.floor(new Date(link.scheduled_at).getTime() / 1000));
+    const linkExpiresAt = BigInt(Math.floor(new Date(link.expires_at).getTime() / 1000));
     const deadline = BigInt(Math.floor(now.getTime() / 1000)) + FUNDING_AUTHORIZATION_LIFETIME_SECONDS;
     const nonce = createFundingAuthorizationNonce();
     const signature = await signFundingAuthorization({
       buyer: getAddress(currentUser.wallet_address),
+      consultationLinkIdHash,
       deadline,
       durationMinutes: BigInt(link.duration_minutes),
       linkHash: linkHash as `0x${string}`,
+      linkExpiresAt,
       nonce,
       price,
       scheduledAt,
@@ -419,9 +424,11 @@ export async function exchangeFundingGrantForLink(
       consultation_link_id: link.id,
       contract_call: prepareCreateAndFundDealCall({
         buyerAddress: currentUser.wallet_address,
+        consultationLinkIdHash,
         deadline,
         durationMinutes: link.duration_minutes,
         linkHash: link.link_hash,
+        linkExpiresAt,
         nonce,
         priceUsdc: String(link.price_usdc),
         scheduledAt: new Date(link.scheduled_at),

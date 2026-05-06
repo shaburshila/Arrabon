@@ -19,6 +19,8 @@ Do not add:
 Required public/external methods:
 
 - `createAndFundDeal(link_hash, seller, buyer, price, scheduled_at, duration_minutes, deadline, nonce, signature)`
+  - canonical v2 funding ABI:
+    - `createAndFundDeal(consultation_link_id_hash, link_hash, seller, buyer, price, scheduled_at, duration_minutes, link_expires_at, deadline, nonce, signature)`
 - `markCompleted(dealId)`
 - `confirmRelease(dealId)`
 - `openDispute(dealId)`
@@ -132,6 +134,7 @@ Admin rotation model:
 
 `createAndFundDeal` must enforce:
 
+- `consultation_link_id_hash` is part of the signed payload
 - `seller != address(0)`
 - `buyer != address(0)`
 - `seller != buyer`
@@ -140,6 +143,7 @@ Admin rotation model:
 - `price` in `[10 USDC, 1000 USDC]`
 - `scheduled_at > block.timestamp`
 - `duration_minutes > 0`
+- `link_expires_at > block.timestamp`
 - `deadline >= block.timestamp`
 - `signature` recovers to `fundingAuthorizer`
 
@@ -151,10 +155,13 @@ Funding authorization model:
   - `chainId = block.chainid`
   - `verifyingContract = address(this)`
 - struct:
-  - `FundingAuthorization(address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 deadline,bytes32 nonce)`
+  - `FundingAuthorization(bytes32 consultationLinkIdHash,address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 linkExpiresAt,uint256 deadline,bytes32 nonce)`
 - encoding rules:
+  - `consultationLinkIdHash = keccak256(stringToBytes(link.id))` on the TypeScript/backend side
+  - contract receives `consultationLinkIdHash` as `bytes32` input and verifies it only through the signed EIP-712 payload
   - `price` is the 6-decimal USDC amount passed to the contract
   - `scheduledAt` is Unix seconds
+  - `linkExpiresAt` is Unix seconds
   - `deadline` is Unix seconds
   - `nonce` type is `bytes32`
 - replay protection:
@@ -162,7 +169,13 @@ Funding authorization model:
 
 Accepted v1 limitation:
 
-- contract does not validate expired/cancelled link status
+- contract does not know live backend link status after authorization issuance
+- cancellation or expiry that happens after authorization issuance is bounded by short-lived `deadline` and `linkExpiresAt`, not by live onchain sync
+
+Boundary behavior:
+
+- `link_expires_at == block.timestamp` is treated as expired and must revert with `LinkExpired`
+- `deadline == block.timestamp` remains valid for the funding authorization deadline check
 
 Required ordering:
 
@@ -357,6 +370,7 @@ Implementation should have explicit revert paths for:
 - admin already exists
 - admin not found
 - last admin removal forbidden
+- link expired
 - no pending payout
 - no pending treasury fees
 - caller not treasury
