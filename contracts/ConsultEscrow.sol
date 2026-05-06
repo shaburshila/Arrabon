@@ -57,12 +57,14 @@ contract ConsultEscrow is ReentrancyGuard {
     error FundingAuthorizationExpired();
     error FundingNonceAlreadyUsed();
     error InvalidFundingSignature();
+    error DealPayoutBlocked();
 
     event DealFunded(uint256 indexed dealId, bytes32 indexed link_hash, address seller, address buyer);
     event Completed(uint256 indexed dealId, uint256 completedAt);
     event Released(uint256 indexed dealId, uint256 releasedAt);
     event Disputed(uint256 indexed dealId);
     event Refunded(uint256 indexed dealId);
+    event DealPayoutBlockUpdated(uint256 indexed dealId, bool blocked);
 
     IERC20 public immutable usdc;
     address public immutable treasury;
@@ -70,6 +72,7 @@ contract ConsultEscrow is ReentrancyGuard {
     bytes32 public immutable DOMAIN_SEPARATOR;
 
     mapping(uint256 => Deal) public deals;
+    mapping(uint256 => bool) public dealPayoutBlocked;
     mapping(bytes32 => bool) public usedLinkHashes;
     mapping(bytes32 => bool) public usedFundingNonces;
     mapping(address => bool) public admins;
@@ -203,6 +206,9 @@ contract ConsultEscrow is ReentrancyGuard {
         if (block.timestamp > _deadline(deal)) {
             revert ConfirmDisputeWindowExpired();
         }
+        if (dealPayoutBlocked[dealId]) {
+            revert DealPayoutBlocked();
+        }
 
         _release(dealId, deal);
     }
@@ -240,8 +246,28 @@ contract ConsultEscrow is ReentrancyGuard {
         if (block.timestamp <= _deadline(deal)) {
             revert AutoReleaseTooEarly();
         }
+        if (dealPayoutBlocked[dealId]) {
+            revert DealPayoutBlocked();
+        }
 
         _release(dealId, deal);
+    }
+
+    function setDealPayoutBlocked(uint256 dealId, bool blocked) external {
+        Deal storage deal = _getDealOrRevert(dealId);
+
+        if (!admins[msg.sender]) {
+            revert CallerNotAdmin();
+        }
+        if (deal.status == Status.Released || deal.status == Status.Refunded) {
+            revert InvalidStateTransition();
+        }
+        if (dealPayoutBlocked[dealId] == blocked) {
+            return;
+        }
+
+        dealPayoutBlocked[dealId] = blocked;
+        emit DealPayoutBlockUpdated(dealId, blocked);
     }
 
     function adminResolveRelease(uint256 dealId) external nonReentrant {

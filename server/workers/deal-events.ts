@@ -21,9 +21,12 @@ import {
 } from "@/lib/base/consult-escrow";
 import { baseRuntimeConfig } from "@/lib/base/config";
 import {
+  processPendingFundingHoldForProcessedTransaction,
+  processPendingFundingHoldSweeps,
   processConfirmedDealEvent,
   type DealEventProcessingResult,
 } from "@/server/services/deal-events";
+import { getByTxHash } from "@/server/repositories/processed-transactions";
 
 const DEFAULT_CHAIN_SYNC_CONFIRMATIONS = BigInt(12);
 const DEFAULT_CHAIN_SYNC_MAX_RANGE = BigInt(2000);
@@ -292,6 +295,8 @@ export async function runDealEventsWorker(
     rangeStart = incrementBlock(rangeEnd);
   }
 
+  await processPendingFundingHoldSweeps();
+
   return summary;
 }
 
@@ -326,6 +331,15 @@ export async function runDealEventsWorkerForTx(
     .flatMap(tagRawEventLog);
 
   await processRawEventLogs(rawLogs, summary);
+
+  const processedTransaction = await getByTxHash(txHash);
+
+  if (processedTransaction?.deal_id && processedTransaction.hold_applied === false) {
+    await processPendingFundingHoldForProcessedTransaction({
+      dealId: processedTransaction.deal_id,
+      txHash: processedTransaction.tx_hash,
+    });
+  }
 
   return {
     status: "processed",

@@ -2,7 +2,6 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { assertCompliance } from "@/lib/compliance/error-mapping";
 import type { ComplianceReasonCode, ComplianceCheckRow, DealRiskStatus } from "@/lib/db/types";
 import {
   ConsultEscrowConfigError,
@@ -35,7 +34,7 @@ import {
   listResolvedDealReviewRows,
   type AdminDealReviewRow,
 } from "@/server/repositories/deals";
-import { assertDealNotBlocked, screenWalletForDeal } from "@/server/services/compliance";
+import { screenWalletForDeal } from "@/server/services/compliance";
 import type { ListPagination } from "@/lib/validators/pagination";
 
 export type AdminResolution = AdminResolveBody["resolution"];
@@ -366,6 +365,22 @@ function mapRepositoryError(error: unknown): never {
   throw error;
 }
 
+function logAdminResolveComplianceContext(input: {
+  action: "adminResolveRefund" | "adminResolveRelease";
+  dealId: string;
+  reasonCode: string;
+  result: string;
+  walletAddress: string;
+}) {
+  console.warn("Admin resolve compliance context.", {
+    action: input.action,
+    dealId: input.dealId,
+    reasonCode: input.reasonCode,
+    result: input.result,
+    walletAddress: input.walletAddress,
+  });
+}
+
 function buildGrantToken(): { token: string; tokenHash: string } {
   const rawToken = randomBytes(32);
 
@@ -542,7 +557,6 @@ export async function exchangeAdminResolveGrantForDeal(
     );
   }
 
-  await assertDealNotBlocked(context.id);
   const screeningContexts = {
     refund: {
       action: "admin_resolve_refund" as const,
@@ -590,7 +604,13 @@ export async function exchangeAdminResolveGrantForDeal(
     resolution === "release"
       ? releaseScreeningResult
       : refundScreeningResult;
-  assertCompliance(screeningResult, screeningResult.walletAddress, screeningContext);
+  logAdminResolveComplianceContext({
+    action: resolution === "release" ? "adminResolveRelease" : "adminResolveRefund",
+    dealId: context.id,
+    reasonCode: screeningResult.reasonCode,
+    result: screeningResult.result,
+    walletAddress: screeningResult.walletAddress,
+  });
 
   let contractCall: PreparedDealLifecycleCall;
 

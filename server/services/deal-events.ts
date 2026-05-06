@@ -8,18 +8,28 @@ import type {
   NormalizedRefundedEvent,
   NormalizedReleasedEvent,
 } from "@/lib/base/consult-escrow";
+import {
+  applyDealPayoutBlock,
+  isInvalidStateTransitionHoldError,
+} from "@/lib/base/compliance-hold";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
 import { getByLinkHash } from "@/server/repositories/consultation-links";
 import {
   getByTxHash,
+  listPendingFundingHoldProcessedTransactions,
   processConfirmedCompletedEventOnce,
   processConfirmedDisputedEventOnce,
   processConfirmedFundedEventOnce,
   processConfirmedRefundedEventOnce,
   processConfirmedReleasedEventOnce,
   ProcessedTransactionsRepositoryError,
+  updateProcessedTransactionHoldApplied,
 } from "@/server/repositories/processed-transactions";
+import {
+  DealsRepositoryError,
+  getDealActionContextById,
+} from "@/server/repositories/deals";
 import { screenWalletsBatch } from "@/server/services/compliance";
 
 export class DealEventSyncServiceError extends Error {
@@ -173,6 +183,73 @@ function logUnknownLinkHash(event: NormalizedFundedEvent) {
   });
 }
 
+async function getDealActionContextOrThrow(dealId: string) {
+  try {
+    return await getDealActionContextById(dealId);
+  } catch (error) {
+    if (error instanceof DealsRepositoryError) {
+      throw new DealEventSyncServiceError(
+        error.message,
+        error.code ?? "DEAL_LOAD_FAILED",
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function markFundingHoldPending(txHash: string) {
+  await updateProcessedTransactionHoldApplied(txHash, false);
+}
+
+async function markFundingHoldApplied(txHash: string) {
+  await updateProcessedTransactionHoldApplied(txHash, true);
+}
+
+async function clearFundingHoldRequirement(txHash: string) {
+  await updateProcessedTransactionHoldApplied(txHash, null);
+}
+
+export async function processPendingFundingHoldForProcessedTransaction(input: {
+  dealId: string;
+  txHash: string;
+}) {
+  const context = await getDealActionContextOrThrow(input.dealId);
+
+  if (!context) {
+    throw new DealEventSyncServiceError(
+      `Deal ${input.dealId} is missing during hold sync.`,
+      "DEAL_NOT_FOUND",
+    );
+  }
+
+  try {
+    await applyDealPayoutBlock(context.onchain_deal_id, true);
+    await markFundingHoldApplied(input.txHash);
+  } catch (error) {
+    if (
+      isInvalidStateTransitionHoldError(error) &&
+      (context.status === "Released" || context.status === "Refunded")
+    ) {
+      await clearFundingHoldRequirement(input.txHash);
+      return;
+    }
+
+    throw error;
+  }
+}
+
+export async function processPendingFundingHoldSweeps(): Promise<void> {
+  const pendingTransactions = await listPendingFundingHoldProcessedTransactions();
+
+  for (const pendingTransaction of pendingTransactions) {
+    await processPendingFundingHoldForProcessedTransaction({
+      dealId: pendingTransaction.dealId,
+      txHash: pendingTransaction.txHash,
+    });
+  }
+}
+
 export async function processConfirmedFundedEvent(
   event: NormalizedFundedEvent,
 ): Promise<DealEventProcessingResult> {
@@ -242,6 +319,7 @@ export async function processConfirmedFundedEvent(
   );
 
   if (screeningResults.some((result) => result.result === "Blocked")) {
+    await markFundingHoldPending(event.txHash);
     await appendBlockedPostFundingAuditLog({
       buyerAddress: event.buyerAddress,
       consultationLinkId: consultationLink.id,
@@ -249,6 +327,12 @@ export async function processConfirmedFundedEvent(
       event,
       sellerAddress: event.sellerAddress,
     });
+    await processPendingFundingHoldForProcessedTransaction({
+      dealId: fundedResult.dealId,
+      txHash: event.txHash,
+    });
+  } else {
+    await clearFundingHoldRequirement(event.txHash);
   }
 
   return {

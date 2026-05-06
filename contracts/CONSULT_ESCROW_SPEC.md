@@ -40,6 +40,7 @@ Recommended admin/config methods needed for deployability:
 Contract must keep:
 
 - `mapping(uint256 => Deal) deals`
+- `mapping(uint256 => bool) dealPayoutBlocked`
 - `mapping(bytes32 => bool) usedLinkHashes`
 - `mapping(bytes32 => bool) usedFundingNonces`
 - `mapping(address => bool) admins`
@@ -106,6 +107,7 @@ Must enforce:
 - `openDispute`: `msg.sender == deal.buyer`
 - `adminResolveRelease`: `admins[msg.sender] == true`
 - `adminResolveRefund`: `admins[msg.sender] == true`
+- `setDealPayoutBlocked`: `admins[msg.sender] == true`
 - `autoRelease`: permissionless
 
 ## Funding Path
@@ -227,6 +229,24 @@ Must hold:
 - status becomes terminal before any token transfer
 - after terminal status, no further payout is possible
 - payout can happen only once per deal
+
+## Legal Hold
+
+Onchain legal hold is separate from `deal.status`.
+
+- `dealPayoutBlocked[dealId] = true` blocks:
+  - `confirmRelease`
+  - `autoRelease`
+- `dealPayoutBlocked[dealId]` does not block:
+  - `adminResolveRelease`
+  - `adminResolveRefund`
+
+`setDealPayoutBlocked(dealId, blocked)` rules:
+
+- missing deal → revert `DealNotFound`
+- terminal deal (`Released` / `Refunded`) → revert `InvalidStateTransition`
+- repeated same value → no-op
+- changed value → update mapping and emit `DealPayoutBlockUpdated`
 
 ## Token Handling
 

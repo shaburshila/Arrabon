@@ -456,7 +456,13 @@ Fail-closed: недоступность провайдера → `Blocked / PROV
 
 ### 24.4 `risk_status` — отдельная ось
 
-`deals.risk_status` (`Clear | Review | Blocked`) — независима от `deal.status`. Не создаёт новых lifecycle-статусов. `risk_status = Blocked` → legal hold: все payout-path endpoints блокированы до ручного юридического разрешения вне MVP.
+`deals.risk_status` (`Clear | Review | Blocked`) — независима от `deal.status`. Не создаёт новых lifecycle-статусов. `risk_status = Blocked` → legal hold:
+
+- onchain blocked:
+  - `confirmRelease`
+  - `autoRelease`
+- backend buyer/permissionless payout prepares тоже блокируются
+- `adminResolveRelease` и `adminResolveRefund` остаются manual emergency path и не блокируются onchain автоматически
 
 ### 24.5 Frontend
 

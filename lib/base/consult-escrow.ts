@@ -17,6 +17,7 @@ import {
   createAndFundDealFunctionAbi,
   markCompletedFunctionAbi,
   openDisputeFunctionAbi,
+  setDealPayoutBlockedFunctionAbi,
 } from "@/lib/base/consult-escrow-abi";
 import { baseRuntimeConfig } from "@/lib/base/config";
 
@@ -74,6 +75,7 @@ export const consultEscrowAbi = [
   autoReleaseFunctionAbi,
   adminResolveReleaseFunctionAbi,
   adminResolveRefundFunctionAbi,
+  setDealPayoutBlockedFunctionAbi,
   dealFundedEventAbi,
   completedEventAbi,
   releasedEventAbi,
@@ -111,6 +113,14 @@ export interface PreparedDealLifecycleCall {
     | "confirmRelease"
     | "markCompleted"
     | "openDispute";
+}
+
+export interface PreparedDealPayoutBlockCall {
+  blocked: boolean;
+  chain_id: number;
+  contract_address: Address;
+  data: Hex;
+  function_name: "setDealPayoutBlocked";
 }
 
 export interface NormalizedFundedEvent {
@@ -509,5 +519,26 @@ export function prepareCreateAndFundDealCall(
     contract_address: contractAddress,
     data: withBuilderCodeSuffix(data),
     function_name: "createAndFundDeal",
+  };
+}
+
+export function prepareSetDealPayoutBlockedCall(
+  onchainDealId: string,
+  blocked: boolean,
+): PreparedDealPayoutBlockCall {
+  const contractAddress = getContractAddress();
+  const chainId = getChainId();
+  const data = encodeFunctionData({
+    abi: [setDealPayoutBlockedFunctionAbi],
+    args: [BigInt(onchainDealId), blocked],
+    functionName: "setDealPayoutBlocked",
+  });
+
+  return {
+    blocked,
+    chain_id: chainId,
+    contract_address: contractAddress,
+    data,
+    function_name: "setDealPayoutBlocked",
   };
 }

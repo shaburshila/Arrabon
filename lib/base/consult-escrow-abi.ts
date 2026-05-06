@@ -63,3 +63,14 @@ export const adminResolveRefundFunctionAbi = {
   inputs: [{ name: "dealId", type: "uint256" }],
   outputs: [],
 } as const;
+
+export const setDealPayoutBlockedFunctionAbi = {
+  type: "function",
+  name: "setDealPayoutBlocked",
+  stateMutability: "nonpayable",
+  inputs: [
+    { name: "dealId", type: "uint256" },
+    { name: "blocked", type: "bool" },
+  ],
+  outputs: [],
+} as const;

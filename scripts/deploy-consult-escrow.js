@@ -28,6 +28,16 @@ function parseFundingAuthorizerAddress() {
   return parseAddress("FUNDING_AUTHORIZER_ADDRESS");
 }
 
+function parseOptionalComplianceHoldSignerAddress() {
+  const rawKey = process.env.COMPLIANCE_HOLD_SIGNER_PRIVATE_KEY?.trim();
+
+  if (!rawKey) {
+    return null;
+  }
+
+  return hre.ethers.computeAddress(rawKey);
+}
+
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
   const balance = await hre.ethers.provider.getBalance(deployer.address);
@@ -35,6 +45,11 @@ async function main() {
   const treasuryAddress = parseAddress("TREASURY_ADDRESS");
   const adminWallets = parseAdminWallets();
   const fundingAuthorizerAddress = parseFundingAuthorizerAddress();
+  const complianceHoldSignerAddress = parseOptionalComplianceHoldSignerAddress();
+
+  if (complianceHoldSignerAddress && !adminWallets.includes(complianceHoldSignerAddress)) {
+    throw new Error("COMPLIANCE_HOLD_SIGNER_PRIVATE_KEY address must be included in ADMIN_WALLETS.");
+  }
 
   console.log("Deploying ConsultEscrow");
   console.log(`Network: ${hre.network.name}`);
@@ -44,6 +59,9 @@ async function main() {
   console.log(`Treasury: ${treasuryAddress}`);
   console.log(`Admins: ${adminWallets.join(", ")}`);
   console.log(`Funding authorizer: ${fundingAuthorizerAddress}`);
+  if (complianceHoldSignerAddress) {
+    console.log(`Compliance hold signer: ${complianceHoldSignerAddress}`);
+  }
 
   const escrow = await hre.ethers.deployContract("ConsultEscrow", [
     usdcAddress,

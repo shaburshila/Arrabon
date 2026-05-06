@@ -229,6 +229,7 @@ export interface ProcessedTransactionRow {
   tx_hash: string;
   event_type: string;
   deal_id: string | null;
+  hold_applied: boolean | null;
   processed_at: string;
 }
 
@@ -236,12 +237,14 @@ export interface ProcessedTransactionInsert {
   tx_hash: string;
   event_type: string;
   deal_id?: string | null;
+  hold_applied?: boolean | null;
   processed_at?: string;
 }
 
 export interface ProcessedTransactionUpdate {
   event_type?: string;
   deal_id?: string | null;
+  hold_applied?: boolean | null;
   processed_at?: string;
 }
 
@@ -658,6 +661,7 @@ export interface Database {
         Returns: {
           already_processed: boolean;
           deal_id: string | null;
+          hold_applied: boolean | null;
         }[];
       };
     };

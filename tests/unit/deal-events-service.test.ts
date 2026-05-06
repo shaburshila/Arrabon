@@ -5,6 +5,8 @@ import {
   processConfirmedCompletedEvent,
   processConfirmedDisputedEvent,
   processConfirmedFundedEvent,
+  processPendingFundingHoldForProcessedTransaction,
+  processPendingFundingHoldSweeps,
   processConfirmedRefundedEvent,
   processConfirmedReleasedEvent,
 } from "../../server/services/deal-events";
@@ -18,15 +20,20 @@ import type {
 import type { ConsultationLinkRow } from "../../lib/db/types";
 
 interface DealEventMocks {
+  applyDealPayoutBlock: (...args: unknown[]) => Promise<unknown>;
   createAuditLogEntry: (...args: unknown[]) => Promise<void>;
+  getDealActionContextById: (...args: unknown[]) => Promise<unknown>;
   getByLinkHash: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   getByTxHash: (...args: unknown[]) => Promise<unknown>;
+  isInvalidStateTransitionHoldError: (...args: unknown[]) => boolean;
+  listPendingFundingHoldProcessedTransactions: (...args: unknown[]) => Promise<unknown[]>;
   processConfirmedCompletedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedDisputedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
-  processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
+  processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null; holdApplied: boolean | null }>;
   processConfirmedRefundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedReleasedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   screenWalletsBatch: (...args: unknown[]) => Promise<unknown[]>;
+  updateProcessedTransactionHoldApplied: (...args: unknown[]) => Promise<void>;
 }
 
 const mocks = (global as typeof globalThis & { __dealEventMocks: DealEventMocks }).__dealEventMocks;
@@ -113,9 +120,24 @@ function makeLink(overrides: Partial<ConsultationLinkRow> = {}): ConsultationLin
 }
 
 beforeEach(() => {
+  mocks.applyDealPayoutBlock = async () => `0x${"f".repeat(64)}`;
   mocks.createAuditLogEntry = async () => undefined;
+  mocks.getDealActionContextById = async () => ({
+    buyer_address: BUYER_ADDRESS,
+    completed_at: null,
+    consultation_link_id: "link-id-1",
+    id: "deal-id-funded",
+    onchain_deal_id: fundedEvent.onchainDealId,
+    released_at: null,
+    risk_status: "Blocked",
+    scheduled_at: "2030-01-02T00:00:00.000Z",
+    seller_address: SELLER_ADDRESS,
+    status: "Funded",
+  });
   mocks.getByLinkHash = async () => makeLink();
   mocks.getByTxHash = async () => null;
+  mocks.isInvalidStateTransitionHoldError = () => false;
+  mocks.listPendingFundingHoldProcessedTransactions = async () => [];
   mocks.processConfirmedCompletedEventOnce = async () => ({
     alreadyProcessed: false,
     dealId: "deal-id-completed",
@@ -127,6 +149,7 @@ beforeEach(() => {
   mocks.processConfirmedFundedEventOnce = async () => ({
     alreadyProcessed: false,
     dealId: "deal-id-funded",
+    holdApplied: null,
   });
   mocks.processConfirmedRefundedEventOnce = async () => ({
     alreadyProcessed: false,
@@ -137,6 +160,7 @@ beforeEach(() => {
     dealId: "deal-id-released",
   });
   mocks.screenWalletsBatch = async () => [];
+  mocks.updateProcessedTransactionHoldApplied = async () => undefined;
 });
 
 describe("deal event idempotency", () => {
@@ -153,6 +177,7 @@ describe("deal event idempotency", () => {
       return {
         alreadyProcessed: false,
         dealId: "deal-id-funded",
+        holdApplied: null,
       };
     };
     mocks.createAuditLogEntry = async () => {
@@ -193,6 +218,81 @@ describe("deal event idempotency", () => {
     });
   });
 
+  test("funded clear screening marks hold as not required", async () => {
+    const holdStateUpdates: unknown[][] = [];
+    let holdCalls = 0;
+
+    mocks.updateProcessedTransactionHoldApplied = async (...args: unknown[]) => {
+      holdStateUpdates.push(args);
+    };
+    mocks.applyDealPayoutBlock = async () => {
+      holdCalls += 1;
+      return `0x${"f".repeat(64)}`;
+    };
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: BUYER_ADDRESS.toLowerCase(),
+        provider: null,
+        rawSummary: {},
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: BUYER_ADDRESS,
+      },
+      {
+        normalizedWallet: SELLER_ADDRESS.toLowerCase(),
+        provider: null,
+        rawSummary: {},
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: SELLER_ADDRESS,
+      },
+    ];
+
+    await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(holdStateUpdates, [[FUNDED_TX_HASH, null]]);
+    assert.equal(holdCalls, 0);
+  });
+
+  test("funded blocked screening marks hold pending then applied", async () => {
+    const holdStateUpdates: unknown[][] = [];
+    const holdCalls: unknown[][] = [];
+
+    mocks.updateProcessedTransactionHoldApplied = async (...args: unknown[]) => {
+      holdStateUpdates.push(args);
+    };
+    mocks.applyDealPayoutBlock = async (...args: unknown[]) => {
+      holdCalls.push(args);
+      return `0x${"f".repeat(64)}`;
+    };
+    mocks.screenWalletsBatch = async () => [
+      {
+        normalizedWallet: BUYER_ADDRESS.toLowerCase(),
+        provider: "chainalysis_sanctions_oracle",
+        rawSummary: {},
+        reasonCode: "OFAC_SANCTIONS",
+        result: "Blocked",
+        walletAddress: BUYER_ADDRESS,
+      },
+      {
+        normalizedWallet: SELLER_ADDRESS.toLowerCase(),
+        provider: null,
+        rawSummary: {},
+        reasonCode: "NO_HIT",
+        result: "Clear",
+        walletAddress: SELLER_ADDRESS,
+      },
+    ];
+
+    await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(holdStateUpdates, [
+      [FUNDED_TX_HASH, false],
+      [FUNDED_TX_HASH, true],
+    ]);
+    assert.deepEqual(holdCalls, [[fundedEvent.onchainDealId, true]]);
+  });
+
   test("funded atomic duplicate returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
     let screeningCalls = 0;
@@ -200,6 +300,7 @@ describe("deal event idempotency", () => {
     mocks.processConfirmedFundedEventOnce = async () => ({
       alreadyProcessed: true,
       dealId: "deal-id-funded",
+      holdApplied: null,
     });
     mocks.createAuditLogEntry = async () => {
       auditCalls += 1;
@@ -219,6 +320,56 @@ describe("deal event idempotency", () => {
     assert.equal(screeningCalls, 0);
   });
 
+  test("pending hold retry clears terminal deals after InvalidStateTransition", async () => {
+    const holdStateUpdates: unknown[][] = [];
+
+    mocks.getDealActionContextById = async () => ({
+      buyer_address: BUYER_ADDRESS,
+      completed_at: null,
+      consultation_link_id: "link-id-1",
+      id: "deal-id-funded",
+      onchain_deal_id: fundedEvent.onchainDealId,
+      released_at: "2030-01-02T00:00:00.000Z",
+      risk_status: "Blocked",
+      scheduled_at: "2030-01-02T00:00:00.000Z",
+      seller_address: SELLER_ADDRESS,
+      status: "Released",
+    });
+    mocks.applyDealPayoutBlock = async () => {
+      throw new Error("invalid state");
+    };
+    mocks.isInvalidStateTransitionHoldError = () => true;
+    mocks.updateProcessedTransactionHoldApplied = async (...args: unknown[]) => {
+      holdStateUpdates.push(args);
+    };
+
+    await processPendingFundingHoldForProcessedTransaction({
+      dealId: "deal-id-funded",
+      txHash: FUNDED_TX_HASH,
+    });
+
+    assert.deepEqual(holdStateUpdates, [[FUNDED_TX_HASH, null]]);
+  });
+
+  test("pending hold sweep retries only pending blocked records", async () => {
+    const holdCalls: unknown[][] = [];
+
+    mocks.listPendingFundingHoldProcessedTransactions = async () => [
+      {
+        dealId: "deal-id-funded",
+        txHash: FUNDED_TX_HASH,
+      },
+    ];
+    mocks.applyDealPayoutBlock = async (...args: unknown[]) => {
+      holdCalls.push(args);
+      return `0x${"f".repeat(64)}`;
+    };
+
+    await processPendingFundingHoldSweeps();
+
+    assert.deepEqual(holdCalls, [[fundedEvent.onchainDealId, true]]);
+  });
+
   test("funded unknown link hash is skipped without atomic processing", async () => {
     let atomicCalls = 0;
 
@@ -228,6 +379,7 @@ describe("deal event idempotency", () => {
       return {
         alreadyProcessed: false,
         dealId: "deal-id-funded",
+        holdApplied: null,
       };
     };
 
@@ -255,6 +407,7 @@ describe("deal event idempotency", () => {
       return {
         alreadyProcessed: false,
         dealId: "deal-id-funded",
+        holdApplied: null,
       };
     };
 

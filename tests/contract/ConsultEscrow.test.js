@@ -546,6 +546,51 @@ describe("ConsultEscrow", function () {
     });
   });
 
+  describe("deal payout block", function () {
+    it("only admin can update payout block state", async function () {
+      const { seller, buyer, outsider, admin, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+
+      await expect(
+        escrow.connect(outsider).setDealPayoutBlocked(funded.dealId, true)
+      ).to.be.revertedWithCustomError(escrow, "CallerNotAdmin");
+
+      await expect(escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true))
+        .to.emit(escrow, "DealPayoutBlockUpdated")
+        .withArgs(funded.dealId, true);
+      expect(await escrow.dealPayoutBlocked(funded.dealId)).to.equal(true);
+    });
+
+    it("reverts when the deal does not exist", async function () {
+      const { admin, escrow } = await deployFixture();
+
+      await expect(
+        escrow.connect(admin).setDealPayoutBlocked(999n, true)
+      ).to.be.revertedWithCustomError(escrow, "DealNotFound");
+    });
+
+    it("treats repeated block state updates as a no-op", async function () {
+      const { seller, buyer, admin, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+
+      await escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true);
+      await expect(escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true))
+        .to.not.emit(escrow, "DealPayoutBlockUpdated");
+      expect(await escrow.dealPayoutBlocked(funded.dealId)).to.equal(true);
+    });
+
+    it("rejects payout block updates for terminal deals", async function () {
+      const { seller, buyer, admin, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+      await escrow.connect(buyer).openDispute(funded.dealId);
+      await escrow.connect(admin).adminResolveRefund(funded.dealId);
+
+      await expect(
+        escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true)
+      ).to.be.revertedWithCustomError(escrow, "InvalidStateTransition");
+    });
+  });
+
   describe("markCompleted", function () {
     it("only seller can call", async function () {
       const { seller, buyer, outsider, token, escrow } = await deployFixture();
@@ -671,6 +716,18 @@ describe("ConsultEscrow", function () {
       await expect(escrow.connect(buyer).confirmRelease(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "ConfirmDisputeWindowExpired"
+      );
+    });
+
+    it("reverts when payout is blocked", async function () {
+      const { seller, buyer, admin, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+      await escrow.connect(seller).markCompleted(funded.dealId);
+      await escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true);
+
+      await expect(escrow.connect(buyer).confirmRelease(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "DealPayoutBlocked"
       );
     });
   });
@@ -885,6 +942,26 @@ describe("ConsultEscrow", function () {
         "InvalidStateTransition"
       );
     });
+
+    it("reverts when payout is blocked", async function () {
+      const { seller, buyer, admin, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+      await markCompletedAtThreshold({
+        escrow,
+        seller,
+        dealId: funded.dealId,
+        scheduledAt: funded.scheduledAt,
+        durationMinutes: funded.durationMinutes,
+      });
+      await escrow.connect(admin).setDealPayoutBlocked(funded.dealId, true);
+      const completedAt = (await escrow.deals(funded.dealId)).completedAt;
+      await time.setNextBlockTimestamp(completedAt + DISPUTE_WINDOW + 1n);
+
+      await expect(escrow.autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "DealPayoutBlocked"
+      );
+    });
   });
 
   describe("admin resolution", function () {
@@ -944,6 +1021,39 @@ describe("ConsultEscrow", function () {
       expect(await token.balanceOf(buyer.address)).to.equal(price);
       expect((await escrow.deals(funded.dealId)).status).to.equal(4n);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
+    });
+
+    it("admin resolve paths remain available when payout is blocked", async function () {
+      const { seller, buyer, admin, treasury, token, escrow } = await deployFixture();
+      const price = 100_000_000n;
+      const fundedRelease = await fundDeal({
+        escrow,
+        token,
+        seller,
+        buyer,
+        price,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("blocked-admin-release")),
+      });
+      await escrow.connect(buyer).openDispute(fundedRelease.dealId);
+      await escrow.connect(admin).setDealPayoutBlocked(fundedRelease.dealId, true);
+
+      await expect(escrow.connect(admin).adminResolveRelease(fundedRelease.dealId)).to.not.be.reverted;
+      expect(await token.balanceOf(seller.address)).to.equal(price - feeFor(price));
+      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(price));
+
+      const fundedRefund = await fundDeal({
+        escrow,
+        token,
+        seller,
+        buyer,
+        price,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("blocked-admin-refund")),
+      });
+      await escrow.connect(buyer).openDispute(fundedRefund.dealId);
+      await escrow.connect(admin).setDealPayoutBlocked(fundedRefund.dealId, true);
+
+      await expect(escrow.connect(admin).adminResolveRefund(fundedRefund.dealId)).to.not.be.reverted;
+      expect(await token.balanceOf(buyer.address)).to.equal(price);
     });
   });
 

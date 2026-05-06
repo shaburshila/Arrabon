@@ -512,50 +512,53 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(intentCalls, 0);
   });
 
-  test("does not create intent when compliance blocks recipient", async () => {
+  test("allows admin resolve even when live recipient screening is blocked", async () => {
     let intentCalls = 0;
 
-    mocks.assertCompliance = () => {
-      throw new Error("blocked");
-    };
+    mocks.screenWalletForDeal = async (walletAddress: unknown) => ({
+      ...makeScreeningResult(String(walletAddress)),
+      provider: "chainalysis_sanctions_oracle",
+      reasonCode: "OFAC_SANCTIONS",
+      result: "Blocked",
+    });
     mocks.createAdminResolutionIntent = async () => {
       intentCalls += 1;
       return { id: "intent-id-1" };
     };
 
-    await assert.rejects(
-      () => exchangeAdminResolveGrantForDeal(adminUser, { dealId: "deal-id-1" }, "a".repeat(64)),
-      /blocked/,
+    const result = await exchangeAdminResolveGrantForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "a".repeat(64),
     );
-    assert.equal(intentCalls, 0);
+
+    assert.equal(result.contract_call.function_name, "adminResolveRelease");
+    assert.equal(intentCalls, 1);
   });
 
-  test("blocks legal-hold deal before recipient screening or intent creation on exchange", async () => {
+  test("allows admin resolve for legal-hold deals", async () => {
     let complianceCalls = 0;
     let intentCalls = 0;
-    let legalHoldDealId: unknown = null;
 
     mocks.getDealActionContextById = async () => makeActionContext({ risk_status: "Blocked" });
     mocks.screenWalletForDeal = async () => {
       complianceCalls += 1;
       return makeScreeningResult(makeActionContext().seller_address);
     };
-    mocks.assertDealNotBlocked = async (...args: unknown[]) => {
-      [legalHoldDealId] = args;
-      throw new Error("legal hold");
-    };
     mocks.createAdminResolutionIntent = async () => {
       intentCalls += 1;
       return { id: "intent-id-1" };
     };
 
-    await assert.rejects(
-      () => exchangeAdminResolveGrantForDeal(adminUser, { dealId: "deal-id-1" }, "a".repeat(64)),
-      /legal hold/,
+    const result = await exchangeAdminResolveGrantForDeal(
+      adminUser,
+      { dealId: "deal-id-1" },
+      "a".repeat(64),
     );
-    assert.equal(legalHoldDealId, "deal-id-1");
-    assert.equal(complianceCalls, 0);
-    assert.equal(intentCalls, 0);
+
+    assert.equal(result.contract_call.function_name, "adminResolveRelease");
+    assert.equal(complianceCalls, 2);
+    assert.equal(intentCalls, 1);
   });
 
   test("rejects exchange when grant token is malformed", async () => {

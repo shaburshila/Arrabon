@@ -1,6 +1,7 @@
 import type {
   ProcessedTransactionInsert,
   ProcessedTransactionRow,
+  ProcessedTransactionUpdate,
 } from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
 
@@ -17,6 +18,7 @@ export class ProcessedTransactionsRepositoryError extends Error {
 export interface InsertProcessedTransactionInput {
   dealId: string | null;
   eventType: string;
+  holdApplied?: boolean | null;
   txHash: string;
 }
 
@@ -40,11 +42,17 @@ export interface ProcessConfirmedFundedEventOnceInput {
 export interface ProcessConfirmedFundedEventOnceResult {
   alreadyProcessed: boolean;
   dealId: string | null;
+  holdApplied: boolean | null;
 }
 
 export interface ProcessConfirmedLifecycleEventOnceResult {
   alreadyProcessed: boolean;
   dealId: string | null;
+}
+
+export interface PendingFundingHoldProcessedTransaction {
+  dealId: string;
+  txHash: string;
 }
 
 function toUtcIsoString(value: Date | null): string | null {
@@ -78,6 +86,7 @@ export async function insertProcessedTransaction(
   const payload: ProcessedTransactionInsert = {
     deal_id: input.dealId,
     event_type: input.eventType,
+    hold_applied: input.holdApplied ?? null,
     tx_hash: input.txHash,
   };
 
@@ -126,6 +135,7 @@ export async function processConfirmedFundedEventOnce(
     .returns<{
       already_processed: boolean;
       deal_id: string | null;
+      hold_applied: boolean | null;
     }[]>()
     .single();
 
@@ -139,7 +149,53 @@ export async function processConfirmedFundedEventOnce(
   return {
     alreadyProcessed: data.already_processed,
     dealId: data.deal_id,
+    holdApplied: data.hold_applied,
   };
+}
+
+export async function updateProcessedTransactionHoldApplied(
+  txHash: string,
+  holdApplied: boolean | null,
+): Promise<void> {
+  const db = getServerDbClient().schema("public");
+  const payload: ProcessedTransactionUpdate = {
+    hold_applied: holdApplied,
+  };
+  const { error } = await db
+    .from("processed_transactions")
+    .update(payload)
+    .eq("tx_hash", txHash);
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to update processed transaction hold state: ${error.message}`,
+      error.code,
+    );
+  }
+}
+
+export async function listPendingFundingHoldProcessedTransactions(): Promise<
+  PendingFundingHoldProcessedTransaction[]
+> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("processed_transactions")
+    .select("deal_id, tx_hash")
+    .eq("event_type", "Funded")
+    .eq("hold_applied", false)
+    .not("deal_id", "is", null);
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to list pending funding hold processed transactions: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return (data ?? []).map((row) => ({
+    dealId: row.deal_id as string,
+    txHash: row.tx_hash,
+  }));
 }
 
 export async function processConfirmedCompletedEventOnce(input: {
