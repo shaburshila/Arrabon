@@ -354,6 +354,34 @@ describe("ConsultEscrow", function () {
 
       await expect(escrow.connect(outsider).addAdmin(seller.address)).to.not.be.reverted;
     });
+
+    it("owner can rotate funding authorizer", async function () {
+      const { escrow, owner, outsider, authorizer } = await deployFixture();
+
+      await expect(escrow.connect(owner).setFundingAuthorizer(outsider.address))
+        .to.emit(escrow, "FundingAuthorizerUpdated")
+        .withArgs(authorizer.address, outsider.address);
+
+      expect(await escrow.fundingAuthorizer()).to.equal(outsider.address);
+    });
+
+    it("non-owner cannot rotate funding authorizer", async function () {
+      const { escrow, outsider, seller } = await deployFixture();
+
+      await expect(escrow.connect(outsider).setFundingAuthorizer(seller.address)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotOwner"
+      );
+    });
+
+    it("setFundingAuthorizer rejects zero address", async function () {
+      const { escrow, owner } = await deployFixture();
+
+      await expect(escrow.connect(owner).setFundingAuthorizer(ethers.ZeroAddress)).to.be.revertedWithCustomError(
+        escrow,
+        "InvalidAddress"
+      );
+    });
   });
 
   describe("funding", function () {
@@ -777,6 +805,80 @@ describe("ConsultEscrow", function () {
           signature,
         })
       ).to.be.revertedWithCustomError(escrow, "InvalidFundingSignature");
+    });
+
+    it("rejects old funding signatures after authorizer rotation", async function () {
+      const { seller, buyer, token, escrow, authorizer, owner, outsider } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+      const linkHash = ethers.keccak256(ethers.toUtf8Bytes("old-authorizer-signature"));
+      const consultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-rotation-old"));
+      const linkExpiresAt = scheduledAt + 7n * 24n * 60n * 60n;
+      const deadline = now + FUNDING_AUTHORIZATION_LIFETIME;
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      const oldSignature = await signFundingAuthorization({
+        authorizer,
+        buyer: buyer.address,
+        consultationLinkIdHash,
+        deadline,
+        durationMinutes: 30n,
+        escrow,
+        linkHash,
+        linkExpiresAt,
+        nonce,
+        price: MIN_PRICE,
+        scheduledAt,
+        seller: seller.address,
+      });
+
+      await escrow.connect(owner).setFundingAuthorizer(outsider.address);
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          consultationLinkIdHash,
+          deadline,
+          durationMinutes: 30n,
+          escrow,
+          linkHash,
+          linkExpiresAt,
+          nonce,
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+          signature: oldSignature,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidFundingSignature");
+    });
+
+    it("accepts new funding signatures after authorizer rotation", async function () {
+      const { seller, buyer, token, escrow, owner, outsider } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await escrow.connect(owner).setFundingAuthorizer(outsider.address);
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer: outsider,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("new-authorizer-signature")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      )
+        .to.emit(escrow, "DealFunded")
+        .withArgs(1n, ethers.keccak256(ethers.toUtf8Bytes("new-authorizer-signature")), seller.address, buyer.address);
     });
   });
 
@@ -1210,6 +1312,42 @@ describe("ConsultEscrow", function () {
       await escrow.connect(buyer).openDispute(funded.dealId);
 
       await expect(escrow.connect(seller).autoRelease(funded.dealId)).to.be.revertedWithCustomError(
+        escrow,
+        "InvalidStateTransition"
+      );
+    });
+
+    it("late markCompleted: seller marks after deadline, autoRelease succeeds immediately — intended behavior", async function () {
+      // Documented design decision (state-machine.md §4 "Late markCompleted"):
+      // While in Funded state buyer had unlimited time to openDispute.
+      // If buyer chose not to dispute, seller may call markCompleted at any point after scheduledAt.
+      // If called after the fixed deadline, autoRelease is available immediately —
+      // buyer's silence during Funded is treated as acceptance.
+      const { seller, buyer, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+      const deadline = releaseDeadlineFor(funded);
+
+      // Seller calls markCompleted one hour after the deadline
+      await time.setNextBlockTimestamp(deadline + 3600n);
+      await escrow.connect(seller).markCompleted(funded.dealId);
+
+      // autoRelease succeeds immediately — no additional wait needed
+      await escrow.connect(seller).autoRelease(funded.dealId);
+
+      expect((await escrow.deals(funded.dealId)).status).to.equal(3n); // Released
+    });
+
+    it("late markCompleted: buyer who opens dispute from Funded blocks seller autoRelease path", async function () {
+      // Counterpart to the above: if buyer did use their Funded-state dispute right,
+      // seller cannot reach autoRelease regardless of timing.
+      const { seller, buyer, token, escrow } = await deployFixture();
+      const funded = await fundDeal({ escrow, token, seller, buyer });
+      const deadline = releaseDeadlineFor(funded);
+
+      await time.setNextBlockTimestamp(deadline + 3600n);
+      await escrow.connect(buyer).openDispute(funded.dealId);
+
+      await expect(escrow.connect(seller).markCompleted(funded.dealId)).to.be.revertedWithCustomError(
         escrow,
         "InvalidStateTransition"
       );

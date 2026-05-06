@@ -82,9 +82,10 @@ contract ConsultEscrow is ReentrancyGuard {
     event TreasuryFeesAccrued(address indexed treasury, uint256 amount);
     event TreasuryFeesWithdrawn(address indexed treasury, uint256 amount);
     event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
+    event FundingAuthorizerUpdated(address indexed previousAuthorizer, address indexed newAuthorizer);
 
     IERC20 public immutable usdc;
-    address public immutable fundingAuthorizer;
+    address public fundingAuthorizer;
     bytes32 public immutable DOMAIN_SEPARATOR;
     address public owner;
     address public treasury;
@@ -207,6 +208,20 @@ contract ConsultEscrow is ReentrancyGuard {
         treasury = newTreasury;
 
         emit TreasuryUpdated(previousTreasury, newTreasury);
+    }
+
+    function setFundingAuthorizer(address newAuthorizer) external {
+        if (msg.sender != owner) {
+            revert CallerNotOwner();
+        }
+        if (newAuthorizer == address(0)) {
+            revert InvalidAddress();
+        }
+
+        address previousAuthorizer = fundingAuthorizer;
+        fundingAuthorizer = newAuthorizer;
+
+        emit FundingAuthorizerUpdated(previousAuthorizer, newAuthorizer);
     }
 
     function createAndFundDeal(

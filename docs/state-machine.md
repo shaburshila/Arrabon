@@ -105,11 +105,24 @@
 
 ### Deal windows
 
-- `markCompleted` доступен продавцу с `scheduled_at` (с момента начала слота)
+- `markCompleted` доступен продавцу с `scheduled_at` (с момента начала слота); верхней временной границы нет
 - `completed_at` выставляется onchain в момент `markCompleted` (audit trail; не определяет deadline)
 - deadline для confirmRelease / openDispute (ConfirmPending) / autoRelease:
   - `scheduled_at + duration_minutes * 60 + 48 hours` (фиксирован; не зависит от `completed_at`)
 - `autoRelease` доступен только если `block.timestamp > scheduled_at + duration_minutes * 60 + DISPUTE_WINDOW`
+
+### Late markCompleted — задокументированное поведение
+
+Если продавец вызывает `markCompleted` позже дедлайна (`scheduled_at + duration + 48h`), deal переходит в `ConfirmPending` с уже истёкшим окном. В этом случае `autoRelease` доступен продавцу немедленно, а `confirmRelease` и `openDispute` из `ConfirmPending` недоступны.
+
+Это **намеренное поведение**, а не уязвимость, по следующей причине:
+
+Пока deal находился в состоянии `Funded` (до вызова `markCompleted`), покупатель имел неограниченную возможность открыть диспут через `openDispute` в любой момент. Если покупатель не воспользовался этим правом в течение всего периода ожидания, это трактуется как молчаливое согласие с результатом консультации. Продавец, вызвав `markCompleted` с задержкой, не лишает покупателя защиты — окно для оспаривания из `Funded` было открыто всё это время.
+
+Инварианты этого поведения:
+- Из `Funded`: `openDispute` доступен buyer без временных ограничений → переводит deal в `Disputed`, блокируя `markCompleted` навсегда
+- Из `ConfirmPending` после дедлайна: `openDispute` недоступен (ConfirmDisputeWindowExpired), `autoRelease` доступен seller немедленно
+- Выбор buyer не оспаривать из `Funded` является достаточным основанием для `autoRelease` seller
 
 ---
 
