@@ -39,6 +39,7 @@ function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionC
     buyer_address: BUYER,
     completed_at: null,
     consultation_link_id: "link-id-1",
+    duration_minutes: 60,
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,

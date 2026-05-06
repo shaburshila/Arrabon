@@ -56,28 +56,6 @@ function isSameWallet(left: string, right: string): boolean {
   return getAddress(left) === getAddress(right);
 }
 
-function computeReleaseDeadline(completedAt: string | null): Date {
-  if (!completedAt) {
-    throw new DealCompletionServiceError(
-      "Deal completion timestamp is missing.",
-      500,
-      "COMPLETED_AT_MISSING",
-    );
-  }
-
-  const completedAtMs = new Date(completedAt).getTime();
-
-  if (Number.isNaN(completedAtMs)) {
-    throw new DealCompletionServiceError(
-      "Deal completion timestamp is invalid.",
-      500,
-      "COMPLETED_AT_INVALID",
-    );
-  }
-
-  return new Date(computeReleaseDeadlineMs(completedAtMs));
-}
-
 function parseScheduledAt(scheduledAt: string): Date {
   const scheduledAtMs = new Date(scheduledAt).getTime();
 
@@ -90,6 +68,17 @@ function parseScheduledAt(scheduledAt: string): Date {
   }
 
   return new Date(scheduledAtMs);
+}
+
+function computeReleaseDeadline(input: {
+  duration_minutes: number;
+  scheduled_at: string;
+}): Date {
+  const scheduledAt = parseScheduledAt(input.scheduled_at);
+
+  return new Date(
+    computeReleaseDeadlineMs(scheduledAt.getTime(), input.duration_minutes),
+  );
 }
 
 function assertFundedDisputeWindowOpen(
@@ -336,7 +325,7 @@ export async function prepareConfirmReleaseForDeal(
     );
   }
 
-  const releaseDeadline = computeReleaseDeadline(context.completed_at);
+  const releaseDeadline = computeReleaseDeadline(context);
 
   // The buyer window is inclusive at the exact deadline; auto-release becomes valid only after it passes.
   if (now.getTime() > releaseDeadline.getTime()) {
@@ -372,7 +361,7 @@ export async function exchangeConfirmReleaseGrantForDeal(
     );
   }
 
-  const releaseDeadline = computeReleaseDeadline(context.completed_at);
+  const releaseDeadline = computeReleaseDeadline(context);
 
   if (now.getTime() > releaseDeadline.getTime()) {
     throw new DealCompletionServiceError(
@@ -457,7 +446,7 @@ export async function prepareOpenDisputeForDeal(
     );
   }
 
-  const releaseDeadline = computeReleaseDeadline(context.completed_at);
+  const releaseDeadline = computeReleaseDeadline(context);
 
   if (now.getTime() > releaseDeadline.getTime()) {
     throw new DealCompletionServiceError(
@@ -486,6 +475,7 @@ export async function prepareOpenDisputeForDeal(
 }
 
 export async function prepareAutoReleaseForDeal(
+  currentUser: CurrentUserContext,
   input: DealCompletionRouteParams,
   now: Date = new Date(),
 ): Promise<PreparedDealLifecycleResult> {
@@ -494,6 +484,9 @@ export async function prepareAutoReleaseForDeal(
   if (!context) {
     throw new DealCompletionServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
   }
+
+  assertSeller(currentUser, context.seller_address);
+
   if (context.status !== "ConfirmPending") {
     throw new DealCompletionServiceError(
       "Deal cannot be auto-released in its current state.",
@@ -502,7 +495,7 @@ export async function prepareAutoReleaseForDeal(
     );
   }
 
-  const releaseDeadline = computeReleaseDeadline(context.completed_at);
+  const releaseDeadline = computeReleaseDeadline(context);
 
   if (now.getTime() <= releaseDeadline.getTime()) {
     throw new DealCompletionServiceError(
@@ -518,7 +511,7 @@ export async function prepareAutoReleaseForDeal(
 
   const screeningContext = {
     action: "lifecycle_auto_release" as const,
-    actorWallet: null,
+    actorWallet: currentUser.wallet_address,
     dealId: context.id,
   };
   const screeningResult = await screenWalletForDeal(

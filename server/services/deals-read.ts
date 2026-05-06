@@ -56,22 +56,28 @@ export class DealReadServiceError extends Error {
   }
 }
 
-function computeReleaseDeadline(completedAt: string | null): string | null {
-  if (!completedAt) {
+function computeReleaseDeadline(input: {
+  completed_at: string | null;
+  duration_minutes: number;
+  scheduled_at: string;
+}): string | null {
+  if (!input.completed_at) {
     return null;
   }
 
-  const completedAtMs = new Date(completedAt).getTime();
+  const scheduledAtMs = new Date(input.scheduled_at).getTime();
 
-  if (Number.isNaN(completedAtMs)) {
+  if (Number.isNaN(scheduledAtMs)) {
     throw new DealReadServiceError(
-      "Deal completion timestamp is invalid.",
+      "Deal scheduled timestamp is invalid.",
       500,
       "DEAL_INTEGRITY_ERROR",
     );
   }
 
-  return new Date(computeReleaseDeadlineMs(completedAtMs)).toISOString();
+  return new Date(
+    computeReleaseDeadlineMs(scheduledAtMs, input.duration_minutes),
+  ).toISOString();
 }
 
 function isSameWallet(left: string, right: string): boolean {
@@ -199,7 +205,7 @@ export async function getDealReadModel(
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: deal.price_usdc,
     risk_status: deal.risk_status,
-    release_deadline_at: computeReleaseDeadline(deal.completed_at),
+    release_deadline_at: computeReleaseDeadline(deal),
     resolution_type: deal.resolution_type,
     resolved_at: deal.resolved_at,
     resolved_by_wallet: deal.resolved_by_wallet,

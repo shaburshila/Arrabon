@@ -152,22 +152,28 @@ const SUMMARY_PROVIDER_IDS: SummaryProviderId[] = [
   "local_denylist",
 ];
 
-function computeReleaseDeadline(completedAt: string | null): string | null {
-  if (!completedAt) {
+function computeReleaseDeadline(input: {
+  completed_at: string | null;
+  duration_minutes: number;
+  scheduled_at: string;
+}): string | null {
+  if (!input.completed_at) {
     return null;
   }
 
-  const completedAtMs = new Date(completedAt).getTime();
+  const scheduledAtMs = new Date(input.scheduled_at).getTime();
 
-  if (Number.isNaN(completedAtMs)) {
+  if (Number.isNaN(scheduledAtMs)) {
     throw new DealAdminServiceError(
-      "Deal completion timestamp is invalid.",
+      "Deal scheduled timestamp is invalid.",
       500,
       "DEAL_INTEGRITY_ERROR",
     );
   }
 
-  return new Date(computeReleaseDeadlineMs(completedAtMs)).toISOString();
+  return new Date(
+    computeReleaseDeadlineMs(scheduledAtMs, input.duration_minutes),
+  ).toISOString();
 }
 
 function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
@@ -193,7 +199,7 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
     id: row.id,
     onchain_deal_id: row.onchain_deal_id,
     price_usdc: row.price_usdc,
-    release_deadline_at: computeReleaseDeadline(row.completed_at),
+    release_deadline_at: computeReleaseDeadline(row),
     released_at: row.released_at,
     risk_status: row.risk_status,
     resolution_type: row.resolution_type,

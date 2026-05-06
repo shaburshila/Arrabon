@@ -26,8 +26,9 @@ const mocks = (global as typeof globalThis & { __dealsCompletionMocks: DealsComp
 const BUYER = "0x0000000000000000000000000000000000000002";
 const SELLER = "0x0000000000000000000000000000000000000001";
 const COMPLETED_AT = "2026-04-10T00:00:00.000Z";
-const DEADLINE = new Date("2026-04-12T00:00:00.000Z");
 const SCHEDULED_AT = "2026-04-09T00:00:00.000Z";
+const DURATION_MINUTES = 60;
+const DEADLINE = new Date("2026-04-11T01:00:00.000Z");
 
 const currentUser: CurrentUserContext = {
   avatar_url: null,
@@ -38,11 +39,17 @@ const currentUser: CurrentUserContext = {
   wallet_address: BUYER,
 };
 
+const sellerUser: CurrentUserContext = {
+  ...currentUser,
+  wallet_address: SELLER,
+};
+
 function makeContext(overrides: Partial<DealActionContextRow> = {}): DealActionContextRow {
   return {
     buyer_address: BUYER,
     completed_at: COMPLETED_AT,
     consultation_link_id: "link-id-1",
+    duration_minutes: DURATION_MINUTES,
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
@@ -406,6 +413,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
   test("rejects auto-release at the exact 48h deadline", async () => {
     await assert.rejects(
       () => prepareAutoReleaseForDeal(
+        sellerUser,
         { dealId: "deal-id-1" },
         DEADLINE,
       ),
@@ -420,6 +428,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
 
   test("allows auto-release strictly after the 48h deadline", async () => {
     const result = await prepareAutoReleaseForDeal(
+      sellerUser,
       { dealId: "deal-id-1" },
       new Date(DEADLINE.getTime() + 1),
     );
@@ -429,7 +438,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
     assert.match(result.contract_call.data, /^0x[0-9a-f]+$/);
   });
 
-  test("screens seller while recording anonymous actor", async () => {
+  test("screens seller while recording seller actor", async () => {
     let screenedWallet: unknown = null;
     let screenedContext: unknown = null;
 
@@ -439,6 +448,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
     };
 
     await prepareAutoReleaseForDeal(
+      sellerUser,
       { dealId: "deal-id-1" },
       new Date(DEADLINE.getTime() + 1),
     );
@@ -446,7 +456,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
     assert.equal(screenedWallet, SELLER);
     assert.deepEqual(screenedContext, {
       action: "lifecycle_auto_release",
-      actorWallet: null,
+      actorWallet: SELLER,
       dealId: "deal-id-1",
     });
   });
@@ -468,6 +478,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
     await assert.rejects(
       () =>
         prepareAutoReleaseForDeal(
+          sellerUser,
           { dealId: "deal-id-1" },
           new Date(DEADLINE.getTime() + 1),
         ),
@@ -482,6 +493,7 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
 
     await assert.rejects(
       () => prepareAutoReleaseForDeal(
+        sellerUser,
         { dealId: "deal-id-1" },
         new Date(DEADLINE.getTime() + 1),
       ),
@@ -494,8 +506,21 @@ describe("prepareAutoReleaseForDeal deadline boundary", () => {
     );
   });
 
-  test("allows any caller to prepare auto-release after the deadline", async () => {
+  test("rejects auto-release for non-seller caller", async () => {
     const result = await prepareAutoReleaseForDeal(
+      currentUser,
+      { dealId: "deal-id-1" },
+      new Date(DEADLINE.getTime() + 1),
+    ).catch((error) => error);
+
+    assert.ok(result instanceof DealCompletionServiceError);
+    assert.equal(result.status, 403);
+    assert.equal(result.code, "NOT_DEAL_SELLER");
+  });
+
+  test("allows seller to prepare auto-release after the deadline", async () => {
+    const result = await prepareAutoReleaseForDeal(
+      sellerUser,
       { dealId: "deal-id-1" },
       new Date(DEADLINE.getTime() + 1),
     );

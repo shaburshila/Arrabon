@@ -49,6 +49,7 @@ function makeActionContext(
     buyer_address: "0x0000000000000000000000000000000000000002",
     completed_at: "2026-04-10T00:00:00.000Z",
     consultation_link_id: "link-id-1",
+    duration_minutes: 60,
     id: "deal-id-1",
     onchain_deal_id: "42",
     released_at: null,
@@ -124,7 +125,7 @@ describe("listAdminDisputedDeals", () => {
 
     assert.equal(result.length, 1);
     assert.equal(result[0].status, "Disputed");
-    assert.equal(result[0].release_deadline_at, "2026-04-12T00:00:00.000Z");
+    assert.equal(result[0].release_deadline_at, "2026-04-11T02:00:00.000Z");
   });
 
   test("passes pagination options to the repository", async () => {

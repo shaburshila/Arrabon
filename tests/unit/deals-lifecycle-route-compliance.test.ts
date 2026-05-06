@@ -63,7 +63,7 @@ type RouteMocks = {
     params: { id?: string | undefined },
   ) => { dealId: string };
   prepareOpenDisputeForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
-  prepareAutoReleaseForDeal: (params: unknown) => Promise<unknown>;
+  prepareAutoReleaseForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   prepareConfirmReleaseForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   prepareMarkCompletedForDeal: (currentUser: unknown, params: unknown) => Promise<unknown>;
   requireUser: () => Promise<RouteUser>;
@@ -100,8 +100,8 @@ const routeMocks: RouteMocks = {
   DealCompletionServiceError,
   prepareOpenDisputeForDeal: (currentUser: unknown, params: unknown) =>
     routeMocks.prepareOpenDisputeForDeal(currentUser, params),
-  prepareAutoReleaseForDeal: (params: unknown) =>
-    routeMocks.prepareAutoReleaseForDeal(params),
+  prepareAutoReleaseForDeal: (currentUser: unknown, params: unknown) =>
+    routeMocks.prepareAutoReleaseForDeal(currentUser, params),
   prepareConfirmReleaseForDeal: (currentUser: unknown, params: unknown) =>
     routeMocks.prepareConfirmReleaseForDeal(currentUser, params),
   prepareMarkCompletedForDeal: (currentUser: unknown, params: unknown) =>
@@ -194,7 +194,7 @@ describe("deal lifecycle compliance routes", () => {
   });
 
   test("auto-release route returns canonical 403 shape", async () => {
-    routeMocks.prepareAutoReleaseForDeal = async (_params: unknown) => {
+    routeMocks.prepareAutoReleaseForDeal = async (_currentUser: unknown, _params: unknown) => {
       throw new ComplianceBlockedError({
         dealId: "deal-id-1",
         provider: "chainalysis_sanctions_oracle",
@@ -216,5 +216,20 @@ describe("deal lifecycle compliance routes", () => {
       wallet_address: "0x00000000000000000000000000000000000000cc",
     });
     assert.equal("details" in body, false);
+  });
+
+  test("auto-release route requires authenticated user", async () => {
+    routeMocks.requireUser = async () => {
+      throw new AuthGuardError("Authentication required.", 401);
+    };
+
+    const response = await autoReleasePost(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "deal-id-1" }),
+    });
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), {
+      error: "Authentication required.",
+    });
   });
 });

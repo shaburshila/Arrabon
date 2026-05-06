@@ -48,6 +48,7 @@ export interface DealReadViewRow {
   buyer_address: string;
   completed_at: string | null;
   consultation_link_id: string;
+  duration_minutes: number;
   id: string;
   onchain_deal_id: string;
   price_usdc: string;
@@ -77,6 +78,7 @@ export interface DealActionContextRow {
   buyer_address: string;
   completed_at: string | null;
   consultation_link_id: string;
+  duration_minutes: number;
   id: string;
   onchain_deal_id: string;
   released_at: string | null;
@@ -364,6 +366,7 @@ export async function getDealReadViewById(
     buyer_address: deal.buyer_address,
     completed_at: deal.completed_at,
     consultation_link_id: deal.consultation_link_id,
+    duration_minutes: linkedConsultationLink.duration_minutes,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     price_usdc: String(linkedConsultationLink.price_usdc),
@@ -431,6 +434,7 @@ export async function getDealActionContextById(
     buyer_address: deal.buyer_address,
     completed_at: deal.completed_at,
     consultation_link_id: deal.consultation_link_id,
+    duration_minutes: linkedConsultationLink.duration_minutes,
     id: deal.id,
     onchain_deal_id: deal.onchain_deal_id,
     released_at: deal.released_at,
@@ -731,10 +735,15 @@ type LifecycleStatePatch = Partial<Pick<
   | "status"
 >>;
 
+type LifecycleStatePatchBuilder =
+  | LifecycleStatePatch
+  | ((currentDeal: DealRow) => LifecycleStatePatch)
+  | ((currentDeal: DealRow) => Promise<LifecycleStatePatch>);
+
 async function updateLifecycleStateByOnchainDealId(input: {
   alreadyConvergedStatuses: DealRow["status"][];
   onchainDealId: string;
-  patch: LifecycleStatePatch | ((currentDeal: DealRow) => LifecycleStatePatch);
+  patch: LifecycleStatePatchBuilder;
   requiredTimestampField?: "completed_at" | "released_at";
   targetStatus: DealRow["status"];
   validFromStatuses: DealRow["status"][];
@@ -770,7 +779,7 @@ async function updateLifecycleStateByOnchainDealId(input: {
 
   const patch =
     typeof input.patch === "function"
-      ? input.patch(currentDeal)
+      ? await input.patch(currentDeal)
       : input.patch;
 
   const { data, error } = await db
@@ -825,26 +834,34 @@ export async function setConfirmPendingByOnchainDealId(
 function resolveReleaseResolutionType(
   deal: DealRow,
   releasedAt: Date,
-): DealResolutionType {
+): Promise<DealResolutionType> {
   if (deal.status === "Disputed") {
-    return "admin_release";
+    return Promise.resolve("admin_release");
   }
 
-  if (!deal.completed_at) {
-    return "buyer_confirmed";
-  }
+  return getConsultationLinkById(deal.consultation_link_id).then((linkedConsultationLink) => {
+    if (!linkedConsultationLink) {
+      throw new DealsRepositoryError(
+        `Consultation link ${deal.consultation_link_id} was not found for deal ${deal.id}.`,
+        "CONSULTATION_LINK_MISSING",
+      );
+    }
 
-  const completedAtMs = new Date(deal.completed_at).getTime();
+    const scheduledAtMs = new Date(linkedConsultationLink.scheduled_at).getTime();
 
-  if (Number.isNaN(completedAtMs)) {
-    return "buyer_confirmed";
-  }
+    if (Number.isNaN(scheduledAtMs)) {
+      return "buyer_confirmed";
+    }
 
-  const releaseDeadlineMs = computeReleaseDeadlineMs(completedAtMs);
+    const releaseDeadlineMs = computeReleaseDeadlineMs(
+      scheduledAtMs,
+      linkedConsultationLink.duration_minutes,
+    );
 
-  return releasedAt.getTime() > releaseDeadlineMs
-    ? "auto_release"
-    : "buyer_confirmed";
+    return releasedAt.getTime() > releaseDeadlineMs
+      ? "auto_release"
+      : "buyer_confirmed";
+  });
 }
 
 export async function setReleasedByOnchainDealId(
@@ -859,9 +876,9 @@ export async function setReleasedByOnchainDealId(
   return updateLifecycleStateByOnchainDealId({
     alreadyConvergedStatuses: ["Released"],
     onchainDealId,
-    patch: (currentDeal) => ({
+    patch: async (currentDeal) => ({
       released_at: releasedAtIso,
-      resolution_type: resolveReleaseResolutionType(currentDeal, releasedAt),
+      resolution_type: await resolveReleaseResolutionType(currentDeal, releasedAt),
       resolved_at: releasedAtIso,
       resolved_by_wallet: resolvedByWallet ?? null,
       resolved_from_status: currentDeal.status,

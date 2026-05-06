@@ -64,6 +64,7 @@ function makeReadView(overrides: Partial<DealReadViewRow> = {}): DealReadViewRow
     buyer_address: BUYER,
     completed_at: null,
     consultation_link_id: "link-id-1",
+    duration_minutes: 60,
     id: "deal-id-1",
     onchain_deal_id: "1",
     price_usdc: "125.50",
@@ -101,6 +102,19 @@ describe("getDealReadModel", () => {
     const result = await getDealReadModel(currentUser, { dealId: "deal-id-1" });
 
     assert.equal(result.risk_status, "Blocked");
+  });
+
+  test("computes release_deadline_at from scheduled_at and duration_minutes", async () => {
+    mocks.getDealReadViewById = async () => makeReadView({
+      completed_at: "2026-04-10T00:00:00.000Z",
+      duration_minutes: 60,
+      scheduled_at: "2026-04-12T14:00:00.000Z",
+      status: "ConfirmPending",
+    });
+
+    const result = await getDealReadModel(currentUser, { dealId: "deal-id-1" });
+
+    assert.equal(result.release_deadline_at, "2026-04-14T15:00:00.000Z");
   });
 
   test("allows the seller to read the deal", async () => {
