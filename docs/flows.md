@@ -729,6 +729,8 @@ Admin                         Backend
   │─── POST /admin/denylist ──►│
   │    { wallet: "0x..." }     │ runtime lowercase normalization
   │                            │ → insert into wallet_denylist
+  │                            │ → enqueue payout-block requests
+  │                            │   for active deals (async worker)
   │◄─── 201 Created ───────────┤
   │                            │
   │─── DELETE /admin/denylist/ │
@@ -741,7 +743,10 @@ Admin                         Backend
 - все wallet адреса нормализуются в lowercase при записи и при сравнении;
 - удаление из denylist не влияет на уже существующие `compliance_checks` записи;
 - удаление из denylist не меняет автоматически `risk_status` сделок в Blocked — требует ручного действия;
-- `wallet_denylist` является server-side source of truth; онchain аналога нет.
+- `wallet_denylist` является server-side source of truth;
+- для уже активных `Funded` / `ConfirmPending` / `Disputed` сделок denylist add дополнительно ставит в очередь асинхронный onchain payout block через indexer wallet;
+- denylist add не ждёт onchain receipt в HTTP-path; фактическое применение hold выполняется worker'ом;
+- параллельные denylist add для одного и того же active deal считаются безопасно идемпотентными: duplicate pending enqueue не должен приводить к admin-facing ошибке.
 
 ---
 

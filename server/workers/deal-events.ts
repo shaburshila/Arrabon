@@ -22,6 +22,7 @@ import {
 import { baseRuntimeConfig } from "@/lib/base/config";
 import {
   processPendingFundingHoldForProcessedTransaction,
+  processPendingDenylistHoldSweeps,
   processPendingFundingHoldSweeps,
   processConfirmedDealEvent,
   type DealEventProcessingResult,
@@ -296,6 +297,7 @@ export async function runDealEventsWorker(
   }
 
   await processPendingFundingHoldSweeps();
+  await processPendingDenylistHoldSweeps();
 
   return summary;
 }

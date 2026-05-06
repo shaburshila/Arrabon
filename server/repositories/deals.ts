@@ -134,6 +134,11 @@ export interface MyBuyerDealRow {
   tx_hash: string | null;
 }
 
+export interface DealPayoutBlockTargetRow {
+  id: string;
+  onchain_deal_id: string;
+}
+
 type DealWithConsultationLinkRow = DealRow & {
   consultation_links: ConsultationLinkRow | null;
 };
@@ -243,6 +248,34 @@ export async function getByOnchainDealId(
   }
 
   return data;
+}
+
+export async function listActiveDealPayoutBlockTargetsByWallet(
+  walletAddress: string,
+): Promise<DealPayoutBlockTargetRow[]> {
+  const db = getServerDbClient().schema("public");
+  const { data, error } = await db
+    .from("deals")
+    .select("id, onchain_deal_id, status")
+    .or(`buyer_address.eq.${walletAddress},seller_address.eq.${walletAddress}`);
+
+  if (error) {
+    throw new DealsRepositoryError(
+      `Failed to load active deals for payout block: ${error.message}`,
+      error.code,
+    );
+  }
+
+  return (data ?? [])
+    .filter((deal) =>
+      deal.status === "Funded" ||
+      deal.status === "ConfirmPending" ||
+      deal.status === "Disputed",
+    )
+    .map((deal) => ({
+      id: deal.id,
+      onchain_deal_id: deal.onchain_deal_id,
+    }));
 }
 
 export async function updateRiskStatusById(

@@ -5,6 +5,7 @@ import {
   processConfirmedCompletedEvent,
   processConfirmedDisputedEvent,
   processConfirmedFundedEvent,
+  processPendingDenylistHoldSweeps,
   processPendingFundingHoldForProcessedTransaction,
   processPendingFundingHoldSweeps,
   processConfirmedRefundedEvent,
@@ -26,7 +27,11 @@ interface DealEventMocks {
   getByLinkHash: (...args: unknown[]) => Promise<ConsultationLinkRow | null>;
   getByTxHash: (...args: unknown[]) => Promise<unknown>;
   isInvalidStateTransitionHoldError: (...args: unknown[]) => boolean;
+  listPendingDenylistDealPayoutBlockRequests: (...args: unknown[]) => Promise<unknown[]>;
   listPendingFundingHoldProcessedTransactions: (...args: unknown[]) => Promise<unknown[]>;
+  markDealPayoutBlockRequestApplied: (...args: unknown[]) => Promise<void>;
+  markDealPayoutBlockRequestFailure: (...args: unknown[]) => Promise<void>;
+  markDealPayoutBlockRequestNonActionable: (...args: unknown[]) => Promise<void>;
   processConfirmedCompletedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedDisputedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null; holdApplied: boolean | null }>;
@@ -137,7 +142,11 @@ beforeEach(() => {
   mocks.getByLinkHash = async () => makeLink();
   mocks.getByTxHash = async () => null;
   mocks.isInvalidStateTransitionHoldError = () => false;
+  mocks.listPendingDenylistDealPayoutBlockRequests = async () => [];
   mocks.listPendingFundingHoldProcessedTransactions = async () => [];
+  mocks.markDealPayoutBlockRequestApplied = async () => undefined;
+  mocks.markDealPayoutBlockRequestFailure = async () => undefined;
+  mocks.markDealPayoutBlockRequestNonActionable = async () => undefined;
   mocks.processConfirmedCompletedEventOnce = async () => ({
     alreadyProcessed: false,
     dealId: "deal-id-completed",
@@ -368,6 +377,116 @@ describe("deal event idempotency", () => {
     await processPendingFundingHoldSweeps();
 
     assert.deepEqual(holdCalls, [[fundedEvent.onchainDealId, true]]);
+  });
+
+  test("denylist hold sweep applies pending holds and writes audit log", async () => {
+    const holdCalls: unknown[][] = [];
+    const appliedCalls: unknown[][] = [];
+    const auditEntries: Array<Record<string, unknown>> = [];
+
+    mocks.listPendingDenylistDealPayoutBlockRequests = async () => [
+      {
+        applied_at: null,
+        blocked: true,
+        created_at: "2026-05-07T12:00:00.000Z",
+        deal_id: "deal-id-funded",
+        id: "hold-request-1",
+        last_error_code: null,
+        last_error_message: null,
+        onchain_deal_id: fundedEvent.onchainDealId,
+        source: "denylist_add",
+        status: "pending",
+      },
+    ];
+    mocks.applyDealPayoutBlock = async (...args: unknown[]) => {
+      holdCalls.push(args);
+      return `0x${"f".repeat(64)}`;
+    };
+    mocks.markDealPayoutBlockRequestApplied = async (...args: unknown[]) => {
+      appliedCalls.push(args);
+    };
+    mocks.createAuditLogEntry = async (entry: unknown) => {
+      auditEntries.push(entry as Record<string, unknown>);
+    };
+
+    await processPendingDenylistHoldSweeps();
+
+    assert.deepEqual(holdCalls, [[fundedEvent.onchainDealId, true]]);
+    assert.deepEqual(appliedCalls, [["hold-request-1"]]);
+    assert.equal(auditEntries.length, 1);
+    assert.equal(auditEntries[0].action, "compliance.denylist_hold_applied");
+    assert.deepEqual(auditEntries[0].metadata, {
+      hold_request_id: "hold-request-1",
+      onchain_deal_id: fundedEvent.onchainDealId,
+      source: "denylist_add",
+    });
+  });
+
+  test("denylist hold sweep marks terminal deals as non_actionable", async () => {
+    const nonActionableCalls: unknown[][] = [];
+
+    mocks.listPendingDenylistDealPayoutBlockRequests = async () => [
+      {
+        applied_at: null,
+        blocked: true,
+        created_at: "2026-05-07T12:00:00.000Z",
+        deal_id: "deal-id-funded",
+        id: "hold-request-1",
+        last_error_code: null,
+        last_error_message: null,
+        onchain_deal_id: fundedEvent.onchainDealId,
+        source: "denylist_add",
+        status: "pending",
+      },
+    ];
+    mocks.applyDealPayoutBlock = async () => {
+      throw new Error("invalid state");
+    };
+    mocks.isInvalidStateTransitionHoldError = () => true;
+    mocks.markDealPayoutBlockRequestNonActionable = async (...args: unknown[]) => {
+      nonActionableCalls.push(args);
+    };
+
+    await processPendingDenylistHoldSweeps();
+
+    assert.deepEqual(nonActionableCalls, [[
+      "hold-request-1",
+      "INVALID_STATE_TRANSITION",
+      "Deal reached a terminal state before the payout block could be applied.",
+    ]]);
+  });
+
+  test("denylist hold sweep leaves transient failures pending", async () => {
+    const failureCalls: unknown[][] = [];
+
+    mocks.listPendingDenylistDealPayoutBlockRequests = async () => [
+      {
+        applied_at: null,
+        blocked: true,
+        created_at: "2026-05-07T12:00:00.000Z",
+        deal_id: "deal-id-funded",
+        id: "hold-request-1",
+        last_error_code: null,
+        last_error_message: null,
+        onchain_deal_id: fundedEvent.onchainDealId,
+        source: "denylist_add",
+        status: "pending",
+      },
+    ];
+    mocks.applyDealPayoutBlock = async () => {
+      throw new Error("rpc timeout");
+    };
+    mocks.markDealPayoutBlockRequestFailure = async (...args: unknown[]) => {
+      failureCalls.push(args);
+    };
+
+    await processPendingDenylistHoldSweeps();
+
+    assert.deepEqual(failureCalls, [[
+      "hold-request-1",
+      "Error",
+      "rpc timeout",
+    ]]);
   });
 
   test("funded unknown link hash is skipped without atomic processing", async () => {

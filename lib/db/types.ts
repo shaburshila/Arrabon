@@ -19,6 +19,8 @@ export type DealResolutionType =
   | "admin_release"
   | "auto_release"
   | "buyer_confirmed";
+export type DealPayoutBlockRequestSource = "denylist_add";
+export type DealPayoutBlockRequestStatus = "pending" | "applied" | "non_actionable";
 
 export type ComplianceCheckSubjectType = "wallet" | "transaction";
 
@@ -246,6 +248,44 @@ export interface ProcessedTransactionUpdate {
   deal_id?: string | null;
   hold_applied?: boolean | null;
   processed_at?: string;
+}
+
+export interface DealPayoutBlockRequestRow {
+  id: string;
+  deal_id: string;
+  onchain_deal_id: string;
+  blocked: boolean;
+  source: DealPayoutBlockRequestSource;
+  status: DealPayoutBlockRequestStatus;
+  applied_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  created_at: string;
+}
+
+export interface DealPayoutBlockRequestInsert {
+  id?: string;
+  deal_id: string;
+  onchain_deal_id: string;
+  blocked: boolean;
+  source: DealPayoutBlockRequestSource;
+  status?: DealPayoutBlockRequestStatus;
+  applied_at?: string | null;
+  last_error_code?: string | null;
+  last_error_message?: string | null;
+  created_at?: string;
+}
+
+export interface DealPayoutBlockRequestUpdate {
+  deal_id?: string;
+  onchain_deal_id?: string;
+  blocked?: boolean;
+  source?: DealPayoutBlockRequestSource;
+  status?: DealPayoutBlockRequestStatus;
+  applied_at?: string | null;
+  last_error_code?: string | null;
+  last_error_message?: string | null;
+  created_at?: string;
 }
 
 export interface ComplianceCheckRow {
@@ -535,6 +575,20 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "processed_transactions_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deal_payout_block_requests: {
+        Row: DealPayoutBlockRequestRow;
+        Insert: DealPayoutBlockRequestInsert;
+        Update: DealPayoutBlockRequestUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "deal_payout_block_requests_deal_id_fkey";
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";

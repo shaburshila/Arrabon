@@ -42,7 +42,11 @@ const mocks = {
   getByLinkHash: async () => null,
   getByTxHash: async () => null,
   isInvalidStateTransitionHoldError: () => false,
+  listPendingDenylistDealPayoutBlockRequests: async () => [],
   listPendingFundingHoldProcessedTransactions: async () => [],
+  markDealPayoutBlockRequestApplied: async () => undefined,
+  markDealPayoutBlockRequestFailure: async () => undefined,
+  markDealPayoutBlockRequestNonActionable: async () => undefined,
   processConfirmedCompletedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-completed' }),
   processConfirmedDisputedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-disputed' }),
   processConfirmedFundedEventOnce: async () => ({ alreadyProcessed: false, dealId: 'deal-id-1', holdApplied: null }),
@@ -65,6 +69,14 @@ require.cache[auditLogPath] = makeEntry(auditLogPath, {
 const consultationLinksRepoPath = path.resolve(root, 'server/repositories/consultation-links.ts');
 require.cache[consultationLinksRepoPath] = makeEntry(consultationLinksRepoPath, {
   getByLinkHash: (...args) => mocks.getByLinkHash(...args),
+});
+
+const dealPayoutBlockRequestsRepoPath = path.resolve(root, 'server/repositories/deal-payout-block-requests.ts');
+require.cache[dealPayoutBlockRequestsRepoPath] = makeEntry(dealPayoutBlockRequestsRepoPath, {
+  listPendingDenylistDealPayoutBlockRequests: (...args) => mocks.listPendingDenylistDealPayoutBlockRequests(...args),
+  markDealPayoutBlockRequestApplied: (...args) => mocks.markDealPayoutBlockRequestApplied(...args),
+  markDealPayoutBlockRequestFailure: (...args) => mocks.markDealPayoutBlockRequestFailure(...args),
+  markDealPayoutBlockRequestNonActionable: (...args) => mocks.markDealPayoutBlockRequestNonActionable(...args),
 });
 
 const processedTransactionsRepoPath = path.resolve(root, 'server/repositories/processed-transactions.ts');

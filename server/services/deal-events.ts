@@ -16,6 +16,12 @@ import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consulta
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
 import { getByLinkHash } from "@/server/repositories/consultation-links";
 import {
+  listPendingDenylistDealPayoutBlockRequests,
+  markDealPayoutBlockRequestApplied,
+  markDealPayoutBlockRequestFailure,
+  markDealPayoutBlockRequestNonActionable,
+} from "@/server/repositories/deal-payout-block-requests";
+import {
   getByTxHash,
   listPendingFundingHoldProcessedTransactions,
   processConfirmedCompletedEventOnce,
@@ -39,6 +45,33 @@ export class DealEventSyncServiceError extends Error {
     super(message);
     this.name = "DealEventSyncServiceError";
     this.code = code;
+  }
+}
+
+async function appendDenylistHoldAppliedAuditLog(input: {
+  dealId: string;
+  onchainDealId: string;
+  requestId: string;
+}) {
+  try {
+    await createAuditLogEntry({
+      action: "compliance.denylist_hold_applied",
+      actorAddress: null,
+      entityId: input.dealId,
+      entityType: "deal",
+      metadata: {
+        hold_request_id: input.requestId,
+        onchain_deal_id: input.onchainDealId,
+        source: "denylist_add",
+      },
+    });
+  } catch (error) {
+    console.error("Failed to append denylist hold applied audit log.", {
+      dealId: input.dealId,
+      error,
+      onchainDealId: input.onchainDealId,
+      requestId: input.requestId,
+    });
   }
 }
 
@@ -247,6 +280,37 @@ export async function processPendingFundingHoldSweeps(): Promise<void> {
       dealId: pendingTransaction.dealId,
       txHash: pendingTransaction.txHash,
     });
+  }
+}
+
+export async function processPendingDenylistHoldSweeps(): Promise<void> {
+  const pendingRequests = await listPendingDenylistDealPayoutBlockRequests();
+
+  for (const request of pendingRequests) {
+    try {
+      await applyDealPayoutBlock(request.onchain_deal_id, request.blocked);
+      await markDealPayoutBlockRequestApplied(request.id);
+      await appendDenylistHoldAppliedAuditLog({
+        dealId: request.deal_id,
+        onchainDealId: request.onchain_deal_id,
+        requestId: request.id,
+      });
+    } catch (error) {
+      if (isInvalidStateTransitionHoldError(error)) {
+        await markDealPayoutBlockRequestNonActionable(
+          request.id,
+          "INVALID_STATE_TRANSITION",
+          "Deal reached a terminal state before the payout block could be applied.",
+        );
+        continue;
+      }
+
+      await markDealPayoutBlockRequestFailure(
+        request.id,
+        error instanceof Error ? error.name : "HOLD_APPLY_FAILED",
+        error instanceof Error ? error.message : "Failed to apply payout block hold.",
+      );
+    }
   }
 }
 

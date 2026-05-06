@@ -199,6 +199,10 @@ metadata: { reason, source, reference_id, added_by }
 
 **Effect:** all future compliance checks for this wallet will return `Blocked / LOCAL_DENYLIST`. Existing in-progress deals involving this wallet will be re-screened on next lifecycle action and may enter legal hold.
 
+**Active deal side effect:** if this wallet participates in any active `Funded`, `ConfirmPending`, or `Disputed` deals, the backend also enqueues asynchronous onchain payout-block requests for those deals. The request path does not wait for the Base transaction receipt; hold application is performed later by the deal-events worker using the dedicated compliance hold signer.
+
+**Operational note:** a successful denylist add means the denylist entry is committed and any required onchain holds are queued. It does not guarantee that the corresponding `setDealPayoutBlocked(..., true)` transaction has already been mined at the moment the admin receives the HTTP response.
+
 ---
 
 ### Remove a wallet from the denylist

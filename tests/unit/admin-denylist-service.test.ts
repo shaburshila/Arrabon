@@ -16,6 +16,8 @@ function makeEntry(id: string, exports: unknown) {
 
 const root = path.resolve(__dirname, "../..");
 const auditLogRepoPath = path.resolve(root, "server/repositories/audit-log.ts");
+const dealPayoutBlockRequestsRepoPath = path.resolve(root, "server/repositories/deal-payout-block-requests.ts");
+const dealsRepoPath = path.resolve(root, "server/repositories/deals.ts");
 const walletDenylistRepoPath = path.resolve(root, "server/repositories/wallet-denylist.ts");
 
 class AuditLogRepositoryError extends Error {
@@ -38,10 +40,32 @@ class WalletDenylistRepositoryError extends Error {
   }
 }
 
+class DealPayoutBlockRequestsRepositoryError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "DealPayoutBlockRequestsRepositoryError";
+    this.code = code;
+  }
+}
+
+class DealsRepositoryError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "DealsRepositoryError";
+    this.code = code;
+  }
+}
+
 interface AdminDenylistServiceMocks {
   add: (...args: unknown[]) => Promise<unknown>;
   createAuditLogEntry: (...args: unknown[]) => Promise<unknown>;
+  enqueueDenylistDealPayoutBlockRequests: (...args: unknown[]) => Promise<unknown>;
   findByWallet: (...args: unknown[]) => Promise<unknown>;
+  listActiveDealPayoutBlockTargetsByWallet: (...args: unknown[]) => Promise<unknown[]>;
   list: (...args: unknown[]) => Promise<unknown[]>;
   remove: (...args: unknown[]) => Promise<unknown>;
 }
@@ -55,7 +79,9 @@ const mocks: AdminDenylistServiceMocks = {
     wallet: "0xabc",
   }),
   createAuditLogEntry: async () => ({}),
+  enqueueDenylistDealPayoutBlockRequests: async () => undefined,
   findByWallet: async () => null,
+  listActiveDealPayoutBlockTargetsByWallet: async () => [],
   list: async () => [],
   remove: async () => undefined,
 };
@@ -64,6 +90,16 @@ require.cache[require.resolve("server-only")] = makeEntry("server-only", {});
 require.cache[auditLogRepoPath] = makeEntry(auditLogRepoPath, {
   AuditLogRepositoryError,
   createAuditLogEntry: (...args: unknown[]) => mocks.createAuditLogEntry(...args),
+});
+require.cache[dealPayoutBlockRequestsRepoPath] = makeEntry(dealPayoutBlockRequestsRepoPath, {
+  DealPayoutBlockRequestsRepositoryError,
+  enqueueDenylistDealPayoutBlockRequests: (...args: unknown[]) =>
+    mocks.enqueueDenylistDealPayoutBlockRequests(...args),
+});
+require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
+  DealsRepositoryError,
+  listActiveDealPayoutBlockTargetsByWallet: (...args: unknown[]) =>
+    mocks.listActiveDealPayoutBlockTargetsByWallet(...args),
 });
 require.cache[walletDenylistRepoPath] = makeEntry(walletDenylistRepoPath, {
   WalletDenylistRepositoryError,
@@ -98,7 +134,9 @@ beforeEach(() => {
     wallet: "0x00000000000000000000000000000000000000bb",
   });
   mocks.createAuditLogEntry = async () => ({});
+  mocks.enqueueDenylistDealPayoutBlockRequests = async () => undefined;
   mocks.findByWallet = async () => null;
+  mocks.listActiveDealPayoutBlockTargetsByWallet = async () => [];
   mocks.list = async () => [];
   mocks.remove = async () => undefined;
 });
@@ -118,10 +156,23 @@ describe("admin denylist service", () => {
 
   test("adds entry and writes audit log", async () => {
     let auditInput: unknown = null;
+    let activeWalletInput: unknown = null;
+    let enqueueInput: unknown = null;
 
     mocks.createAuditLogEntry = async (...args: unknown[]) => {
       [auditInput] = args;
       return {};
+    };
+    mocks.listActiveDealPayoutBlockTargetsByWallet = async (...args: unknown[]) => {
+      [activeWalletInput] = args;
+      return [
+        { id: "deal-id-1", onchain_deal_id: "11" },
+        { id: "deal-id-2", onchain_deal_id: "12" },
+      ];
+    };
+    mocks.enqueueDenylistDealPayoutBlockRequests = async (...args: unknown[]) => {
+      [enqueueInput] = args;
+      return undefined;
     };
 
     const result = await addAdminDenylistEntry(adminUser, {
@@ -142,6 +193,11 @@ describe("admin denylist service", () => {
         wallet: "0x00000000000000000000000000000000000000bb",
       },
     });
+    assert.equal(activeWalletInput, "0x00000000000000000000000000000000000000bb");
+    assert.deepEqual(enqueueInput, [
+      { dealId: "deal-id-1", onchainDealId: "11" },
+      { dealId: "deal-id-2", onchainDealId: "12" },
+    ]);
   });
 
   test("rejects duplicate add", async () => {
@@ -164,6 +220,30 @@ describe("admin denylist service", () => {
         assert.ok(error instanceof AdminDenylistServiceError);
         assert.equal((error as { status: number }).status, 409);
         assert.equal((error as { code: string }).code, "DENYLIST_ENTRY_EXISTS");
+        return true;
+      },
+    );
+  });
+
+  test("returns 500 when hold queue enqueue fails after denylist insert", async () => {
+    mocks.listActiveDealPayoutBlockTargetsByWallet = async () => [
+      { id: "deal-id-1", onchain_deal_id: "11" },
+    ];
+    mocks.enqueueDenylistDealPayoutBlockRequests = async () => {
+      throw new DealPayoutBlockRequestsRepositoryError("queue failed", "QUEUE_FAILED");
+    };
+
+    await assert.rejects(
+      () =>
+        addAdminDenylistEntry(adminUser, {
+          notes: null,
+          reason: "fraud",
+          wallet: "0x00000000000000000000000000000000000000BB",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof AdminDenylistServiceError);
+        assert.equal((error as { status: number }).status, 500);
+        assert.equal((error as { code: string }).code, "QUEUE_FAILED");
         return true;
       },
     );

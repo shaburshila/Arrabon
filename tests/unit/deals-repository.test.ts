@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import type { ConsultationLinkRow, DealRow } from "../../lib/db/types";
 import {
   DealsRepositoryError,
+  listActiveDealPayoutBlockTargetsByWallet,
   listBuyerDealRows,
   listDisputedDealReviewRows,
 } from "../../server/repositories/deals";
@@ -15,6 +16,7 @@ interface DealsRepositoryMocks {
     getById: unknown[];
     getByIds: unknown[];
     order: unknown[];
+    or: unknown[];
     range: unknown[];
     schema: unknown[];
     select: unknown[];
@@ -210,5 +212,28 @@ describe("deals repository list rows", () => {
         return true;
       },
     );
+  });
+
+  test("returns only active payout block targets for a wallet", async () => {
+    mocks.dealsResult = {
+      data: [
+        makeDeal({ id: "deal-id-1", onchain_deal_id: "41", status: "Funded" }),
+        makeDeal({ id: "deal-id-2", onchain_deal_id: "42", status: "ConfirmPending" }),
+        makeDeal({ id: "deal-id-3", onchain_deal_id: "43", status: "Disputed" }),
+        makeDeal({ id: "deal-id-4", onchain_deal_id: "44", status: "Released" }),
+      ],
+      error: null,
+    };
+
+    const result = await listActiveDealPayoutBlockTargetsByWallet(BUYER_ADDRESS);
+
+    assert.deepEqual(mocks.calls.or, [
+      `buyer_address.eq.${BUYER_ADDRESS},seller_address.eq.${BUYER_ADDRESS}`,
+    ]);
+    assert.deepEqual(result, [
+      { id: "deal-id-1", onchain_deal_id: "41" },
+      { id: "deal-id-2", onchain_deal_id: "42" },
+      { id: "deal-id-3", onchain_deal_id: "43" },
+    ]);
   });
 });

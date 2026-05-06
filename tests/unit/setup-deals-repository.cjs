@@ -30,6 +30,7 @@ const mocks = {
     eq: [],
     getById: [],
     getByIds: [],
+    or: [],
     order: [],
     range: [],
     schema: [],
@@ -49,6 +50,7 @@ mocks.reset = () => {
     eq: [],
     getById: [],
     getByIds: [],
+    or: [],
     order: [],
     range: [],
     schema: [],
@@ -92,9 +94,16 @@ function makeQueryBuilder() {
       mocks.calls.eq.push([column, value]);
       return this;
     },
+    or(filter) {
+      mocks.calls.or.push(filter);
+      return this;
+    },
     order(column, options) {
       mocks.calls.order.push([column, options]);
       return this;
+    },
+    then(resolve, reject) {
+      return Promise.resolve(mocks.dealsResult).then(resolve, reject);
     },
     async range(from, to) {
       mocks.calls.range.push([from, to]);

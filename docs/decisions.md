@@ -57,6 +57,7 @@
 - `C-15` `403 COMPLIANCE_BLOCKED` is a single canonical API shape formed by one backend mapping path and consumed by frontend as a stable contract.
 - `C-16` When `risk_status` transitions to `Blocked`, the deal-events indexer automatically calls `setDealPayoutBlocked(dealId, true)` onchain via a dedicated indexer wallet. This closes the compliance race window where a seller could bypass the backend gate by calling `autoRelease` directly on the contract. The indexer wallet is a separate hot wallet added to the contract `admins` list; it has no power to transfer funds, only to set the block flag.
 - `C-17` `fundingAuthorizer` is rotatable via `setFundingAuthorizer(address)` callable by owner (multisig) only. Rotation immediately invalidates all signatures issued by the previous key. This function must be called immediately upon any confirmed or suspected compromise of the backend signing key.
+- `C-18` Manual `wallet_denylist` additions do not execute synchronous onchain hold transactions in the admin HTTP path. Instead, the backend enqueues `blocked=true` payout-block requests for all active deals involving that wallet, and a separate indexer sweep applies `setDealPayoutBlocked(dealId, true)` asynchronously. Pending denylist hold requests are idempotent, and concurrent admin adds for the same deal may race safely: the database partial-unique constraint is authoritative and duplicate insert races are treated as benign outcomes rather than admin-facing failures.
 
 ---
 

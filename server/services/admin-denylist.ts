@@ -12,6 +12,14 @@ import {
   createAuditLogEntry,
 } from "@/server/repositories/audit-log";
 import {
+  DealPayoutBlockRequestsRepositoryError,
+  enqueueDenylistDealPayoutBlockRequests,
+} from "@/server/repositories/deal-payout-block-requests";
+import {
+  DealsRepositoryError,
+  listActiveDealPayoutBlockTargetsByWallet,
+} from "@/server/repositories/deals";
+import {
   add,
   findByWallet,
   list,
@@ -66,6 +74,22 @@ function mapRepositoryError(error: unknown): never {
     );
   }
 
+  if (error instanceof DealsRepositoryError) {
+    throw new AdminDenylistServiceError(
+      "Failed to load impacted deals.",
+      500,
+      error.code ?? "DEAL_LOAD_FAILED",
+    );
+  }
+
+  if (error instanceof DealPayoutBlockRequestsRepositoryError) {
+    throw new AdminDenylistServiceError(
+      "Failed to enqueue payout block holds.",
+      500,
+      error.code ?? "HOLD_QUEUE_ENQUEUE_FAILED",
+    );
+  }
+
   throw error;
 }
 
@@ -113,6 +137,15 @@ export async function addAdminDenylistEntry(
         wallet: row.wallet,
       },
     });
+
+    const activeDeals = await listActiveDealPayoutBlockTargetsByWallet(row.wallet);
+
+    await enqueueDenylistDealPayoutBlockRequests(
+      activeDeals.map((deal) => ({
+        dealId: deal.id,
+        onchainDealId: deal.onchain_deal_id,
+      })),
+    );
 
     return toEntryModel(row);
   } catch (error) {
