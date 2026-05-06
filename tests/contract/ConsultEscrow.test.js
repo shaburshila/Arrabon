@@ -8,25 +8,125 @@ describe("ConsultEscrow", function () {
   const FEE_BPS = 200n;
   const FEE_DENOMINATOR = 10_000n;
   const DISPUTE_WINDOW = 48n * 60n * 60n;
+  const FUNDING_AUTHORIZATION_LIFETIME = 180n;
+  const FUNDING_AUTHORIZATION_TYPES = {
+    FundingAuthorization: [
+      { name: "buyer", type: "address" },
+      { name: "seller", type: "address" },
+      { name: "linkHash", type: "bytes32" },
+      { name: "price", type: "uint256" },
+      { name: "scheduledAt", type: "uint256" },
+      { name: "durationMinutes", type: "uint256" },
+      { name: "deadline", type: "uint256" },
+      { name: "nonce", type: "bytes32" },
+    ],
+  };
 
   async function deployFixture() {
-    const [deployer, seller, buyer, treasury, admin, outsider] = await ethers.getSigners();
+    const [deployer, seller, buyer, treasury, admin, outsider, fundingAuthorizer] = await ethers.getSigners();
     const token = await ethers.deployContract("MockUSDC");
-    const escrow = await ethers.deployContract("ConsultEscrow", [token.target, treasury.address, [admin.address]]);
+    const escrow = await ethers.deployContract("ConsultEscrow", [
+      token.target,
+      treasury.address,
+      [admin.address],
+      fundingAuthorizer.address,
+    ]);
 
-    return { deployer, seller, buyer, treasury, admin, outsider, token, escrow };
+    return { admin, authorizer: fundingAuthorizer, buyer, deployer, escrow, outsider, seller, token, treasury };
   }
 
   async function deployReentrantFixture() {
     const [deployer, treasury, admin, outsider] = await ethers.getSigners();
     const token = await ethers.deployContract("ReentrantToken");
-    const escrow = await ethers.deployContract("ConsultEscrow", [token.target, treasury.address, [admin.address]]);
+    const escrow = await ethers.deployContract("ConsultEscrow", [
+      token.target,
+      treasury.address,
+      [admin.address],
+      deployer.address,
+    ]);
 
-    return { deployer, treasury, admin, outsider, token, escrow };
+    return { admin, authorizer: deployer, deployer, escrow, outsider, token, treasury };
   }
 
   function feeFor(price) {
     return (price * FEE_BPS) / FEE_DENOMINATOR;
+  }
+
+  async function signFundingAuthorization({
+    escrow,
+    authorizer,
+    seller,
+    buyer,
+    price,
+    linkHash,
+    scheduledAt,
+    durationMinutes,
+    deadline,
+    nonce,
+  }) {
+    const network = await ethers.provider.getNetwork();
+
+    return authorizer.signTypedData(
+      {
+        name: "ConsultEscrow",
+        version: "1",
+        chainId: Number(network.chainId),
+        verifyingContract: escrow.target,
+      },
+      FUNDING_AUTHORIZATION_TYPES,
+      {
+        buyer,
+        seller,
+        linkHash,
+        price,
+        scheduledAt,
+        durationMinutes,
+        deadline,
+        nonce,
+      }
+    );
+  }
+
+  async function createAndFundDealAuthorized({
+    escrow,
+    authorizer,
+    caller,
+    seller,
+    buyer,
+    price,
+    linkHash,
+    scheduledAt,
+    durationMinutes,
+    deadline,
+    nonce,
+    signature,
+  }) {
+    const effectiveDeadline = deadline ?? (BigInt(await time.latest()) + FUNDING_AUTHORIZATION_LIFETIME);
+    const effectiveNonce = nonce ?? ethers.hexlify(ethers.randomBytes(32));
+    const effectiveSignature = signature ?? await signFundingAuthorization({
+      escrow,
+      authorizer,
+      seller,
+      buyer,
+      price,
+      linkHash,
+      scheduledAt,
+      durationMinutes,
+      deadline: effectiveDeadline,
+      nonce: effectiveNonce,
+    });
+
+    return escrow.connect(caller).createAndFundDeal(
+      linkHash,
+      seller,
+      buyer,
+      price,
+      scheduledAt,
+      durationMinutes,
+      effectiveDeadline,
+      effectiveNonce,
+      effectiveSignature
+    );
   }
 
   async function fundDeal({
@@ -34,6 +134,7 @@ describe("ConsultEscrow", function () {
     token,
     seller,
     buyer,
+    authorizer,
     price = MIN_PRICE,
     linkHash = ethers.keccak256(ethers.toUtf8Bytes("link-1")),
     durationMinutes = 60n,
@@ -42,18 +143,28 @@ describe("ConsultEscrow", function () {
     const now = BigInt(await time.latest());
     const effectiveScheduledAt = scheduledAt ?? (now + 24n * 60n * 60n);
     const dealId = await escrow.nextDealId();
+    let effectiveAuthorizer = authorizer;
+
+    if (!effectiveAuthorizer) {
+      const authorizerAddress = await escrow.fundingAuthorizer();
+      const signers = await ethers.getSigners();
+      effectiveAuthorizer = signers.find((signer) => signer.address === authorizerAddress);
+    }
 
     await token.mint(buyer.address, price);
     await token.connect(buyer).approve(escrow.target, price);
 
-    const tx = await escrow.connect(buyer).createAndFundDeal(
+    const tx = await createAndFundDealAuthorized({
+      authorizer: effectiveAuthorizer,
+      buyer: buyer.address,
+      caller: buyer,
+      durationMinutes,
+      escrow,
       linkHash,
-      seller.address,
-      buyer.address,
       price,
-      effectiveScheduledAt,
-      durationMinutes
-    );
+      scheduledAt: effectiveScheduledAt,
+      seller: seller.address,
+    });
 
     return {
       tx,
@@ -84,31 +195,36 @@ describe("ConsultEscrow", function () {
       const token = await ethers.deployContract("MockUSDC");
 
       await expect(
-        ethers.deployContract("ConsultEscrow", [token.target, treasury.address, []])
+        ethers.deployContract("ConsultEscrow", [token.target, treasury.address, [], treasury.address])
       ).to.be.revertedWith("Need at least one admin");
     });
   });
 
   describe("funding", function () {
     it("valid funding succeeds", async function () {
-      const { seller, buyer, token, escrow } = await deployFixture();
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const price = 123_456_789n;
       const linkHash = ethers.keccak256(ethers.toUtf8Bytes("valid-funding"));
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
+      const effectiveNonce = ethers.hexlify(ethers.randomBytes(32));
 
       await token.mint(buyer.address, price);
       await token.connect(buyer).approve(escrow.target, price);
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
           linkHash,
-          seller.address,
-          buyer.address,
+          nonce: effectiveNonce,
           price,
           scheduledAt,
-          30
-        )
+          seller: seller.address,
+        })
       )
         .to.emit(escrow, "DealFunded")
         .withArgs(1n, linkHash, seller.address, buyer.address);
@@ -124,45 +240,52 @@ describe("ConsultEscrow", function () {
       expect(deal.completedAt).to.equal(0n);
       expect(deal.status).to.equal(1n);
       expect(await escrow.usedLinkHashes(linkHash)).to.equal(true);
+      expect(await escrow.usedFundingNonces(effectiveNonce)).to.equal(true);
       expect(await escrow.nextDealId()).to.equal(2n);
       expect(await token.balanceOf(escrow.target)).to.equal(price);
       expect(await token.balanceOf(await escrow.treasury())).to.equal(0n);
     });
 
     it("duplicate linkHash funding fails", async function () {
-      const { seller, buyer, outsider, token, escrow } = await deployFixture();
+      const { seller, buyer, outsider, token, escrow, authorizer } = await deployFixture();
       const linkHash = ethers.keccak256(ethers.toUtf8Bytes("duplicate-link"));
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
       await token.mint(buyer.address, MIN_PRICE);
       await token.connect(buyer).approve(escrow.target, MIN_PRICE);
-      await escrow.connect(buyer).createAndFundDeal(
+      await createAndFundDealAuthorized({
+        authorizer,
+        buyer: buyer.address,
+        caller: buyer,
+        durationMinutes: 30n,
+        escrow,
         linkHash,
-        seller.address,
-        buyer.address,
-        MIN_PRICE,
+        price: MIN_PRICE,
         scheduledAt,
-        30
-      );
+        seller: seller.address,
+      });
 
       await token.mint(outsider.address, MIN_PRICE);
       await token.connect(outsider).approve(escrow.target, MIN_PRICE);
 
       await expect(
-        escrow.connect(outsider).createAndFundDeal(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: outsider.address,
+          caller: outsider,
+          durationMinutes: 30n,
+          escrow,
           linkHash,
-          seller.address,
-          outsider.address,
-          MIN_PRICE,
-          scheduledAt + 100n,
-          30
-        )
+          price: MIN_PRICE,
+          scheduledAt: scheduledAt + 100n,
+          seller: seller.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "LinkHashAlreadyUsed");
     });
 
     it("buyer-only funding enforced", async function () {
-      const { seller, buyer, outsider, token, escrow } = await deployFixture();
+      const { seller, buyer, outsider, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
@@ -170,19 +293,22 @@ describe("ConsultEscrow", function () {
       await token.connect(buyer).approve(escrow.target, MIN_PRICE);
 
       await expect(
-        escrow.connect(outsider).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("buyer-only")),
-          seller.address,
-          buyer.address,
-          MIN_PRICE,
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: outsider,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("buyer-only")),
+          price: MIN_PRICE,
           scheduledAt,
-          30
-        )
+          seller: seller.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "UnauthorizedCaller");
     });
 
     it("seller cannot equal buyer", async function () {
-      const { buyer, token, escrow } = await deployFixture();
+      const { buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
@@ -190,19 +316,22 @@ describe("ConsultEscrow", function () {
       await token.connect(buyer).approve(escrow.target, MIN_PRICE);
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("same-party")),
-          buyer.address,
-          buyer.address,
-          MIN_PRICE,
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("same-party")),
+          price: MIN_PRICE,
           scheduledAt,
-          30
-        )
+          seller: buyer.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "UnauthorizedCaller");
     });
 
     it("price boundaries are enforced exactly", async function () {
-      const { seller, buyer, token, escrow } = await deployFixture();
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
@@ -212,71 +341,86 @@ describe("ConsultEscrow", function () {
       await token.connect(buyer).approve(escrow.target, 9_999_999n + 10_000_000n + 1_000_000_000n + 1_000_000_001n);
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("below-min")),
-          seller.address,
-          buyer.address,
-          9_999_999n,
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("below-min")),
+          price: 9_999_999n,
           scheduledAt,
-          30
-        )
+          seller: seller.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "InvalidPrice");
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("min-ok")),
-          seller.address,
-          buyer.address,
-          10_000_000n,
-          scheduledAt + 1n,
-          30
-        )
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("min-ok")),
+          price: 10_000_000n,
+          scheduledAt: scheduledAt + 1n,
+          seller: seller.address,
+        })
       ).to.not.be.reverted;
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("max-ok")),
-          seller.address,
-          buyer.address,
-          1_000_000_000n,
-          scheduledAt + 2n,
-          30
-        )
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("max-ok")),
+          price: 1_000_000_000n,
+          scheduledAt: scheduledAt + 2n,
+          seller: seller.address,
+        })
       ).to.not.be.reverted;
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("above-max")),
-          seller.address,
-          buyer.address,
-          1_000_000_001n,
-          scheduledAt + 3n,
-          30
-        )
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("above-max")),
+          price: 1_000_000_001n,
+          scheduledAt: scheduledAt + 3n,
+          seller: seller.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "InvalidPrice");
     });
 
     it("invalid schedule fails", async function () {
-      const { seller, buyer, token, escrow } = await deployFixture();
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
 
       await token.mint(buyer.address, MIN_PRICE);
       await token.connect(buyer).approve(escrow.target, MIN_PRICE);
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("bad-schedule")),
-          seller.address,
-          buyer.address,
-          MIN_PRICE,
-          now,
-          30
-        )
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("bad-schedule")),
+          price: MIN_PRICE,
+          scheduledAt: now,
+          seller: seller.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
     });
 
     it("invalid duration fails", async function () {
-      const { seller, buyer, token, escrow } = await deployFixture();
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
@@ -284,15 +428,121 @@ describe("ConsultEscrow", function () {
       await token.connect(buyer).approve(escrow.target, MIN_PRICE);
 
       await expect(
-        escrow.connect(buyer).createAndFundDeal(
-          ethers.keccak256(ethers.toUtf8Bytes("bad-duration")),
-          seller.address,
-          buyer.address,
-          MIN_PRICE,
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 0n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("bad-duration")),
+          price: MIN_PRICE,
           scheduledAt,
-          0
-        )
+          seller: seller.address,
+        })
       ).to.be.revertedWithCustomError(escrow, "InvalidDuration");
+    });
+
+    it("rejects expired funding authorization", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          deadline: now - 1n,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("expired-auth")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "FundingAuthorizationExpired");
+    });
+
+    it("rejects reused funding nonce", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+
+      await token.mint(buyer.address, MIN_PRICE * 2n);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE * 2n);
+
+      await createAndFundDealAuthorized({
+        authorizer,
+        buyer: buyer.address,
+        caller: buyer,
+        durationMinutes: 30n,
+        escrow,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("nonce-a")),
+        nonce,
+        price: MIN_PRICE,
+        scheduledAt,
+        seller: seller.address,
+      });
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("nonce-b")),
+          nonce,
+          price: MIN_PRICE,
+          scheduledAt: scheduledAt + 1n,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "FundingNonceAlreadyUsed");
+    });
+
+    it("rejects invalid funding signature", async function () {
+      const { seller, buyer, token, escrow, authorizer, outsider } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+      const linkHash = ethers.keccak256(ethers.toUtf8Bytes("bad-signature"));
+      const deadline = now + FUNDING_AUTHORIZATION_LIFETIME;
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      const signature = await signFundingAuthorization({
+        authorizer: outsider,
+        buyer: buyer.address,
+        deadline,
+        durationMinutes: 30n,
+        escrow,
+        linkHash,
+        nonce,
+        price: MIN_PRICE,
+        scheduledAt,
+        seller: seller.address,
+      });
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          deadline,
+          durationMinutes: 30n,
+          escrow,
+          linkHash,
+          nonce,
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+          signature,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidFundingSignature");
     });
   });
 
@@ -775,7 +1025,7 @@ describe("ConsultEscrow", function () {
   describe("reentrancy and CEI", function () {
     // These same-deal tests validate CEI ordering; the cross-deal test below isolates the global nonReentrant guard.
     it("release path rejects reentry during seller transfer and still settles correctly", async function () {
-      const { treasury, outsider, token, escrow } = await deployReentrantFixture();
+      const { treasury, outsider, token, escrow, authorizer } = await deployReentrantFixture();
       const Hook = await ethers.getContractFactory("ReentrancyHook");
 
       const buyer = ethers.Wallet.createRandom().address;
@@ -788,14 +1038,17 @@ describe("ConsultEscrow", function () {
       await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE);
 
       const scheduledAt = BigInt(await time.latest()) + 3600n;
-      await escrow.connect(buyerSigner).createAndFundDeal(
-        ethers.keccak256(ethers.toUtf8Bytes("reentrant-release")),
-        seller,
+      await createAndFundDealAuthorized({
+        authorizer,
         buyer,
-        MIN_PRICE,
+        caller: buyerSigner,
+        durationMinutes: 30n,
+        escrow,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("reentrant-release")),
+        price: MIN_PRICE,
         scheduledAt,
-        30
-      );
+        seller,
+      });
 
       await time.setNextBlockTimestamp(scheduledAt + 30n * 60n);
       await escrow.connect(outsider).markCompleted(1n);
@@ -821,7 +1074,7 @@ describe("ConsultEscrow", function () {
     });
 
     it("refund path rejects reentry during buyer transfer and still preserves escrow balance", async function () {
-      const { treasury, admin, outsider, token, escrow } = await deployReentrantFixture();
+      const { treasury, admin, outsider, token, escrow, authorizer } = await deployReentrantFixture();
       const buyer = ethers.Wallet.createRandom().address;
       const seller = outsider.address;
 
@@ -832,14 +1085,17 @@ describe("ConsultEscrow", function () {
       await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE);
 
       const scheduledAt = BigInt(await time.latest()) + 3600n;
-      await escrow.connect(buyerSigner).createAndFundDeal(
-        ethers.keccak256(ethers.toUtf8Bytes("reentrant-refund")),
-        seller,
+      await createAndFundDealAuthorized({
+        authorizer,
         buyer,
-        MIN_PRICE,
+        caller: buyerSigner,
+        durationMinutes: 30n,
+        escrow,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("reentrant-refund")),
+        price: MIN_PRICE,
         scheduledAt,
-        30
-      );
+        seller,
+      });
 
       await escrow.connect(buyerSigner).openDispute(1n);
 
@@ -862,7 +1118,7 @@ describe("ConsultEscrow", function () {
     });
 
     it("cross-deal autoRelease reentry is blocked by nonReentrant while the second deal remains otherwise releasable", async function () {
-      const { treasury, outsider, token, escrow } = await deployReentrantFixture();
+      const { treasury, outsider, token, escrow, authorizer } = await deployReentrantFixture();
       const Hook = await ethers.getContractFactory("ReentrancyHook");
 
       const buyer = ethers.Wallet.createRandom().address;
@@ -878,23 +1134,29 @@ describe("ConsultEscrow", function () {
       const firstScheduledAt = now + 3600n;
       const secondScheduledAt = now + 7200n;
 
-      await escrow.connect(buyerSigner).createAndFundDeal(
-        ethers.keccak256(ethers.toUtf8Bytes("cross-reentrant-a")),
-        seller,
+      await createAndFundDealAuthorized({
+        authorizer,
         buyer,
-        MIN_PRICE,
-        firstScheduledAt,
-        30
-      );
+        caller: buyerSigner,
+        durationMinutes: 30n,
+        escrow,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("cross-reentrant-a")),
+        price: MIN_PRICE,
+        scheduledAt: firstScheduledAt,
+        seller,
+      });
 
-      await escrow.connect(buyerSigner).createAndFundDeal(
-        ethers.keccak256(ethers.toUtf8Bytes("cross-reentrant-b")),
-        seller,
+      await createAndFundDealAuthorized({
+        authorizer,
         buyer,
-        MIN_PRICE,
-        secondScheduledAt,
-        30
-      );
+        caller: buyerSigner,
+        durationMinutes: 30n,
+        escrow,
+        linkHash: ethers.keccak256(ethers.toUtf8Bytes("cross-reentrant-b")),
+        price: MIN_PRICE,
+        scheduledAt: secondScheduledAt,
+        seller,
+      });
 
       await time.setNextBlockTimestamp(firstScheduledAt + 30n * 60n);
       await escrow.connect(outsider).markCompleted(1n);

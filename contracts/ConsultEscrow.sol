@@ -13,6 +13,14 @@ contract ConsultEscrow is ReentrancyGuard {
     uint256 public constant MIN_PRICE = 10_000_000;
     uint256 public constant MAX_PRICE = 1_000_000_000;
     uint256 public constant DISPUTE_WINDOW = 48 hours;
+    bytes32 public constant EIP712_DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 public constant FUNDING_AUTHORIZATION_TYPEHASH =
+        keccak256(
+            "FundingAuthorization(address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 deadline,bytes32 nonce)"
+        );
+    uint256 private constant SECP256K1N_HALF =
+        0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
 
     enum Status {
         None,
@@ -46,6 +54,9 @@ contract ConsultEscrow is ReentrancyGuard {
     error AutoReleaseTooEarly();
     error CallerNotAdmin();
     error InvalidAddress();
+    error FundingAuthorizationExpired();
+    error FundingNonceAlreadyUsed();
+    error InvalidFundingSignature();
 
     event DealFunded(uint256 indexed dealId, bytes32 indexed link_hash, address seller, address buyer);
     event Completed(uint256 indexed dealId, uint256 completedAt);
@@ -55,20 +66,38 @@ contract ConsultEscrow is ReentrancyGuard {
 
     IERC20 public immutable usdc;
     address public immutable treasury;
+    address public immutable fundingAuthorizer;
+    bytes32 public immutable DOMAIN_SEPARATOR;
 
     mapping(uint256 => Deal) public deals;
     mapping(bytes32 => bool) public usedLinkHashes;
+    mapping(bytes32 => bool) public usedFundingNonces;
     mapping(address => bool) public admins;
     uint256 public nextDealId;
 
-    constructor(address usdcAddress, address treasuryAddress, address[] memory initialAdmins) {
-        if (usdcAddress == address(0) || treasuryAddress == address(0)) {
+    constructor(
+        address usdcAddress,
+        address treasuryAddress,
+        address[] memory initialAdmins,
+        address fundingAuthorizerAddress
+    ) {
+        if (usdcAddress == address(0) || treasuryAddress == address(0) || fundingAuthorizerAddress == address(0)) {
             revert InvalidAddress();
         }
         require(initialAdmins.length > 0, "Need at least one admin");
 
         usdc = IERC20(usdcAddress);
         treasury = treasuryAddress;
+        fundingAuthorizer = fundingAuthorizerAddress;
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                EIP712_DOMAIN_TYPEHASH,
+                keccak256(bytes("ConsultEscrow")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(this)
+            )
+        );
         nextDealId = 1;
 
         uint256 adminsLength = initialAdmins.length;
@@ -87,8 +116,11 @@ contract ConsultEscrow is ReentrancyGuard {
         address buyer,
         uint256 price,
         uint256 scheduled_at,
-        uint256 duration_minutes
-    ) external {
+        uint256 duration_minutes,
+        uint256 deadline,
+        bytes32 nonce,
+        bytes calldata signature
+    ) external nonReentrant {
         if (msg.sender != buyer) {
             revert UnauthorizedCaller();
         }
@@ -110,11 +142,21 @@ contract ConsultEscrow is ReentrancyGuard {
         if (duration_minutes == 0) {
             revert InvalidDuration();
         }
+        if (deadline < block.timestamp) {
+            revert FundingAuthorizationExpired();
+        }
+        if (usedFundingNonces[nonce]) {
+            revert FundingNonceAlreadyUsed();
+        }
+        if (_recoverFundingAuthorizationSigner(buyer, seller, link_hash, price, scheduled_at, duration_minutes, deadline, nonce, signature) != fundingAuthorizer) {
+            revert InvalidFundingSignature();
+        }
 
         uint256 feeAmount = (price * FEE_BPS) / FEE_DENOMINATOR;
         uint256 dealId = nextDealId;
         nextDealId = dealId + 1;
 
+        usedFundingNonces[nonce] = true;
         usedLinkHashes[link_hash] = true;
         deals[dealId] = Deal({
             linkHash: link_hash,
@@ -251,5 +293,52 @@ contract ConsultEscrow is ReentrancyGuard {
         usdc.safeTransfer(treasury, deal.feeAmount);
 
         emit Released(dealId, block.timestamp);
+    }
+
+    function _recoverFundingAuthorizationSigner(
+        address buyer,
+        address seller,
+        bytes32 link_hash,
+        uint256 price,
+        uint256 scheduled_at,
+        uint256 duration_minutes,
+        uint256 deadline,
+        bytes32 nonce,
+        bytes calldata signature
+    ) internal view returns (address) {
+        if (signature.length != 65) {
+            return address(0);
+        }
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                FUNDING_AUTHORIZATION_TYPEHASH,
+                buyer,
+                seller,
+                link_hash,
+                price,
+                scheduled_at,
+                duration_minutes,
+                deadline,
+                nonce
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly ("memory-safe") {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 0x20))
+            v := byte(0, calldataload(add(signature.offset, 0x40)))
+        }
+
+        if (uint256(s) > SECP256K1N_HALF || (v != 27 && v != 28)) {
+            return address(0);
+        }
+
+        return ecrecover(digest, v, r, s);
     }
 }

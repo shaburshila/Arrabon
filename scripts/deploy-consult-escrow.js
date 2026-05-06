@@ -24,12 +24,17 @@ function parseAdminWallets() {
     .map((entry) => hre.ethers.getAddress(entry));
 }
 
+function parseFundingAuthorizerAddress() {
+  return parseAddress("FUNDING_AUTHORIZER_ADDRESS");
+}
+
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
   const balance = await hre.ethers.provider.getBalance(deployer.address);
   const usdcAddress = parseAddress("USDC_ADDRESS");
   const treasuryAddress = parseAddress("TREASURY_ADDRESS");
   const adminWallets = parseAdminWallets();
+  const fundingAuthorizerAddress = parseFundingAuthorizerAddress();
 
   console.log("Deploying ConsultEscrow");
   console.log(`Network: ${hre.network.name}`);
@@ -38,11 +43,13 @@ async function main() {
   console.log(`USDC: ${usdcAddress}`);
   console.log(`Treasury: ${treasuryAddress}`);
   console.log(`Admins: ${adminWallets.join(", ")}`);
+  console.log(`Funding authorizer: ${fundingAuthorizerAddress}`);
 
   const escrow = await hre.ethers.deployContract("ConsultEscrow", [
     usdcAddress,
     treasuryAddress,
     adminWallets,
+    fundingAuthorizerAddress,
   ]);
   await escrow.waitForDeployment();
 

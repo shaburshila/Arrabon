@@ -83,11 +83,14 @@ export const consultEscrowAbi = [
 
 export interface CreateAndFundDealInput {
   buyerAddress: string;
+  deadline: bigint;
   durationMinutes: number;
   linkHash: string;
+  nonce: Hex;
   priceUsdc: string;
   scheduledAt: Date;
   sellerAddress: string;
+  signature: Hex;
 }
 
 export interface PreparedCreateAndFundDealCall {
@@ -220,6 +223,10 @@ function getContractAddress(): Address {
 
 export function getConsultEscrowContractAddress(): Address {
   return getContractAddress();
+}
+
+export function getConsultEscrowChainId(): number {
+  return getChainId();
 }
 
 function toUnixSeconds(date: Date): bigint {
@@ -490,6 +497,9 @@ export function prepareCreateAndFundDealCall(
       price,
       scheduledAt,
       durationMinutes,
+      input.deadline,
+      input.nonce,
+      input.signature,
     ],
     functionName: "createAndFundDeal",
   });

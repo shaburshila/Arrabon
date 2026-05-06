@@ -18,7 +18,7 @@ Do not add:
 
 Required public/external methods:
 
-- `createAndFundDeal(link_hash, seller, buyer, price, scheduled_at, duration_minutes)`
+- `createAndFundDeal(link_hash, seller, buyer, price, scheduled_at, duration_minutes, deadline, nonce, signature)`
 - `markCompleted(dealId)`
 - `confirmRelease(dealId)`
 - `openDispute(dealId)`
@@ -32,6 +32,7 @@ Recommended admin/config methods needed for deployability:
   - USDC address
   - treasury address
   - initial admin allowlist
+  - funding authorizer address
 - optional admin management methods only if mutable allowlist is needed
 
 ## Core State
@@ -40,6 +41,7 @@ Contract must keep:
 
 - `mapping(uint256 => Deal) deals`
 - `mapping(bytes32 => bool) usedLinkHashes`
+- `mapping(bytes32 => bool) usedFundingNonces`
 - `mapping(address => bool) admins`
 - `uint256 nextDealId`
 
@@ -114,25 +116,45 @@ Must enforce:
 - `buyer != address(0)`
 - `seller != buyer`
 - `usedLinkHashes[link_hash] == false`
+- `usedFundingNonces[nonce] == false`
 - `price` in `[10 USDC, 1000 USDC]`
 - `scheduled_at > block.timestamp`
 - `duration_minutes > 0`
+- `deadline >= block.timestamp`
+- `signature` recovers to `fundingAuthorizer`
+
+Funding authorization model:
+
+- contract uses EIP-712 domain:
+  - `name = "ConsultEscrow"`
+  - `version = "1"`
+  - `chainId = block.chainid`
+  - `verifyingContract = address(this)`
+- struct:
+  - `FundingAuthorization(address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 deadline,bytes32 nonce)`
+- encoding rules:
+  - `price` is the 6-decimal USDC amount passed to the contract
+  - `scheduledAt` is Unix seconds
+  - `deadline` is Unix seconds
+  - `nonce` type is `bytes32`
+- replay protection:
+  - `usedFundingNonces[nonce] = true` after successful authorization checks and before token transfer
 
 Accepted v1 limitation:
 
 - contract does not validate expired/cancelled link status
-- contract does not validate backend authorization of funding
-- this is intentional under frozen ABI
 
 Required ordering:
 
 1. validate inputs
-2. compute `feeAmount`
-3. allocate new `dealId`
-4. set `usedLinkHashes[link_hash] = true`
-5. write deal storage
-6. transfer `price` from buyer into contract
-7. emit `DealFunded`
+2. validate funding authorization signature, deadline and nonce freshness
+3. compute `feeAmount`
+4. allocate new `dealId`
+5. set `usedFundingNonces[nonce] = true`
+6. set `usedLinkHashes[link_hash] = true`
+7. write deal storage
+8. transfer `price` from buyer into contract
+9. emit `DealFunded`
 
 ## Fee Logic
 

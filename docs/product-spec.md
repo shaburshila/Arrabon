@@ -131,6 +131,9 @@ Funding = contract call через wagmi/viem + paymaster
 - amount
 - scheduled_at
 - duration
+- deadline
+- nonce
+- signature
 
 Примечание: `fee_snapshot` намеренно исключён из ABI в текущей фазе — fee-логика является автономной контрактной логикой. Замороженное решение: `decisions.md` F-08.
 
@@ -139,6 +142,27 @@ Funding = contract call через wagmi/viem + paymaster
 - atomic execution
 - один вызов = одна сделка
 - нет `createDeal + fundDeal`
+- funding требует short-lived onchain authorization от backend signer по EIP-712
+
+Authorization model:
+
+- domain:
+  - `name = "ConsultEscrow"`
+  - `version = "1"`
+  - `chainId = block.chainid`
+  - `verifyingContract = address(this)`
+- struct:
+  - `FundingAuthorization(address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 deadline,bytes32 nonce)`
+- encoding rules:
+  - `price = parseUnits(String(link.price_usdc), 6)`
+  - `scheduledAt = Unix seconds`
+  - `deadline = Unix seconds`
+  - `nonce = bytes32`
+- replay protection:
+  - `usedFundingNonces[nonce] = true`
+- lifetime policy:
+  - funding grant TTL = 5 минут
+  - onchain authorization deadline = 3 минуты
 
 ### 6.3 Base Pay
 
@@ -167,6 +191,7 @@ Funding = contract call через wagmi/viem + paymaster
 ### 8.1 Funding
 
 - пользователь вызывает `createAndFundDeal`;
+- calldata выдаётся только backend и уже содержит `deadline`, `nonce`, `signature`;
 - средства lock в контракте;
 - link → Consumed.
 
@@ -416,7 +441,7 @@ Backend обязан:
 | Точка | Кто проверяется | Действие при блокировке |
 |---|---|---|
 | `POST /api/links` (create) | seller wallet | `403 COMPLIANCE_BLOCKED`; ссылка не создаётся |
-| `POST /api/links/:id/funding/prepare` | buyer + seller | `403 COMPLIANCE_BLOCKED`; calldata не готовится |
+| `POST /api/links/:id/funding/prepare` | buyer + seller | `403 COMPLIANCE_BLOCKED`; funding grant и onchain authorization не выдаются |
 | Payout-path prepares (`/release`, `/auto-release`, `/admin/deals/:id/resolve`) | получатель выплаты | `403 COMPLIANCE_BLOCKED`; calldata не готовится |
 
 ### 24.2 Три MVP-провайдера

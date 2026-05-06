@@ -73,13 +73,17 @@ const mocks = {
     data: '0x' + '1'.repeat(64),
     function_name: 'createAndFundDeal',
   }),
+  createFundingAuthorizationNonce: () => '0x' + '2'.repeat(64),
+  signFundingAuthorization: async () => '0x' + '3'.repeat(130),
   screenWalletsBatch: async () => [],
   calls: {
     assertCompliance: [],
+    createFundingAuthorizationNonce: [],
     createFundingExecutionGrant: [],
     consumeFundingExecutionGrant: [],
     prepareCreateAndFundDealCall: [],
     screenWalletsBatch: [],
+    signFundingAuthorization: [],
   },
   reset() {
     this.assertCompliance = (...args) => undefined;
@@ -104,13 +108,17 @@ const mocks = {
       data: '0x' + '1'.repeat(64),
       function_name: 'createAndFundDeal',
     });
+    this.createFundingAuthorizationNonce = () => '0x' + '2'.repeat(64);
+    this.signFundingAuthorization = async () => '0x' + '3'.repeat(130);
     this.screenWalletsBatch = async () => [];
     this.calls = {
       assertCompliance: [],
+      createFundingAuthorizationNonce: [],
       createFundingExecutionGrant: [],
       consumeFundingExecutionGrant: [],
       prepareCreateAndFundDealCall: [],
       screenWalletsBatch: [],
+      signFundingAuthorization: [],
     };
   },
 };
@@ -154,9 +162,22 @@ const escrowPath = path.resolve(root, 'lib/base/consult-escrow.ts');
 require.cache[escrowPath] = makeEntry(escrowPath, {
   ConsultEscrowConfigError,
   getConsultEscrowContractAddress: () => '0x0000000000000000000000000000000000000001',
+  getConsultEscrowChainId: () => 84532,
   prepareCreateAndFundDealCall: (...args) => {
     mocks.calls.prepareCreateAndFundDealCall.push(args[0]);
     return mocks.prepareCreateAndFundDealCall(...args);
+  },
+});
+
+const fundingAuthorizationPath = path.resolve(root, 'lib/base/funding-authorization.ts');
+require.cache[fundingAuthorizationPath] = makeEntry(fundingAuthorizationPath, {
+  createFundingAuthorizationNonce: (...args) => {
+    mocks.calls.createFundingAuthorizationNonce.push(args);
+    return mocks.createFundingAuthorizationNonce(...args);
+  },
+  signFundingAuthorization: (...args) => {
+    mocks.calls.signFundingAuthorization.push(args);
+    return mocks.signFundingAuthorization(...args);
   },
 });
 

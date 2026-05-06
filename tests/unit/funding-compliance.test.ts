@@ -13,11 +13,14 @@ interface FundingComplianceMocks {
   assertCompliance: (...args: unknown[]) => void;
   calls: {
     assertCompliance: unknown[][];
+    createFundingAuthorizationNonce: unknown[][];
     createFundingExecutionGrant: unknown[][];
     consumeFundingExecutionGrant: unknown[][];
     prepareCreateAndFundDealCall: unknown[];
     screenWalletsBatch: unknown[][];
+    signFundingAuthorization: unknown[][];
   };
+  createFundingAuthorizationNonce: (...args: unknown[]) => string;
   createFundingExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   consumeFundingExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   getByConsultationLinkId: (...args: unknown[]) => Promise<DealRow | null>;
@@ -32,6 +35,7 @@ interface FundingComplianceMocks {
     result: string;
     walletAddress: string;
   }>>;
+  signFundingAuthorization: (...args: unknown[]) => Promise<string>;
 }
 
 const mocks = (
@@ -144,7 +148,42 @@ describe("prepareFundingForLink compliance gate", () => {
     assert.equal(mocks.calls.assertCompliance.length, 2);
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
     assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 1);
+    assert.equal(mocks.calls.createFundingAuthorizationNonce.length, 1);
+    assert.equal(mocks.calls.signFundingAuthorization.length, 1);
     assert.deepEqual(Object.keys(result).sort(), ["consultation_link_id", "contract_call"]);
+
+    const signingInput = mocks.calls.signFundingAuthorization[0][0] as {
+      buyer: string;
+      deadline: bigint;
+      durationMinutes: bigint;
+      linkHash: string;
+      nonce: string;
+      price: bigint;
+      scheduledAt: bigint;
+      seller: string;
+    };
+    const preparedCallInput = mocks.calls.prepareCreateAndFundDealCall[0] as {
+      buyerAddress: string;
+      deadline: bigint;
+      durationMinutes: number;
+      linkHash: string;
+      nonce: string;
+      priceUsdc: string;
+      scheduledAt: Date;
+      sellerAddress: string;
+      signature: string;
+    };
+
+    assert.equal(signingInput.buyer, currentUser.wallet_address);
+    assert.equal(signingInput.seller, "0x00000000000000000000000000000000000000bb");
+    assert.equal(signingInput.linkHash, "0x" + "1".repeat(64));
+    assert.equal(signingInput.price, BigInt(100_000_000));
+    assert.equal(signingInput.scheduledAt, BigInt(1903608000));
+    assert.equal(signingInput.durationMinutes, BigInt(30));
+    assert.equal(signingInput.deadline, preparedCallInput.deadline);
+    assert.equal(signingInput.nonce, "0x" + "2".repeat(64));
+    assert.equal(preparedCallInput.nonce, "0x" + "2".repeat(64));
+    assert.equal(preparedCallInput.signature, "0x" + "3".repeat(130));
   });
 
   test("blocked buyer stops exchange before calldata generation", async () => {
@@ -326,6 +365,7 @@ describe("prepareFundingForLink compliance gate", () => {
     );
 
     assert.equal(mocks.calls.consumeFundingExecutionGrant.length, 1);
+    assert.equal(mocks.calls.signFundingAuthorization.length, 1);
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 1);
   });
 });

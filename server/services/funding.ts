@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { getAddress, parseUnits } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
+import { assertLinkHash } from "@/lib/crypto/link-hash";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import type { ConsultationLinkRow, ConsultationLinkStatus } from "@/lib/db/types";
 import { assertCompliance } from "@/lib/compliance/error-mapping";
@@ -14,6 +15,10 @@ import {
   prepareCreateAndFundDealCall,
   type PreparedCreateAndFundDealCall,
 } from "@/lib/base/consult-escrow";
+import {
+  createFundingAuthorizationNonce,
+  signFundingAuthorization,
+} from "@/lib/base/funding-authorization";
 import {
   DealsRepositoryError,
   getByConsultationLinkId,
@@ -51,6 +56,7 @@ export interface PrepareFundingResult {
 }
 
 const FUNDING_GRANT_TTL_MS = 300_000;
+const FUNDING_AUTHORIZATION_LIFETIME_SECONDS = BigInt(180);
 
 export class FundingServiceError extends Error {
   code: string;
@@ -393,15 +399,34 @@ export async function exchangeFundingGrantForLink(
   });
 
   try {
+    const price = parseUnits(String(link.price_usdc), 6);
+    const linkHash = assertLinkHash(link.link_hash);
+    const scheduledAt = BigInt(Math.floor(new Date(link.scheduled_at).getTime() / 1000));
+    const deadline = BigInt(Math.floor(now.getTime() / 1000)) + FUNDING_AUTHORIZATION_LIFETIME_SECONDS;
+    const nonce = createFundingAuthorizationNonce();
+    const signature = await signFundingAuthorization({
+      buyer: getAddress(currentUser.wallet_address),
+      deadline,
+      durationMinutes: BigInt(link.duration_minutes),
+      linkHash: linkHash as `0x${string}`,
+      nonce,
+      price,
+      scheduledAt,
+      seller: getAddress(link.expert_address),
+    });
+
     return {
       consultation_link_id: link.id,
       contract_call: prepareCreateAndFundDealCall({
         buyerAddress: currentUser.wallet_address,
+        deadline,
         durationMinutes: link.duration_minutes,
         linkHash: link.link_hash,
+        nonce,
         priceUsdc: String(link.price_usdc),
         scheduledAt: new Date(link.scheduled_at),
         sellerAddress: link.expert_address,
+        signature,
       }),
     };
   } catch (error) {
