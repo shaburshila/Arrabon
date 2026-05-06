@@ -302,7 +302,7 @@ contract ConsultEscrow is ReentrancyGuard {
         if (deal.status != Status.Funded) {
             revert InvalidStateTransition();
         }
-        if (block.timestamp < deal.scheduledAt + (deal.durationMinutes * 60)) {
+        if (block.timestamp < deal.scheduledAt) {
             revert InvalidStateTransition();
         }
 
@@ -358,6 +358,9 @@ contract ConsultEscrow is ReentrancyGuard {
     function autoRelease(uint256 dealId) external nonReentrant {
         Deal storage deal = _getDealOrRevert(dealId);
 
+        if (msg.sender != deal.seller) {
+            revert UnauthorizedCaller();
+        }
         if (deal.status != Status.ConfirmPending) {
             revert InvalidStateTransition();
         }
@@ -453,7 +456,7 @@ contract ConsultEscrow is ReentrancyGuard {
     }
 
     function _deadline(Deal storage deal) internal view returns (uint256) {
-        return deal.completedAt + DISPUTE_WINDOW;
+        return deal.scheduledAt + (deal.durationMinutes * 60) + DISPUTE_WINDOW;
     }
 
     function _release(uint256 dealId, Deal storage deal) internal {

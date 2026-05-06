@@ -218,9 +218,9 @@ Authorization model:
 
 ### 8.2 Completion
 
-После funding seller может вызвать только после окончания консультационного слота:
+После funding seller может вызвать с момента начала консультационного слота:
 
-- `block.timestamp >= scheduled_at + duration_minutes * 60`
+- `block.timestamp >= scheduled_at`
 
 `markCompleted(dealId)`
 

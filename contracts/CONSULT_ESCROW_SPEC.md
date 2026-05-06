@@ -119,7 +119,7 @@ Must enforce:
 - `adminResolveRelease`: `admins[msg.sender] == true`
 - `adminResolveRefund`: `admins[msg.sender] == true`
 - `setDealPayoutBlocked`: `admins[msg.sender] == true`
-- `autoRelease`: permissionless
+- `autoRelease`: `msg.sender == deal.seller`
 
 Admin rotation model:
 
@@ -223,12 +223,13 @@ Refund path:
 
 - seller may call only when:
   - deal is `Funded`
-  - `block.timestamp >= deal.scheduledAt + deal.durationMinutes * 60`
+  - `block.timestamp >= deal.scheduledAt`
 - this records `completedAt = block.timestamp` and starts the buyer response window
 
 Post-completion window:
 
-- `deadline = completedAt + 48 hours`
+- `deadline = deal.scheduledAt + (deal.durationMinutes * 60) + DISPUTE_WINDOW`
+- deadline is fixed and does not depend on when `markCompleted` was called
 
 Rules:
 
@@ -382,8 +383,8 @@ Before considering contract done, verify:
 - duplicate `linkHash` funding fails
 - buyer-only funding enforced
 - seller cannot fund own link
-- `markCompleted` fails before the consultation slot ends
-- `markCompleted` succeeds at the exact end of the consultation slot
+- `markCompleted` fails before the start of the consultation slot
+- `markCompleted` succeeds at `scheduledAt`
 - `markCompleted` records `completedAt`
 - `confirmRelease` succeeds at exact deadline
 - `autoRelease` fails at exact deadline and succeeds after
