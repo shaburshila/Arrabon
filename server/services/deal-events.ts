@@ -24,6 +24,7 @@ import {
 import {
   getByTxHash,
   listPendingFundingHoldProcessedTransactions,
+  markProcessedTransactionComplianceScreened,
   processConfirmedCompletedEventOnce,
   processConfirmedDisputedEventOnce,
   processConfirmedFundedEventOnce,
@@ -216,6 +217,44 @@ function logUnknownLinkHash(event: NormalizedFundedEvent) {
   });
 }
 
+async function runPostFundingScreening(input: {
+  buyerAddress: `0x${string}`;
+  consultationLinkId: string;
+  dealId: string;
+  event: NormalizedFundedEvent;
+  sellerAddress: `0x${string}`;
+  txHash: string;
+}) {
+  const screeningResults = await screenWalletsBatch(
+    [input.buyerAddress, input.sellerAddress],
+    {
+      action: "post_funding_sync",
+      actorWallet: null,
+      dealId: input.dealId,
+    },
+  );
+
+  await markProcessedTransactionComplianceScreened(input.txHash, new Date());
+
+  if (screeningResults.some((result) => result.result === "Blocked")) {
+    await markFundingHoldPending(input.txHash);
+    await appendBlockedPostFundingAuditLog({
+      buyerAddress: input.buyerAddress,
+      consultationLinkId: input.consultationLinkId,
+      dealId: input.dealId,
+      event: input.event,
+      sellerAddress: input.sellerAddress,
+    });
+    await processPendingFundingHoldForProcessedTransaction({
+      dealId: input.dealId,
+      txHash: input.txHash,
+    });
+    return;
+  }
+
+  await clearFundingHoldRequirement(input.txHash);
+}
+
 async function getDealActionContextOrThrow(dealId: string) {
   try {
     return await getDealActionContextById(dealId);
@@ -320,7 +359,39 @@ export async function processConfirmedFundedEvent(
   const existingMarker = await getByTxHash(event.txHash);
 
   if (existingMarker) {
-    return createAlreadyProcessedResult(event.txHash);
+    if (existingMarker.compliance_screened_at) {
+      return createAlreadyProcessedResult(event.txHash);
+    }
+
+    if (!existingMarker.deal_id) {
+      throw new Error(
+        `Funded event ${event.txHash} is missing deal_id on existing processed marker.`,
+      );
+    }
+
+    const context = await getDealActionContextOrThrow(existingMarker.deal_id);
+
+    if (!context) {
+      throw new DealEventSyncServiceError(
+        `Deal ${existingMarker.deal_id} is missing during funded-event screening resume.`,
+        "DEAL_NOT_FOUND",
+      );
+    }
+
+    await runPostFundingScreening({
+      buyerAddress: context.buyer_address as `0x${string}`,
+      consultationLinkId: context.consultation_link_id,
+      dealId: existingMarker.deal_id,
+      event,
+      sellerAddress: context.seller_address as `0x${string}`,
+      txHash: event.txHash,
+    });
+
+    return {
+      dealId: existingMarker.deal_id,
+      result: "processed",
+      txHash: event.txHash,
+    };
   }
 
   const consultationLink = await getByLinkHash(event.linkHash);
@@ -358,7 +429,39 @@ export async function processConfirmedFundedEvent(
   });
 
   if (fundedResult.alreadyProcessed) {
-    return createAlreadyProcessedResult(event.txHash);
+    if (fundedResult.complianceScreenedAt) {
+      return createAlreadyProcessedResult(event.txHash);
+    }
+
+    if (!fundedResult.dealId) {
+      throw new Error(
+        `Funded event ${event.txHash} was already processed without a linked deal id.`,
+      );
+    }
+
+    const context = await getDealActionContextOrThrow(fundedResult.dealId);
+
+    if (!context) {
+      throw new DealEventSyncServiceError(
+        `Deal ${fundedResult.dealId} is missing during funded-event race resume.`,
+        "DEAL_NOT_FOUND",
+      );
+    }
+
+    await runPostFundingScreening({
+      buyerAddress: context.buyer_address as `0x${string}`,
+      consultationLinkId: context.consultation_link_id,
+      dealId: fundedResult.dealId,
+      event,
+      sellerAddress: context.seller_address as `0x${string}`,
+      txHash: event.txHash,
+    });
+
+    return {
+      dealId: fundedResult.dealId,
+      result: "processed",
+      txHash: event.txHash,
+    };
   }
 
   if (!fundedResult.dealId) {
@@ -373,31 +476,14 @@ export async function processConfirmedFundedEvent(
     event,
   });
 
-  const screeningResults = await screenWalletsBatch(
-    [event.buyerAddress, event.sellerAddress],
-    {
-      action: "post_funding_sync",
-      actorWallet: null,
-      dealId: fundedResult.dealId,
-    },
-  );
-
-  if (screeningResults.some((result) => result.result === "Blocked")) {
-    await markFundingHoldPending(event.txHash);
-    await appendBlockedPostFundingAuditLog({
-      buyerAddress: event.buyerAddress,
-      consultationLinkId: consultationLink.id,
-      dealId: fundedResult.dealId,
-      event,
-      sellerAddress: event.sellerAddress,
-    });
-    await processPendingFundingHoldForProcessedTransaction({
-      dealId: fundedResult.dealId,
-      txHash: event.txHash,
-    });
-  } else {
-    await clearFundingHoldRequirement(event.txHash);
-  }
+  await runPostFundingScreening({
+    buyerAddress: event.buyerAddress,
+    consultationLinkId: consultationLink.id,
+    dealId: fundedResult.dealId,
+    event,
+    sellerAddress: event.sellerAddress,
+    txHash: event.txHash,
+  });
 
   return {
     dealId: fundedResult.dealId,

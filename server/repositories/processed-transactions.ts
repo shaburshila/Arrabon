@@ -17,6 +17,7 @@ export class ProcessedTransactionsRepositoryError extends Error {
 
 export interface InsertProcessedTransactionInput {
   dealId: string | null;
+  complianceScreenedAt?: Date | null;
   eventType: string;
   holdApplied?: boolean | null;
   txHash: string;
@@ -41,6 +42,7 @@ export interface ProcessConfirmedFundedEventOnceInput {
 
 export interface ProcessConfirmedFundedEventOnceResult {
   alreadyProcessed: boolean;
+  complianceScreenedAt: string | null;
   dealId: string | null;
   holdApplied: boolean | null;
 }
@@ -84,6 +86,9 @@ export async function insertProcessedTransaction(
 ): Promise<InsertProcessedTransactionResult> {
   const db = getServerDbClient().schema("public");
   const payload: ProcessedTransactionInsert = {
+    compliance_screened_at: input.complianceScreenedAt
+      ? toUtcIsoString(input.complianceScreenedAt)
+      : null,
     deal_id: input.dealId,
     event_type: input.eventType,
     hold_applied: input.holdApplied ?? null,
@@ -134,6 +139,7 @@ export async function processConfirmedFundedEventOnce(
     })
     .returns<{
       already_processed: boolean;
+      compliance_screened_at: string | null;
       deal_id: string | null;
       hold_applied: boolean | null;
     }[]>()
@@ -148,9 +154,31 @@ export async function processConfirmedFundedEventOnce(
 
   return {
     alreadyProcessed: data.already_processed,
+    complianceScreenedAt: data.compliance_screened_at,
     dealId: data.deal_id,
     holdApplied: data.hold_applied,
   };
+}
+
+export async function markProcessedTransactionComplianceScreened(
+  txHash: string,
+  screenedAt: Date,
+): Promise<void> {
+  const db = getServerDbClient().schema("public");
+  const payload: ProcessedTransactionUpdate = {
+    compliance_screened_at: screenedAt.toISOString(),
+  };
+  const { error } = await db
+    .from("processed_transactions")
+    .update(payload)
+    .eq("tx_hash", txHash);
+
+  if (error) {
+    throw new ProcessedTransactionsRepositoryError(
+      `Failed to update processed transaction compliance screening state: ${error.message}`,
+      error.code,
+    );
+  }
 }
 
 export async function updateProcessedTransactionHoldApplied(

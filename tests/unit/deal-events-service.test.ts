@@ -29,12 +29,13 @@ interface DealEventMocks {
   isInvalidStateTransitionHoldError: (...args: unknown[]) => boolean;
   listPendingDenylistDealPayoutBlockRequests: (...args: unknown[]) => Promise<unknown[]>;
   listPendingFundingHoldProcessedTransactions: (...args: unknown[]) => Promise<unknown[]>;
+  markProcessedTransactionComplianceScreened: (...args: unknown[]) => Promise<void>;
   markDealPayoutBlockRequestApplied: (...args: unknown[]) => Promise<void>;
   markDealPayoutBlockRequestFailure: (...args: unknown[]) => Promise<void>;
   markDealPayoutBlockRequestNonActionable: (...args: unknown[]) => Promise<void>;
   processConfirmedCompletedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedDisputedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
-  processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null; holdApplied: boolean | null }>;
+  processConfirmedFundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; complianceScreenedAt: string | null; dealId: string | null; holdApplied: boolean | null }>;
   processConfirmedRefundedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   processConfirmedReleasedEventOnce: (...args: unknown[]) => Promise<{ alreadyProcessed: boolean; dealId: string | null }>;
   screenWalletsBatch: (...args: unknown[]) => Promise<unknown[]>;
@@ -144,6 +145,7 @@ beforeEach(() => {
   mocks.isInvalidStateTransitionHoldError = () => false;
   mocks.listPendingDenylistDealPayoutBlockRequests = async () => [];
   mocks.listPendingFundingHoldProcessedTransactions = async () => [];
+  mocks.markProcessedTransactionComplianceScreened = async () => undefined;
   mocks.markDealPayoutBlockRequestApplied = async () => undefined;
   mocks.markDealPayoutBlockRequestFailure = async () => undefined;
   mocks.markDealPayoutBlockRequestNonActionable = async () => undefined;
@@ -157,6 +159,7 @@ beforeEach(() => {
   });
   mocks.processConfirmedFundedEventOnce = async () => ({
     alreadyProcessed: false,
+    complianceScreenedAt: null,
     dealId: "deal-id-funded",
     holdApplied: null,
   });
@@ -185,6 +188,7 @@ describe("deal event idempotency", () => {
 
       return {
         alreadyProcessed: false,
+        complianceScreenedAt: null,
         dealId: "deal-id-funded",
         holdApplied: null,
       };
@@ -229,10 +233,14 @@ describe("deal event idempotency", () => {
 
   test("funded clear screening marks hold as not required", async () => {
     const holdStateUpdates: unknown[][] = [];
+    const screeningMarkerUpdates: unknown[][] = [];
     let holdCalls = 0;
 
     mocks.updateProcessedTransactionHoldApplied = async (...args: unknown[]) => {
       holdStateUpdates.push(args);
+    };
+    mocks.markProcessedTransactionComplianceScreened = async (...args: unknown[]) => {
+      screeningMarkerUpdates.push(args);
     };
     mocks.applyDealPayoutBlock = async () => {
       holdCalls += 1;
@@ -259,16 +267,21 @@ describe("deal event idempotency", () => {
 
     await processConfirmedFundedEvent(fundedEvent);
 
+    assert.equal(screeningMarkerUpdates.length, 1);
     assert.deepEqual(holdStateUpdates, [[FUNDED_TX_HASH, null]]);
     assert.equal(holdCalls, 0);
   });
 
   test("funded blocked screening marks hold pending then applied", async () => {
     const holdStateUpdates: unknown[][] = [];
+    const screeningMarkerUpdates: unknown[][] = [];
     const holdCalls: unknown[][] = [];
 
     mocks.updateProcessedTransactionHoldApplied = async (...args: unknown[]) => {
       holdStateUpdates.push(args);
+    };
+    mocks.markProcessedTransactionComplianceScreened = async (...args: unknown[]) => {
+      screeningMarkerUpdates.push(args);
     };
     mocks.applyDealPayoutBlock = async (...args: unknown[]) => {
       holdCalls.push(args);
@@ -295,6 +308,7 @@ describe("deal event idempotency", () => {
 
     await processConfirmedFundedEvent(fundedEvent);
 
+    assert.equal(screeningMarkerUpdates.length, 1);
     assert.deepEqual(holdStateUpdates, [
       [FUNDED_TX_HASH, false],
       [FUNDED_TX_HASH, true],
@@ -302,12 +316,13 @@ describe("deal event idempotency", () => {
     assert.deepEqual(holdCalls, [[fundedEvent.onchainDealId, true]]);
   });
 
-  test("funded atomic duplicate returns already_processed and skips audit logging", async () => {
+  test("funded atomic duplicate with completed screening returns already_processed and skips audit logging", async () => {
     let auditCalls = 0;
     let screeningCalls = 0;
 
     mocks.processConfirmedFundedEventOnce = async () => ({
       alreadyProcessed: true,
+      complianceScreenedAt: "2026-05-07T12:00:00.000Z",
       dealId: "deal-id-funded",
       holdApplied: null,
     });
@@ -327,6 +342,66 @@ describe("deal event idempotency", () => {
     });
     assert.equal(auditCalls, 0);
     assert.equal(screeningCalls, 0);
+  });
+
+  test("existing processed marker without compliance screening reruns screening instead of early return", async () => {
+    let screeningCalls = 0;
+    let auditCalls = 0;
+
+    mocks.getByTxHash = async () => ({
+      compliance_screened_at: null,
+      deal_id: "deal-id-funded",
+      event_type: "Funded",
+      hold_applied: null,
+      processed_at: "2026-05-07T12:00:00.000Z",
+      tx_hash: fundedEvent.txHash,
+    });
+    mocks.screenWalletsBatch = async () => {
+      screeningCalls += 1;
+      return [];
+    };
+    mocks.createAuditLogEntry = async () => {
+      auditCalls += 1;
+    };
+
+    const result = await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-funded",
+      result: "processed",
+      txHash: fundedEvent.txHash,
+    });
+    assert.equal(screeningCalls, 1);
+    assert.equal(auditCalls, 0);
+  });
+
+  test("funded race duplicate without compliance screening reruns screening instead of early return", async () => {
+    let screeningCalls = 0;
+    let auditCalls = 0;
+
+    mocks.processConfirmedFundedEventOnce = async () => ({
+      alreadyProcessed: true,
+      complianceScreenedAt: null,
+      dealId: "deal-id-funded",
+      holdApplied: null,
+    });
+    mocks.screenWalletsBatch = async () => {
+      screeningCalls += 1;
+      return [];
+    };
+    mocks.createAuditLogEntry = async () => {
+      auditCalls += 1;
+    };
+
+    const result = await processConfirmedFundedEvent(fundedEvent);
+
+    assert.deepEqual(result, {
+      dealId: "deal-id-funded",
+      result: "processed",
+      txHash: fundedEvent.txHash,
+    });
+    assert.equal(screeningCalls, 1);
+    assert.equal(auditCalls, 0);
   });
 
   test("pending hold retry clears terminal deals after InvalidStateTransition", async () => {
@@ -497,6 +572,7 @@ describe("deal event idempotency", () => {
       atomicCalls += 1;
       return {
         alreadyProcessed: false,
+        complianceScreenedAt: null,
         dealId: "deal-id-funded",
         holdApplied: null,
       };
@@ -525,6 +601,7 @@ describe("deal event idempotency", () => {
 
       return {
         alreadyProcessed: false,
+        complianceScreenedAt: null,
         dealId: "deal-id-funded",
         holdApplied: null,
       };

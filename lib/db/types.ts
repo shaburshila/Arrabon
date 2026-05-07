@@ -233,6 +233,7 @@ export interface ProcessedTransactionRow {
   event_type: string;
   deal_id: string | null;
   hold_applied: boolean | null;
+  compliance_screened_at: string | null;
   processed_at: string;
 }
 
@@ -241,6 +242,7 @@ export interface ProcessedTransactionInsert {
   event_type: string;
   deal_id?: string | null;
   hold_applied?: boolean | null;
+  compliance_screened_at?: string | null;
   processed_at?: string;
 }
 
@@ -248,6 +250,7 @@ export interface ProcessedTransactionUpdate {
   event_type?: string;
   deal_id?: string | null;
   hold_applied?: boolean | null;
+  compliance_screened_at?: string | null;
   processed_at?: string;
 }
 
@@ -752,6 +755,7 @@ export interface Database {
         };
         Returns: {
           already_processed: boolean;
+          compliance_screened_at: string | null;
           deal_id: string | null;
           hold_applied: boolean | null;
         }[];
