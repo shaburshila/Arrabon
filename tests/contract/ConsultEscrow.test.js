@@ -1690,6 +1690,41 @@ describe("ConsultEscrow", function () {
         .to.emit(escrow, "TreasuryFeesWithdrawn")
         .withArgs(outsider.address, fee);
     });
+
+    it("owner can rescue a non-usdc token", async function () {
+      const { owner, outsider, escrow } = await deployFixture();
+      const rescueToken = await ethers.deployContract("MockUSDC");
+      const amount = 25_000_000n;
+
+      await rescueToken.mint(escrow.target, amount);
+
+      await expect(escrow.connect(owner).rescueToken(rescueToken.target, amount))
+        .to.emit(escrow, "TokenRescued")
+        .withArgs(rescueToken.target, owner.address, amount);
+
+      expect(await rescueToken.balanceOf(owner.address)).to.equal(amount);
+      expect(await rescueToken.balanceOf(escrow.target)).to.equal(0n);
+      expect(await rescueToken.balanceOf(outsider.address)).to.equal(0n);
+    });
+
+    it("non-owner cannot rescue tokens", async function () {
+      const { outsider, escrow } = await deployFixture();
+      const rescueToken = await ethers.deployContract("MockUSDC");
+
+      await expect(escrow.connect(outsider).rescueToken(rescueToken.target, 1n)).to.be.revertedWithCustomError(
+        escrow,
+        "CallerNotOwner"
+      );
+    });
+
+    it("owner cannot rescue escrow usdc", async function () {
+      const { owner, token, escrow } = await deployFixture();
+
+      await expect(escrow.connect(owner).rescueToken(token.target, 1n)).to.be.revertedWithCustomError(
+        escrow,
+        "CannotRescueEscrowToken"
+      );
+    });
   });
 
   describe("terminal-state safety and existence", function () {

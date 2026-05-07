@@ -65,6 +65,7 @@ contract ConsultEscrow is ReentrancyGuard {
     error InvalidFundingSignature();
     error LinkExpired();
     error DealPayoutBlocked();
+    error CannotRescueEscrowToken();
     error NoPendingPayout();
     error NoPendingTreasuryFees();
     error CallerNotTreasury();
@@ -84,6 +85,7 @@ contract ConsultEscrow is ReentrancyGuard {
     event TreasuryFeesWithdrawn(address indexed treasury, uint256 amount);
     event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
     event FundingAuthorizerUpdated(address indexed previousAuthorizer, address indexed newAuthorizer);
+    event TokenRescued(address indexed token, address indexed to, uint256 amount);
 
     IERC20 public immutable usdc;
     address public fundingAuthorizer;
@@ -462,6 +464,19 @@ contract ConsultEscrow is ReentrancyGuard {
         usdc.safeTransfer(msg.sender, amount);
 
         emit TreasuryFeesWithdrawn(msg.sender, amount);
+    }
+
+    function rescueToken(address token, uint256 amount) external nonReentrant {
+        if (msg.sender != owner) {
+            revert CallerNotOwner();
+        }
+        if (token == address(usdc)) {
+            revert CannotRescueEscrowToken();
+        }
+
+        IERC20(token).safeTransfer(owner, amount);
+
+        emit TokenRescued(token, owner, amount);
     }
 
     function _getDealOrRevert(uint256 dealId) internal view returns (Deal storage deal) {
