@@ -45,6 +45,8 @@ export interface DealEventsWorkerConfig {
 
 export interface DealEventsWorkerRunSummary {
   alreadyProcessed: number;
+  backlogBlocks: bigint;
+  batchesProcessed: number;
   fromBlock: bigint;
   processed: number;
   skipped: number;
@@ -53,6 +55,8 @@ export interface DealEventsWorkerRunSummary {
 
 export interface SerializedDealEventsWorkerRunSummary {
   alreadyProcessed: number;
+  backlogBlocks: string;
+  batchesProcessed: number;
   fromBlock: string;
   processed: number;
   skipped: number;
@@ -270,8 +274,15 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
   const confirmedHead = latestBlock - config.confirmations;
 
   if (confirmedHead < fromBlock) {
+    console.log("[deal-events-worker] no new blocks to process", {
+      confirmedHead: confirmedHead.toString(10),
+      fromBlock: fromBlock.toString(10),
+    });
+
     return {
       alreadyProcessed: 0,
+      backlogBlocks: BigInt(0),
+      batchesProcessed: 0,
       fromBlock,
       processed: 0,
       skipped: 0,
@@ -279,27 +290,75 @@ export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary>
     };
   }
 
+  const backlogBlocks = confirmedHead - fromBlock + BigInt(1);
+
+  console.log("[deal-events-worker] starting run", {
+    backlogBlocks: backlogBlocks.toString(10),
+    confirmedHead: confirmedHead.toString(10),
+    confirmations: config.confirmations.toString(10),
+    fromBlock: fromBlock.toString(10),
+    maxRange: config.maxRange.toString(10),
+  });
+
   const summary: DealEventsWorkerRunSummary = {
     alreadyProcessed: 0,
+    backlogBlocks,
+    batchesProcessed: 0,
     fromBlock,
     processed: 0,
     skipped: 0,
     toBlock: confirmedHead,
   };
 
+  let batchNumber = 1;
   let rangeStart = fromBlock;
   while (rangeStart <= confirmedHead) {
     const rangeEnd = resolveRangeEnd(rangeStart, confirmedHead, config.maxRange);
+    const lagBlocks = confirmedHead - rangeEnd;
+
+    console.log("[deal-events-worker] batch start", {
+      batchNumber,
+      fromBlock: rangeStart.toString(10),
+      lagBlocks: lagBlocks.toString(10),
+      toBlock: rangeEnd.toString(10),
+    });
+
     const rawLogs = await readAllConfirmedEventLogs({
       fromBlock: rangeStart,
       toBlock: rangeEnd,
     });
+
+    const prevAlreadyProcessed = summary.alreadyProcessed;
+    const prevProcessed = summary.processed;
+    const prevSkipped = summary.skipped;
+
     // Preserve onchain ordering inside each batch before handing events to the sync service.
     await processRawEventLogs(rawLogs, summary);
+
+    console.log("[deal-events-worker] batch done", {
+      alreadyProcessed: summary.alreadyProcessed - prevAlreadyProcessed,
+      batchNumber,
+      processed: summary.processed - prevProcessed,
+      rawEvents: rawLogs.length,
+      skipped: summary.skipped - prevSkipped,
+    });
+
     await advanceDealEventsSyncCursor(rangeEnd);
 
+    summary.batchesProcessed += 1;
+    batchNumber += 1;
     rangeStart = incrementBlock(rangeEnd);
   }
+
+  console.log("[deal-events-worker] run complete", {
+    alreadyProcessed: summary.alreadyProcessed,
+    backlogBlocks: summary.backlogBlocks.toString(10),
+    batchesProcessed: summary.batchesProcessed,
+    fromBlock: summary.fromBlock.toString(10),
+    processed: summary.processed,
+    skipped: summary.skipped,
+    toBlock: summary.toBlock.toString(10),
+  });
 
   await processPendingFundingHoldSweeps();
   await processPendingDenylistHoldSweeps();
@@ -320,6 +379,8 @@ export async function runDealEventsWorkerForTx(
   const fromBlock = receipt.blockNumber;
   const summary: DealEventsWorkerRunSummary = {
     alreadyProcessed: 0,
+    backlogBlocks: BigInt(0),
+    batchesProcessed: 0,
     fromBlock,
     processed: 0,
     skipped: 0,
@@ -360,6 +421,8 @@ export function serializeDealEventsWorkerRunSummary(
 ): SerializedDealEventsWorkerRunSummary {
   return {
     alreadyProcessed: summary.alreadyProcessed,
+    backlogBlocks: summary.backlogBlocks.toString(10),
+    batchesProcessed: summary.batchesProcessed,
     fromBlock: summary.fromBlock.toString(10),
     processed: summary.processed,
     skipped: summary.skipped,

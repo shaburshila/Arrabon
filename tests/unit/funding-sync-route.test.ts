@@ -25,6 +25,8 @@ interface FundingSyncRouteMocks {
     status: "processed" | "pending_confirmations";
     summary: {
       alreadyProcessed: number;
+      backlogBlocks: bigint;
+      batchesProcessed: number;
       fromBlock: bigint;
       processed: number;
       skipped: number;
@@ -33,6 +35,8 @@ interface FundingSyncRouteMocks {
   }>;
   serializeDealEventsWorkerRunSummary: (...args: unknown[]) => {
     alreadyProcessed: number;
+    backlogBlocks: string;
+    batchesProcessed: number;
     fromBlock: string;
     processed: number;
     skipped: number;
@@ -75,6 +79,8 @@ beforeEach(() => {
     status: "processed",
     summary: {
       alreadyProcessed: 0,
+      backlogBlocks: BigInt(0),
+      batchesProcessed: 0,
       fromBlock: BigInt(0),
       processed: 1,
       skipped: 0,
@@ -84,6 +90,8 @@ beforeEach(() => {
   mocks.serializeDealEventsWorkerRunSummary = (...args: unknown[]) => {
     const summary = args[0] as {
       alreadyProcessed: number;
+      backlogBlocks: bigint;
+      batchesProcessed: number;
       fromBlock: bigint;
       processed: number;
       skipped: number;
@@ -92,6 +100,8 @@ beforeEach(() => {
 
     return {
       alreadyProcessed: summary.alreadyProcessed,
+      backlogBlocks: summary.backlogBlocks.toString(),
+      batchesProcessed: summary.batchesProcessed,
       fromBlock: summary.fromBlock.toString(),
       processed: summary.processed,
       skipped: summary.skipped,
@@ -123,6 +133,8 @@ test("tx_hash happy path remains supported", async () => {
     status: "success",
     summary: {
       alreadyProcessed: 0,
+      backlogBlocks: "0",
+      batchesProcessed: 0,
       fromBlock: "0",
       processed: 1,
       skipped: 0,
