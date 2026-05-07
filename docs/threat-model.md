@@ -131,6 +131,7 @@ MVP должен гарантировать:
   - screening completion is persisted via `processed_transactions.compliance_screened_at`; a tx marker without this field set is treated as "screening not finished yet", not as a safe already-processed terminal state
   - `deals.risk_status = Blocked`
   - legal hold on all payout-path backend exchange / prepare endpoints
+  - `confirmRelease` prepare-step now screens both buyer and seller with `action = lifecycle_release` before issuing the execution grant
   - short-lived one-time execution grants for access-controlled payout paths (`confirmRelease`, `adminResolve*`)
   - SIWE-bound exchange step re-checks `issued_to_wallet`, `deal_id`, legal hold, and payout recipient before returning calldata
   - upon `risk_status` transitioning to `Blocked`, deal-events indexer automatically calls `setDealPayoutBlocked(dealId, true)` onchain via indexer wallet — closes the direct-contract bypass window (see C-16)

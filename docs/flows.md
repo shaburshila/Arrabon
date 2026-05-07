@@ -655,8 +655,17 @@ User / Admin                  Backend
   │                            │
   │─── POST /release ─────────►│
   │    (или admin resolve)     │
-  │                            │ access/state gate only
-  │                            │ grant row created (TTL 120s)
+  │                            │ [confirmRelease prepare]
+  │                            │ access/state gate
+  │                            │ screenWalletsBatch([buyer, seller],
+  │                            │   { action: "lifecycle_release", dealId })
+  │                            │ assertDealNotBlocked(dealId)
+  │                            │
+  │                            ├── [blocked]
+  │◄─── 403 COMPLIANCE_BLOCKED ┤   grant не выдаётся
+  │                            │
+  │                            ├── [clean]
+  │                            │   grant row created (TTL 120s)
   │◄─── 200 grant_token ───────┤
   │                            │
   │─── POST /.../execute ─────►│
@@ -689,7 +698,7 @@ User / Admin                  Backend
 
 **Инварианты:**
 - для `confirmRelease` и admin resolve выдача исполнимого calldata перенесена на exchange шаг;
-- два уровня gate: (1) `assertDealNotBlocked` проверяет исторические checks сделки; (2) свежая проверка recipient wallet;
+- для `confirmRelease` compliance gate теперь двухступенчатый: prepare-step screen-ит buyer + seller и проверяет `assertDealNotBlocked`, exchange-step повторно проверяет legal hold и recipient wallet;
 - `autoRelease` остаётся direct-prepare path без grant, но prepare теперь должен быть seller-authenticated.
 
 **Residual risk:** grant-flow сужает stale-window для access-controlled payout path до окна между успешным exchange и фактическим wallet broadcast. Для `autoRelease` отдельный stale-window между prepare и broadcast сохраняется, но actor-surface уже ограничен seller, а не произвольным внешним адресом.

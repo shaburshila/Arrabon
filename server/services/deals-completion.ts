@@ -24,7 +24,11 @@ import {
   consumePayoutExecutionGrant,
   PayoutExecutionGrantsRepositoryError,
 } from "@/server/repositories/payout-execution-grants";
-import { assertDealNotBlocked, screenWalletForDeal } from "@/server/services/compliance";
+import {
+  assertDealNotBlocked,
+  screenWalletForDeal,
+  screenWalletsBatch,
+} from "@/server/services/compliance";
 
 export interface PreparedDealLifecycleResult {
   contract_call: PreparedDealLifecycleCall;
@@ -335,6 +339,18 @@ export async function prepareConfirmReleaseForDeal(
       "RELEASE_DEADLINE_PASSED",
     );
   }
+
+  const screeningContext = {
+    action: "lifecycle_release" as const,
+    actorWallet: currentUser.wallet_address,
+    dealId: context.id,
+  };
+
+  await screenWalletsBatch(
+    [context.buyer_address, context.seller_address],
+    screeningContext,
+  );
+  await assertDealNotBlocked(context.id);
 
   return issueConfirmReleaseGrant(currentUser, context.id, now);
 }

@@ -520,8 +520,18 @@ The buyer window is inclusive at the exact deadline (`now == deadline` is allowe
 Notes:
 
 - grant TTL is currently `120s`
-- this grant step intentionally performs access/state checks only
-- compliance gate happens on the exchange step below
+- this grant step performs access/state checks plus compliance gating for both buyer and seller before issuing the grant
+- the exchange step below still re-runs legal-hold and recipient checks before returning calldata
+
+Errors:
+
+- `400` invalid UUID `:id`
+- `401` no SIWE session
+- `403` session wallet is not the deal buyer
+- `403` `COMPLIANCE_BLOCKED` when buyer or seller is blocked by compliance or the deal is already in legal hold
+- `409` deal not in `ConfirmPending` state
+- `409` release deadline already passed
+- `500` deal timing data invalid (integrity error)
 
 ### `POST /api/deals/:id/release/execute`
 

@@ -50,6 +50,7 @@ const mocks = {
     used_at: '2026-05-05T00:01:00.000Z',
   }),
   getDealActionContextById: async () => null,
+  screenWalletsBatch: async () => [],
   screenWalletForDeal: async () => ({
     normalizedWallet: '0x0000000000000000000000000000000000000001',
     provider: 'local_denylist',
@@ -112,6 +113,7 @@ require.cache[payoutExecutionGrantsRepoPath] = makeEntry(payoutExecutionGrantsRe
 const complianceServicePath = path.resolve(root, 'server/services/compliance.ts');
 require.cache[complianceServicePath] = makeEntry(complianceServicePath, {
   assertDealNotBlocked: (...args) => mocks.assertDealNotBlocked(...args),
+  screenWalletsBatch: (...args) => mocks.screenWalletsBatch(...args),
   screenWalletForDeal: (...args) => mocks.screenWalletForDeal(...args),
 });
 

@@ -18,6 +18,7 @@ interface DealsCompletionMocks {
   createPayoutExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   consumePayoutExecutionGrant: (...args: unknown[]) => Promise<unknown>;
   getDealActionContextById: (...args: unknown[]) => Promise<DealActionContextRow | null>;
+  screenWalletsBatch: (...args: unknown[]) => Promise<unknown>;
   screenWalletForDeal: (...args: unknown[]) => Promise<unknown>;
 }
 
@@ -77,6 +78,7 @@ beforeEach(() => {
   mocks.assertDealNotBlocked = async () => undefined;
   mocks.assertCompliance = () => {};
   mocks.getDealActionContextById = async () => makeContext();
+  mocks.screenWalletsBatch = async () => [];
   mocks.screenWalletForDeal = async () => makeScreeningResult();
 });
 
@@ -187,12 +189,17 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
     );
   });
 
-  test("does not invoke recipient screening during grant issuance", async () => {
-    let complianceCalls = 0;
+  test("screens buyer and seller before grant issuance with lifecycle_release context", async () => {
+    let screenedWallets: unknown = null;
+    let screenedContext: unknown = null;
+    let blockedCheckDealId: unknown = null;
 
-    mocks.screenWalletForDeal = async () => {
-      complianceCalls += 1;
-      return makeScreeningResult();
+    mocks.screenWalletsBatch = async (...args: unknown[]) => {
+      [screenedWallets, screenedContext] = args;
+      return [];
+    };
+    mocks.assertDealNotBlocked = async (...args: unknown[]) => {
+      [blockedCheckDealId] = args;
     };
 
     await prepareConfirmReleaseForDeal(
@@ -201,7 +208,13 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
       DEADLINE,
     );
 
-    assert.equal(complianceCalls, 0);
+    assert.deepEqual(screenedWallets, [BUYER, SELLER]);
+    assert.deepEqual(screenedContext, {
+      action: "lifecycle_release",
+      actorWallet: BUYER,
+      dealId: "deal-id-1",
+    });
+    assert.equal(blockedCheckDealId, "deal-id-1");
   });
 
   test("stores confirm release grant for the authenticated buyer", async () => {
@@ -228,6 +241,36 @@ describe("prepareConfirmReleaseForDeal deadline boundary", () => {
       tokenHash: String(capturedInput && (capturedInput as { tokenHash?: string }).tokenHash),
     });
     assert.match(String((capturedInput as { tokenHash?: string }).tokenHash), /^[0-9a-f]{64}$/);
+  });
+
+  test("blocks prepare when buyer becomes compliance-blocked", async () => {
+    mocks.assertDealNotBlocked = async () => {
+      throw new Error("buyer blocked");
+    };
+
+    await assert.rejects(
+      () => prepareConfirmReleaseForDeal(
+        currentUser,
+        { dealId: "deal-id-1" },
+        DEADLINE,
+      ),
+      /buyer blocked/,
+    );
+  });
+
+  test("blocks prepare when seller becomes compliance-blocked", async () => {
+    mocks.assertDealNotBlocked = async () => {
+      throw new Error("seller blocked");
+    };
+
+    await assert.rejects(
+      () => prepareConfirmReleaseForDeal(
+        currentUser,
+        { dealId: "deal-id-1" },
+        DEADLINE,
+      ),
+      /seller blocked/,
+    );
   });
 
   test("exchange screens seller while keeping buyer as actor", async () => {
