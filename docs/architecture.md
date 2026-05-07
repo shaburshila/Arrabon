@@ -185,6 +185,26 @@ action
 actor_address nullable
 metadata JSONB
 created_at
+
+deal_event_sync_cursors           deal_payout_block_requests
+──────────────────────────────    ──────────────────────────────────────
+name PK (text)                    id PK
+last_indexed_block bigint         deal_id FK → deals
+updated_at                        onchain_deal_id
+                                  blocked
+                                  source (denylist_add)
+                                  status (pending|applied|non_actionable)
+                                  applied_at nullable
+                                  last_error_code / message nullable
+                                  created_at
+
+security_request_attempts (append-only)
+────────────────────────────────────────
+id PK
+scope (siwe_verify|meeting_url_reveal)
+wallet_address
+deal_id FK → deals nullable
+created_at
 ```
 
 **Рисунок 2 — Схема базы данных.**
@@ -228,10 +248,17 @@ Chain events (confirmed)
         ▼
    server/indexer
         │
+        ├── reads last_indexed_block from deal_event_sync_cursors (DB cursor)
         ├── updates deals.status
         ├── inserts processed_transactions (tx_hash UNIQUE,
         │    plus funded screening progress marker)
+        ├── advances deal_event_sync_cursors after each successful batch
+        │    (monotonic SQL path — parallel runs cannot roll cursor back)
         └── appends audit_log
+
+runDealEventsWorker()        — global catch-up; reads and writes DB cursor
+runDealEventsWorkerForTx()   — user fast-path (tx_hash-scoped); does NOT
+                               read or write global cursor; fully isolated
 
 Backend NEVER writes chain state without a confirmed tx.
 Chain is source of truth for deal state.

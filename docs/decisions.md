@@ -46,6 +46,7 @@
 - AML Step 2 models compliance independently from lifecycle state: `deals.risk_status` is a separate axis and does not create any new `deal.status`.
 - AML Step 2 puts `risk_status = Blocked` deals into legal hold for all payout-path prepare endpoints.
 - AML Step 2 requires frontend to render `403 COMPLIANCE_BLOCKED` as an in-place notice rather than redirecting to the global error page.
+- Event sync catch-up persists progress in `deal_event_sync_cursors` (DB cursor, advanced monotonically via `advance_deal_event_sync_cursor` after each successful batch). `CHAIN_SYNC_START_BLOCK` is used only for the initial bootstrap if no cursor row exists. `runDealEventsWorkerForTx(txHash)` does not read or write the global cursor and is fully isolated from catch-up backlog.
 
 ## 3.1 Frozen Compliance Invariants
 
