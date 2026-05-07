@@ -21,6 +21,7 @@ export type DealResolutionType =
   | "buyer_confirmed";
 export type DealPayoutBlockRequestSource = "denylist_add";
 export type DealPayoutBlockRequestStatus = "pending" | "applied" | "non_actionable";
+export type SecurityRequestAttemptScope = "siwe_verify" | "meeting_url_reveal";
 
 export type ComplianceCheckSubjectType = "wallet" | "transaction";
 
@@ -285,6 +286,29 @@ export interface DealPayoutBlockRequestUpdate {
   applied_at?: string | null;
   last_error_code?: string | null;
   last_error_message?: string | null;
+  created_at?: string;
+}
+
+export interface SecurityRequestAttemptRow {
+  id: string;
+  scope: SecurityRequestAttemptScope;
+  wallet_address: string;
+  deal_id: string | null;
+  created_at: string;
+}
+
+export interface SecurityRequestAttemptInsert {
+  id?: string;
+  scope: SecurityRequestAttemptScope;
+  wallet_address: string;
+  deal_id?: string | null;
+  created_at?: string;
+}
+
+export interface SecurityRequestAttemptUpdate {
+  scope?: SecurityRequestAttemptScope;
+  wallet_address?: string;
+  deal_id?: string | null;
   created_at?: string;
 }
 
@@ -589,6 +613,20 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "deal_payout_block_requests_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      security_request_attempts: {
+        Row: SecurityRequestAttemptRow;
+        Insert: SecurityRequestAttemptInsert;
+        Update: SecurityRequestAttemptUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "security_request_attempts_deal_id_fkey";
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";

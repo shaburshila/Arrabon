@@ -7,6 +7,8 @@ export const AUTH_NONCE_TTL_MS = 10 * 60 * 1000;
 // runs before counting recent nonce issuances.
 export const AUTH_NONCE_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 export const AUTH_NONCE_RATE_LIMIT_MAX_REQUESTS = 5;
+export const AUTH_VERIFY_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+export const AUTH_VERIFY_RATE_LIMIT_MAX_REQUESTS = 5;
 
 const SIWE_HEADER_SUFFIX = " wants you to sign in with your Ethereum account:";
 

@@ -184,6 +184,7 @@ MVP должен гарантировать:
 | Access-controlled payout stale-window is narrowed, not eliminated | After grant exchange there is still a residual window before wallet broadcast |
 | Funding stale-window is narrowed, not eliminated | After funding grant exchange there is still a residual window before buyer broadcasts `createAndFundDeal` |
 | `autoRelease` direct-contract bypass window | Closed by automatic `setDealPayoutBlocked` from indexer upon `Blocked` detection (C-16); residual window is indexer confirmation latency only |
+| Accidentally sent non-USDC tokens locked in contract | Mitigated by `rescueToken(address, amount)` — owner-only, blocked for USDC address (see C-24) |
 
 ---
 

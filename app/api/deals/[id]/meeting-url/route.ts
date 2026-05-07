@@ -3,10 +3,19 @@ import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/response";
 import { AuthGuardError, requireUser } from "@/lib/auth/guards";
 import {
+  MEETING_URL_REVEAL_RATE_LIMIT_MAX_REQUESTS,
+  MEETING_URL_REVEAL_RATE_LIMIT_WINDOW_MS,
+} from "@/lib/security/request-throttling";
+import {
   DealValidationError,
   parseDealRouteParams,
 } from "@/lib/validators/deals";
 import { createAuditLogEntry } from "@/server/repositories/audit-log";
+import {
+  countRecentSecurityRequestAttempts,
+  createSecurityRequestAttempt,
+  deleteExpiredSecurityRequestAttempts,
+} from "@/server/repositories/security-request-attempts";
 import {
   DealReadServiceError,
   revealMeetingUrlForDeal,
@@ -46,6 +55,28 @@ export async function GET(
   try {
     const parsedParams = parseDealRouteParams(resolvedParams);
     const currentUser = await requireUser();
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - MEETING_URL_REVEAL_RATE_LIMIT_WINDOW_MS);
+
+    await deleteExpiredSecurityRequestAttempts("meeting_url_reveal", windowStart);
+
+    const recentRevealCount = await countRecentSecurityRequestAttempts({
+      dealId: parsedParams.dealId,
+      scope: "meeting_url_reveal",
+      since: windowStart,
+      walletAddress: currentUser.wallet_address,
+    });
+
+    if (recentRevealCount >= MEETING_URL_REVEAL_RATE_LIMIT_MAX_REQUESTS) {
+      return jsonError("Too many meeting URL reveal attempts. Please try again later.", 429);
+    }
+
+    await createSecurityRequestAttempt({
+      dealId: parsedParams.dealId,
+      scope: "meeting_url_reveal",
+      walletAddress: currentUser.wallet_address,
+    });
+
     const result = await revealMeetingUrlForDeal(currentUser, parsedParams);
 
     return NextResponse.json(result);

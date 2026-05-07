@@ -4,13 +4,19 @@ import assert from "node:assert/strict";
 import { POST } from "../../app/api/auth/siwe/verify/route";
 
 interface AuthSiweVerifyMocks {
+  countRecentSecurityRequestAttempts: (...args: unknown[]) => Promise<number>;
   createAuthSession: (...args: unknown[]) => Promise<{
     expiresAt: Date;
     token: string;
   }>;
+  createSecurityRequestAttempt: (...args: unknown[]) => Promise<unknown>;
   consumeValidNonce: (...args: unknown[]) => Promise<{ id: string } | null>;
+  deleteExpiredSecurityRequestAttempts: (...args: unknown[]) => Promise<void>;
   getOrCreateUser: (...args: unknown[]) => Promise<unknown>;
   isAdminWallet: (...args: unknown[]) => boolean;
+  parseSiweMessage: (...args: unknown[]) => {
+    address: string;
+  };
   resolveAllowedAuthDomains: (...args: unknown[]) => string[];
   setSessionCookie: (...args: unknown[]) => void;
   verifySiweMessage: (...args: unknown[]) => Promise<{
@@ -23,10 +29,18 @@ const mocks = (global as typeof globalThis & { __authSiweVerifyMocks: AuthSiweVe
   .__authSiweVerifyMocks;
 
 beforeEach(() => {
+  mocks.countRecentSecurityRequestAttempts = async () => 0;
   mocks.resolveAllowedAuthDomains = () => ["localhost"];
+  mocks.parseSiweMessage = () => ({
+    address: "0x0000000000000000000000000000000000000001",
+  });
   mocks.verifySiweMessage = async () => ({
     address: "0x0000000000000000000000000000000000000001",
     nonce: "nonce-1",
+  });
+  mocks.deleteExpiredSecurityRequestAttempts = async () => {};
+  mocks.createSecurityRequestAttempt = async () => ({
+    id: "attempt-id-1",
   });
   mocks.consumeValidNonce = async () => ({
     id: "nonce-id-1",
@@ -80,6 +94,39 @@ test("returns a fixed authentication error instead of leaking internal details",
   } finally {
     console.error = originalConsoleError;
   }
+});
+
+test("returns 429 and skips crypto verify when verify rate limit is exceeded", async () => {
+  let verifyCalled = false;
+  mocks.countRecentSecurityRequestAttempts = async () => 5;
+  mocks.verifySiweMessage = async () => {
+    verifyCalled = true;
+    return {
+      address: "0x0000000000000000000000000000000000000001",
+      nonce: "nonce-1",
+    };
+  };
+
+  const request = new Request("http://localhost/api/auth/siwe/verify", {
+    body: JSON.stringify({
+      message: "siwe-message",
+      signature: "0xsig",
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+
+  const response = await POST(request);
+  const body = (await response.json()) as { error: string; ok: boolean };
+
+  assert.equal(response.status, 429);
+  assert.deepEqual(body, {
+    error: "Too many verification attempts. Please try again later.",
+    ok: false,
+  });
+  assert.equal(verifyCalled, false);
 });
 
 test("uses atomic nonce consume in the happy path", async () => {

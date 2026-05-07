@@ -2,7 +2,17 @@ import { NextResponse } from "next/server";
 import { resolveAllowedAuthDomains } from "@/lib/auth/config";
 import { setSessionCookie } from "@/lib/auth/cookies";
 import { createAuthSession, isAdminWallet } from "@/lib/auth/session";
-import { verifySiweMessage } from "@/lib/auth/siwe";
+import {
+  AUTH_VERIFY_RATE_LIMIT_MAX_REQUESTS,
+  AUTH_VERIFY_RATE_LIMIT_WINDOW_MS,
+  parseSiweMessage,
+  verifySiweMessage,
+} from "@/lib/auth/siwe";
+import {
+  countRecentSecurityRequestAttempts,
+  createSecurityRequestAttempt,
+  deleteExpiredSecurityRequestAttempts,
+} from "@/server/repositories/security-request-attempts";
 import { consumeValidNonce } from "@/server/repositories/nonces";
 import { getOrCreateUser } from "@/server/repositories/users";
 
@@ -35,6 +45,27 @@ export async function POST(request: Request) {
   }
 
   try {
+    const parsedMessage = parseSiweMessage(messageValue);
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - AUTH_VERIFY_RATE_LIMIT_WINDOW_MS);
+
+    await deleteExpiredSecurityRequestAttempts("siwe_verify", windowStart);
+
+    const recentVerifyCount = await countRecentSecurityRequestAttempts({
+      scope: "siwe_verify",
+      walletAddress: parsedMessage.address,
+      since: windowStart,
+    });
+
+    if (recentVerifyCount >= AUTH_VERIFY_RATE_LIMIT_MAX_REQUESTS) {
+      return jsonError("Too many verification attempts. Please try again later.", 429);
+    }
+
+    await createSecurityRequestAttempt({
+      scope: "siwe_verify",
+      walletAddress: parsedMessage.address,
+    });
+
     const verifiedMessage = await verifySiweMessage({
       expectedDomains: resolveAllowedAuthDomains(request),
       message: messageValue,
