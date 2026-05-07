@@ -27,10 +27,11 @@ export type FundingStep =
   | "fund_pending"        // fund tx on chain
   | "fund_signature"      // waiting for createAndFundDeal signature
   | "idle"
-  | "indexing"            // waiting for backend to index the deal
+  | "indexing"            // backend syncing deal state
   | "indexing_failed"     // tx confirmed, backend indexing did not converge
   | "preparing"           // calling backend prepare
-  | "succeeded";
+  | "succeeded"
+  | "tx_confirmed";       // tx confirmed onchain, backend sync not yet started
 
 export interface FundingState {
   complianceReasonCode: string | null;
@@ -115,6 +116,10 @@ export interface FundingFlow {
   reset: () => void;
   retryIndexing: () => void;
   state: FundingState;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function useFundingFlow(
@@ -226,13 +231,19 @@ export function useFundingFlow(
       // 5. Wait for on-chain confirmation
       await waitForTx(config, fundHash);
 
-      // 6. Trigger sync once immediately, then poll + re-trigger until deal_id appears
-      set({ step: "indexing" });
+      // 6. Trigger sync burst (3 rapid tx-scoped attempts), then poll until deal_id appears
+      set({ step: "tx_confirmed" });
       const canContinueIndexing = await runSyncTrigger(fundHash);
 
       if (!canContinueIndexing) {
         return;
       }
+
+      await wait(400);
+      if (!(await runSyncTrigger(fundHash))) return;
+
+      await wait(400);
+      if (!(await runSyncTrigger(fundHash))) return;
 
       startPolling((dealId) => {
         set({

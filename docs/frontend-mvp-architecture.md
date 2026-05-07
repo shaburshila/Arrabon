@@ -304,11 +304,27 @@ Refunded — reveal недоступен. Это intentional product decision.
 
 ### Transaction state steps
 
+Funding flow (`FundingStep` in `use-funding-flow.ts`):
+
 ```
-idle → preparing → awaiting_signature → submitting
-     → pending_chain → waiting_backend_sync → succeeded
-                                            ↘ failed
-                                            ↘ compliance_blocked
+idle → preparing → approve_signature → approve_pending
+     → fund_signature → fund_pending
+     → tx_confirmed   (tx landed onchain, backend sync not yet started)
+     → indexing       (backend syncing deal status)
+     → succeeded
+     ↘ indexing_failed
+     ↘ failed
+     ↘ compliance_blocked
+```
+
+Lifecycle actions (`ActionStep` in `use-deal-action.ts`):
+
+```
+idle → preparing → signature → pending_chain
+     → syncing_backend → succeeded
+     ↘ sync_failed
+     ↘ failed
+     ↘ compliance_blocked
 ```
 
 ### Error display rules

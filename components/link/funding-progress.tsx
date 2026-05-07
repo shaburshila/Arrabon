@@ -36,6 +36,7 @@ const activeSteps: FundingStep[] = [
   "approve_pending",
   "fund_signature",
   "fund_pending",
+  "tx_confirmed",
   "indexing",
   "indexing_failed",
   "succeeded",
@@ -46,8 +47,9 @@ const activeStepLabels: Partial<Record<FundingStep, string>> = {
   approve_signature: "Approve USDC in your wallet...",
   fund_pending: "Payment transaction confirming...",
   fund_signature: "Confirm payment in your wallet...",
-  indexing: "Waiting for the deal to appear...",
+  indexing: "Syncing deal status...",
   preparing: "Checking payment state...",
+  tx_confirmed: "Payment confirmed on chain — syncing deal...",
 };
 
 export function FundingProgress({
@@ -85,7 +87,7 @@ export function FundingProgress({
         <p style={activeHelperStyle}>{activeStepLabels[step]}</p>
       )}
 
-      {["fund_pending", "indexing", "indexing_failed", "succeeded"].includes(step) && (
+      {["fund_pending", "tx_confirmed", "indexing", "indexing_failed", "succeeded"].includes(step) && (
         <p style={recoveryHintStyle}>
           You can always find paid consultations in{" "}
           <Link href="/my-deals" style={recoveryLinkStyle}>
@@ -160,6 +162,7 @@ function getActiveProgressKey(step: FundingStep) {
     case "fund_pending":
     case "fund_signature":
       return "fund";
+    case "tx_confirmed":
     case "indexing":
     case "indexing_failed":
       return "confirming";

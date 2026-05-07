@@ -117,7 +117,7 @@ function useSingleAction(
   const syncUntilConverged = useCallback(
     async (txHash: Hex): Promise<boolean> => {
       const MAX_ATTEMPTS = 40;
-      const RETRY_INTERVAL_MS = 2_000;
+      const RETRY_INTERVAL_MS = (attempt: number) => attempt <= 2 ? 500 : 2_000;
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         const syncResult = consultationLinkId
@@ -159,7 +159,7 @@ function useSingleAction(
         }
 
         if (attempt < MAX_ATTEMPTS) {
-          await wait(RETRY_INTERVAL_MS);
+          await wait(RETRY_INTERVAL_MS(attempt));
         }
       }
 
@@ -261,7 +261,7 @@ function useGrantedAction(
   const syncUntilConverged = useCallback(
     async (txHash: Hex): Promise<boolean> => {
       const MAX_ATTEMPTS = 40;
-      const RETRY_INTERVAL_MS = 2_000;
+      const RETRY_INTERVAL_MS = (attempt: number) => attempt <= 2 ? 500 : 2_000;
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         const syncResult = consultationLinkId
@@ -303,7 +303,7 @@ function useGrantedAction(
         }
 
         if (attempt < MAX_ATTEMPTS) {
-          await wait(RETRY_INTERVAL_MS);
+          await wait(RETRY_INTERVAL_MS(attempt));
         }
       }
 

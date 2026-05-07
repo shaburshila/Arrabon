@@ -1073,10 +1073,18 @@ Internal deal events worker trigger. **Не SIWE.** Защищён заголо�
 
 Request: пустое тело.
 
-Response:
+Response `200`:
 
 ```json
-{ "processed": 3, "alreadyProcessed": 0, "errors": 0 }
+{
+  "fromBlock": "100",
+  "toBlock": "104",
+  "backlogBlocks": "5",
+  "batchesProcessed": 3,
+  "processed": 3,
+  "alreadyProcessed": 0,
+  "skipped": 0
+}
 ```
 
 Errors:
@@ -1105,3 +1113,4 @@ Errors:
 | 1.1 | 2026-04-28 | GET /api/deals/:id перенесён в приватные endpoints; добавлен §8 Operational & Internal Endpoints (/health, /private/ping, /funding/sync, /internal/deal-events/sync) |
 | 1.2 | 2026-04-28 | Удалён ошибочный блок "Compliance errors" из GET /api/links/:id |
 | 1.3 | 2026-05-07 | `POST /api/links/:id/funding/sync` ограничен до `tx_hash`-only user contract; `from_block` больше не допускается |
+| 1.4 | 2026-05-07 | `POST /api/internal/deal-events/sync` response обновлён: добавлены поля `backlogBlocks`, `batchesProcessed`, `fromBlock`, `toBlock`, `skipped`; удалено несуществующее поле `errors` |
