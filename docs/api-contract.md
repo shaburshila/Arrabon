@@ -118,6 +118,12 @@ Response:
 
 Side effect: sets `HttpOnly` session cookie.
 
+Errors:
+
+- `400` invalid request body
+- `401` authentication failed or nonce invalid/expired
+- `429` too many verification attempts for this wallet within the current throttle window
+
 ### `POST /api/auth/logout`
 
 Response:
@@ -449,6 +455,7 @@ Errors:
 - `403` session wallet is not buyer or seller
 - `404` deal not found
 - `409` deal not funded yet
+- `429` too many reveal attempts for this `(wallet_address, deal_id)` within the current throttle window
 
 ---
 
@@ -1020,16 +1027,12 @@ Errors:
 
 Post-funding deal indexing trigger. Требует SIWE session. Вызывается frontend-ом после отправки `createAndFundDeal` tx для ускорения индексации.
 
-Request body (optional):
+This user-facing endpoint is `tx_hash`-scoped only. It is not a public trigger for broad chain rescans.
+
+Request body:
 
 ```json
 { "tx_hash": "0xhash..." }
-```
-
-или
-
-```json
-{ "from_block": "40023915" }
 ```
 
 Response `200`:
@@ -1046,8 +1049,10 @@ Response `202` (tx ещё не подтверждён):
 
 Errors:
 
-- `400` invalid `tx_hash` or `from_block`
+- `400` invalid `tx_hash`
+- `400` missing `tx_hash`
 - `401` no SIWE session
+- `403` `from_block` is not allowed for this endpoint
 - `403` `tx_hash` belongs to a different link
 - `409` indexed tx produced no deal
 - `503` indexer temporarily unavailable
@@ -1089,3 +1094,4 @@ Errors:
 | 1.0 | 2026-03-25 | Первичный выпуск |
 | 1.1 | 2026-04-28 | GET /api/deals/:id перенесён в приватные endpoints; добавлен §8 Operational & Internal Endpoints (/health, /private/ping, /funding/sync, /internal/deal-events/sync) |
 | 1.2 | 2026-04-28 | Удалён ошибочный блок "Compliance errors" из GET /api/links/:id |
+| 1.3 | 2026-05-07 | `POST /api/links/:id/funding/sync` ограничен до `tx_hash`-only user contract; `from_block` больше не допускается |

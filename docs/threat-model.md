@@ -168,7 +168,8 @@ MVP должен гарантировать:
 - Провести review solidity contract на reentrancy, authorization, fee accounting, timestamp gates
 - Проверить шифрование `meeting_url` и rotation strategy для secret material
 - Проверить reorg strategy indexer-а
-- Добавить rate limiting для auth and reveal routes
+- Отдельный persistent rate limiting добавлен для `POST /api/auth/siwe/verify` и `GET /api/deals/:id/meeting-url`
+- User-facing `POST /api/links/:id/funding/sync` ограничен до `tx_hash`-only scope; broad chain scan через SIWE route больше не допускается
 - Добавить structured security logging and alerting
 
 ---
@@ -212,3 +213,5 @@ Security assumptions опираются на неизменность следу
 |---|---|---|
 | 1.0 | 2026-03-25 | Первичный выпуск |
 | 1.1 | 2026-04-28 | Добавлены T-08 (sanctions evasion), T-09 (payout to blocked recipient after funding), T-10 (admin bypass of legal hold) |
+| 1.2 | 2026-05-07 | Зафиксирован отдельный persistent rate limiting для `POST /api/auth/siwe/verify` и `GET /api/deals/:id/meeting-url` |
+| 1.3 | 2026-05-07 | Зафиксировано, что user-facing `POST /api/links/:id/funding/sync` работает только в `tx_hash`-scoped режиме |

@@ -59,12 +59,22 @@ SIWE обязательна (cookie сессии + wallet binding):
 - `POST /api/links/:id/funding/prepare`
 - `POST /api/links/:id/funding/sync`
 
+Funding sync scope:
+
+- `POST /api/links/:id/funding/sync` accepts only `tx_hash` for the current link.
+- Broad chain rescans are not exposed through this SIWE route and remain internal-only.
+
 **Deals:**
 - `GET /api/deals/:id`
 - `GET /api/deals/:id/meeting-url`
 - `GET /api/me/deals`
 - `GET /api/deals/:id/dispute-messages`
 - `POST /api/deals/:id/dispute-messages`
+
+Rate limiting:
+
+- `POST /api/auth/siwe/verify` has its own persistent per-wallet throttling, independent from nonce issuance.
+- `GET /api/deals/:id/meeting-url` has its own persistent throttling keyed by `(wallet_address, deal_id)`.
 
 **Lifecycle:**
 - `POST /api/deals/:id/complete`
@@ -193,9 +203,10 @@ Session context, доступный в route handlers (`CurrentUserContext`):
 Следующие интерфейсы заморожены:
 
 - `POST /api/auth/siwe/nonce` → returns nonce payload
-- `POST /api/auth/siwe/verify` → validates signature, sets session cookie
+- `POST /api/auth/siwe/verify` → validates signature, sets session cookie, may return `429` when verify throttling is exceeded
 - `POST /api/auth/logout` → clears session only after successful lookup/revoke or when no active session exists; returns `500` on lookup/revoke failure
 - `GET /api/private/ping` → session probe: returns `{ ok, wallet_address, is_admin, expires_at }`
+- `GET /api/deals/:id/meeting-url` → participant-only reveal, may return `429` when reveal throttling is exceeded
 - session context shape (доступен в route handlers):
   - `wallet_address: string`
   - `is_admin: boolean`
