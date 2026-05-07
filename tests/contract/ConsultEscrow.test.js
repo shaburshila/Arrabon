@@ -5,6 +5,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 describe("ConsultEscrow", function () {
   const MIN_PRICE = 10_000_000n;
   const MAX_PRICE = 1_000_000_000n;
+  const MAX_DURATION_MINUTES = 1440n;
   const FEE_BPS = 200n;
   const FEE_DENOMINATOR = 10_000n;
   const DISPUTE_WINDOW = 48n * 60n * 60n;
@@ -619,6 +620,75 @@ describe("ConsultEscrow", function () {
           durationMinutes: 0n,
           escrow,
           linkHash: ethers.keccak256(ethers.toUtf8Bytes("bad-duration")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidDuration");
+    });
+
+    it("max duration succeeds", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: MAX_DURATION_MINUTES,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("max-duration")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.emit(escrow, "DealFunded");
+    });
+
+    it("duration above max fails", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: MAX_DURATION_MINUTES + 1n,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("too-long-duration")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidDuration");
+    });
+
+    it("max uint duration fails", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: ethers.MaxUint256,
+          escrow,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("max-uint-duration")),
           price: MIN_PRICE,
           scheduledAt,
           seller: seller.address,

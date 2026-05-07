@@ -12,6 +12,7 @@ contract ConsultEscrow is ReentrancyGuard {
     uint256 public constant FEE_DENOMINATOR = 10_000;
     uint256 public constant MIN_PRICE = 10_000_000;
     uint256 public constant MAX_PRICE = 1_000_000_000;
+    uint256 public constant MAX_DURATION_MINUTES = 1440;
     uint256 public constant DISPUTE_WINDOW = 48 hours;
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -255,7 +256,7 @@ contract ConsultEscrow is ReentrancyGuard {
         if (scheduled_at <= block.timestamp) {
             revert InvalidSchedule();
         }
-        if (duration_minutes == 0) {
+        if (duration_minutes == 0 || duration_minutes > MAX_DURATION_MINUTES) {
             revert InvalidDuration();
         }
         if (link_expires_at <= block.timestamp) {

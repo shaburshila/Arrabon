@@ -419,6 +419,7 @@ export function CreateLinkForm({ session }: { session: WalletSessionState }) {
             <FormField label="Duration (min)">
               <TextInput
                 id="duration_minutes"
+                max="1440"
                 min="1"
                 onChange={(e) => setField("duration_minutes", e.target.value)}
                 required
