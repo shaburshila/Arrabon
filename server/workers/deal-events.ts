@@ -28,6 +28,10 @@ import {
   type DealEventProcessingResult,
 } from "@/server/services/deal-events";
 import { processPendingDealRiskRecomputeSweeps } from "@/server/services/compliance";
+import {
+  advanceDealEventsSyncCursor,
+  initializeDealEventsSyncCursorIfMissing,
+} from "@/server/repositories/deal-event-sync-cursors";
 import { getByTxHash } from "@/server/repositories/processed-transactions";
 
 const DEFAULT_CHAIN_SYNC_CONFIRMATIONS = BigInt(12);
@@ -258,11 +262,10 @@ async function processRawEventLogs(
   }
 }
 
-export async function runDealEventsWorker(
-  fromBlockOverride?: bigint,
-): Promise<DealEventsWorkerRunSummary> {
+export async function runDealEventsWorker(): Promise<DealEventsWorkerRunSummary> {
   const config = getDealEventsWorkerConfig();
-  const fromBlock = fromBlockOverride ?? config.fromBlock;
+  const currentCursor = await initializeDealEventsSyncCursorIfMissing(config.fromBlock);
+  const fromBlock = incrementBlock(currentCursor);
   const latestBlock = await dealEventsClient.getBlockNumber();
   const confirmedHead = latestBlock - config.confirmations;
 
@@ -293,6 +296,7 @@ export async function runDealEventsWorker(
     });
     // Preserve onchain ordering inside each batch before handing events to the sync service.
     await processRawEventLogs(rawLogs, summary);
+    await advanceDealEventsSyncCursor(rangeEnd);
 
     rangeStart = incrementBlock(rangeEnd);
   }

@@ -33,6 +33,24 @@ export type DealRiskRecomputeRequestSource =
 export type DealRiskRecomputeRequestStatus = "pending" | "applied";
 export type SecurityRequestAttemptScope = "siwe_verify" | "meeting_url_reveal";
 
+export interface DealEventSyncCursorRow {
+  name: string;
+  last_indexed_block: string;
+  updated_at: string;
+}
+
+export interface DealEventSyncCursorInsert {
+  name: string;
+  last_indexed_block: string;
+  updated_at?: string;
+}
+
+export interface DealEventSyncCursorUpdate {
+  name?: string;
+  last_indexed_block?: string;
+  updated_at?: string;
+}
+
 export type ComplianceCheckSubjectType = "wallet" | "transaction";
 
 export type ComplianceCheckResult = "Clear" | "Review" | "Blocked";
@@ -650,6 +668,12 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      deal_event_sync_cursors: {
+        Row: DealEventSyncCursorRow;
+        Insert: DealEventSyncCursorInsert;
+        Update: DealEventSyncCursorUpdate;
+        Relationships: [];
       };
       deal_payout_block_requests: {
         Row: DealPayoutBlockRequestRow;
