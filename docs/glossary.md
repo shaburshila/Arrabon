@@ -108,7 +108,7 @@
 
 **paymaster** — Coinbase Paymaster для спонсирования газа. Используется через backend proxy с allowlist методов. При недоступности — UI показывает ошибку; tx не отправляется; user-paid fallback в MVP отсутствует.
 
-**processed_transactions** — DB таблица с `tx_hash UNIQUE`. Обеспечивает идемпотентность: повторная обработка одного события не меняет state.
+**processed_transactions** — DB таблица с `tx_hash UNIQUE`. Обеспечивает идемпотентность indexer-а: повторная обработка одного события не создаёт дубликаты state transition. Для confirmed `Funded` событий дополнительно хранит `compliance_screened_at`, чтобы post-funding screening можно было безопасно возобновить после сбоя, а не считать tx “полностью обработанным” только по факту наличия маркера.
 
 ---
 
@@ -124,7 +124,7 @@
 
 **scheduled_at** — UTC timestamp запланированного начала консультации. Инвариант: `scheduled_at > expires_at > now`.
 
-**screenWalletsBatch** — backend функция, вызывающая всех трёх compliance провайдеров для списка wallet адресов. Fail-closed: недоступность любого провайдера → `Blocked / PROVIDER_UNAVAILABLE`.
+**screenWalletsBatch** — backend функция, вызывающая всех трёх compliance провайдеров для списка wallet адресов. Fail-closed: недоступность любого провайдера → `Blocked / PROVIDER_UNAVAILABLE`. Если screening связан со сделкой (`ctx.dealId != null`), перед записью `compliance_checks` backend создаёт pending marker в `deal_risk_recompute_requests`, чтобы `deals.risk_status` можно было безопасно довести до актуального состояния даже после partial DB write или сбоя recompute.
 
 **Seller** — см. Expert.
 

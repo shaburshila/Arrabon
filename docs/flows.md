@@ -602,17 +602,23 @@ Indexer worker               Backend / Compliance Service
   ├───────────────────────────►│
   │                            │ processConfirmedFundedEventOnce()
   │                            │   → insert deal (risk_status = 'Clear' по умолчанию)
+  │                            │   → insert processed_transactions marker
+  │                            │     with compliance_screened_at = null
   │                            │   → appendFundingSyncAuditLog()
   │                            │
   │                            │ screenWalletsBatch(
   │                            │   [buyerAddress, sellerAddress],
   │                            │   { action: "post_funding_sync", dealId }
   │                            │ )
+  │                            │   → enqueue deal_risk_recompute_requests
+  │                            │     (deal_id, source='post_funding_sync', status='pending')
   │                            │   → persistProviderResults()
   │                            │     (compliance_checks rows)
   │                            │   → recomputeDealRiskStatus(dealId)
   │                            │     (resolves worst-case из всех checks)
   │                            │     → updateRiskStatusById(dealId, newStatus)
+  │                            │   → mark deal_risk_recompute_requests applied
+  │                            │   → markProcessedTransactionComplianceScreened()
   │                            │
   │                            ├── [newStatus: Blocked]
   │                            │   appendBlockedPostFundingAuditLog()
@@ -628,6 +634,10 @@ Indexer worker               Backend / Compliance Service
 - `deal.status` остаётся `Funded` независимо от результата rescreening;
 - `deal.risk_status = Blocked` → legal hold: все payout-path endpoints (`confirmRelease`, `autoRelease`, `adminResolveRelease`, `adminResolveRefund`) возвращают `403 COMPLIANCE_BLOCKED`;
 - `risk_status = Blocked` — sticky; автоматический переход обратно в `Clear` запрещён (C-13).
+- наличие строки в `processed_transactions` само по себе больше не означает “post-funding screening завершён”; для этого `compliance_screened_at` должен быть non-null;
+- если первый post-funding screening упал после insert marker-а, следующий worker run обязан возобновить screening по уже существующему `tx_hash`, а не делать ранний `already_processed` return;
+- resume path не дублирует `appendFundingSyncAuditLog()`: funding sync audit log пишется только на первичном funded-path, а не на повторном screening resume.
+- partial запись `compliance_checks` больше не оставляет silent stale `risk_status`: pending marker в `deal_risk_recompute_requests` остаётся `pending` до успешного `recomputeDealRiskStatus(...)` и подхватывается sweep-логикой worker-а.
 
 ---
 

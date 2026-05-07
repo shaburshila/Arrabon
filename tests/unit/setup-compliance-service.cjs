@@ -33,6 +33,14 @@ class DealsRepositoryError extends Error {
   }
 }
 
+class DealRiskRecomputeRequestsRepositoryError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'DealRiskRecomputeRequestsRepositoryError';
+    this.code = code;
+  }
+}
+
 const mocks = {
   provider: {
     id: 'composite',
@@ -77,6 +85,11 @@ const mocks = {
     tx_hash: null,
     created_at: '2026-04-27T00:00:00.000Z',
   }),
+  enqueueDealRiskRecomputeRequest: async () => undefined,
+  listPendingDealRiskRecomputeRequests: async () => [],
+  markDealRiskRecomputeRequestApplied: async () => undefined,
+  markDealRiskRecomputeRequestAppliedByDealSource: async () => undefined,
+  markDealRiskRecomputeRequestFailure: async () => undefined,
   updateRiskStatusById: async (id, riskStatus) => ({
     id,
     consultation_link_id: 'link-id-1',
@@ -97,7 +110,12 @@ const mocks = {
   }),
   calls: {
     createComplianceCheck: [],
+    enqueueDealRiskRecomputeRequest: [],
     getById: [],
+    listPendingDealRiskRecomputeRequests: [],
+    markDealRiskRecomputeRequestApplied: [],
+    markDealRiskRecomputeRequestAppliedByDealSource: [],
+    markDealRiskRecomputeRequestFailure: [],
     monitoringEvents: [],
     providerUnavailableEvents: [],
     updateRiskStatusById: [],
@@ -146,6 +164,11 @@ const mocks = {
       tx_hash: null,
       created_at: '2026-04-27T00:00:00.000Z',
     });
+    this.enqueueDealRiskRecomputeRequest = async () => undefined;
+    this.listPendingDealRiskRecomputeRequests = async () => [];
+    this.markDealRiskRecomputeRequestApplied = async () => undefined;
+    this.markDealRiskRecomputeRequestAppliedByDealSource = async () => undefined;
+    this.markDealRiskRecomputeRequestFailure = async () => undefined;
     this.updateRiskStatusById = async (id, riskStatus) => ({
       id,
       consultation_link_id: 'link-id-1',
@@ -166,7 +189,12 @@ const mocks = {
     });
     this.calls = {
       createComplianceCheck: [],
+      enqueueDealRiskRecomputeRequest: [],
       getById: [],
+      listPendingDealRiskRecomputeRequests: [],
+      markDealRiskRecomputeRequestApplied: [],
+      markDealRiskRecomputeRequestAppliedByDealSource: [],
+      markDealRiskRecomputeRequestFailure: [],
       monitoringEvents: [],
       providerUnavailableEvents: [],
       updateRiskStatusById: [],
@@ -218,5 +246,30 @@ require.cache[dealsRepoPath] = makeEntry(dealsRepoPath, {
   updateRiskStatusById: (...args) => {
     mocks.calls.updateRiskStatusById.push(args);
     return mocks.updateRiskStatusById(...args);
+  },
+});
+
+const dealRiskRecomputeRepoPath = path.resolve(root, 'server/repositories/deal-risk-recompute-requests.ts');
+require.cache[dealRiskRecomputeRepoPath] = makeEntry(dealRiskRecomputeRepoPath, {
+  DealRiskRecomputeRequestsRepositoryError,
+  enqueueDealRiskRecomputeRequest: (...args) => {
+    mocks.calls.enqueueDealRiskRecomputeRequest.push(args[0]);
+    return mocks.enqueueDealRiskRecomputeRequest(...args);
+  },
+  listPendingDealRiskRecomputeRequests: (...args) => {
+    mocks.calls.listPendingDealRiskRecomputeRequests.push(args);
+    return mocks.listPendingDealRiskRecomputeRequests(...args);
+  },
+  markDealRiskRecomputeRequestApplied: (...args) => {
+    mocks.calls.markDealRiskRecomputeRequestApplied.push(args);
+    return mocks.markDealRiskRecomputeRequestApplied(...args);
+  },
+  markDealRiskRecomputeRequestAppliedByDealSource: (...args) => {
+    mocks.calls.markDealRiskRecomputeRequestAppliedByDealSource.push(args[0]);
+    return mocks.markDealRiskRecomputeRequestAppliedByDealSource(...args);
+  },
+  markDealRiskRecomputeRequestFailure: (...args) => {
+    mocks.calls.markDealRiskRecomputeRequestFailure.push(args);
+    return mocks.markDealRiskRecomputeRequestFailure(...args);
   },
 });

@@ -27,6 +27,7 @@ import {
   processConfirmedDealEvent,
   type DealEventProcessingResult,
 } from "@/server/services/deal-events";
+import { processPendingDealRiskRecomputeSweeps } from "@/server/services/compliance";
 import { getByTxHash } from "@/server/repositories/processed-transactions";
 
 const DEFAULT_CHAIN_SYNC_CONFIRMATIONS = BigInt(12);
@@ -298,6 +299,7 @@ export async function runDealEventsWorker(
 
   await processPendingFundingHoldSweeps();
   await processPendingDenylistHoldSweeps();
+  await processPendingDealRiskRecomputeSweeps();
 
   return summary;
 }

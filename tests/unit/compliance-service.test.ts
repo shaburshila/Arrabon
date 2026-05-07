@@ -6,6 +6,7 @@ import type { ComplianceCheckRow, DealRow } from "@/lib/db/types";
 import {
   assertDealNotBlocked,
   ComplianceServiceError,
+  processPendingDealRiskRecomputeSweeps,
   recomputeDealRiskStatus,
   screenWalletForDeal,
   screenWalletsBatch,
@@ -14,15 +15,25 @@ import {
 interface ComplianceServiceMocks {
   calls: {
     createComplianceCheck: Array<Record<string, unknown>>;
+    enqueueDealRiskRecomputeRequest: Array<Record<string, unknown>>;
     getById: string[];
+    listPendingDealRiskRecomputeRequests: unknown[][];
+    markDealRiskRecomputeRequestApplied: unknown[][];
+    markDealRiskRecomputeRequestAppliedByDealSource: Array<Record<string, unknown>>;
+    markDealRiskRecomputeRequestFailure: unknown[][];
     monitoringEvents: Array<Record<string, unknown>>;
     providerUnavailableEvents: Array<Record<string, unknown>>;
     updateRiskStatusById: Array<[string, DealRow["risk_status"]]>;
   };
   createComplianceCheck: (...args: unknown[]) => Promise<unknown>;
+  enqueueDealRiskRecomputeRequest: (...args: unknown[]) => Promise<void>;
   findBlockedByDeal: (...args: unknown[]) => Promise<ComplianceCheckRow[]>;
   findByDeal: (...args: unknown[]) => Promise<ComplianceCheckRow[]>;
   getById: (...args: unknown[]) => Promise<DealRow | null>;
+  listPendingDealRiskRecomputeRequests: (...args: unknown[]) => Promise<unknown[]>;
+  markDealRiskRecomputeRequestApplied: (...args: unknown[]) => Promise<void>;
+  markDealRiskRecomputeRequestAppliedByDealSource: (...args: unknown[]) => Promise<void>;
+  markDealRiskRecomputeRequestFailure: (...args: unknown[]) => Promise<void>;
   provider: {
     id: "composite";
     screenWallet: (address: string) => Promise<unknown>;
@@ -307,6 +318,7 @@ describe("screenWalletsBatch", () => {
       walletCount: 2,
     });
     assert.equal("reasonCode" in mocks.calls.monitoringEvents[0], false);
+    assert.equal(mocks.calls.enqueueDealRiskRecomputeRequest.length, 0);
   });
 
   test("recomputes deal risk status after persisting batch results for a deal", async () => {
@@ -355,8 +367,16 @@ describe("screenWalletsBatch", () => {
     });
 
     assert.equal(results.length, 1);
+    assert.deepEqual(mocks.calls.enqueueDealRiskRecomputeRequest, [{
+      dealId: "deal-id-1",
+      source: "post_funding_sync",
+    }]);
     assert.deepEqual(mocks.calls.getById, ["deal-id-1"]);
     assert.deepEqual(mocks.calls.updateRiskStatusById, [["deal-id-1", "Blocked"]]);
+    assert.deepEqual(mocks.calls.markDealRiskRecomputeRequestAppliedByDealSource, [{
+      dealId: "deal-id-1",
+      source: "post_funding_sync",
+    }]);
   });
 
   test("records provider_unavailable events per wallet and provider in batch flow", async () => {
@@ -487,6 +507,54 @@ describe("screenWalletsBatch", () => {
     assert.equal(mocks.calls.getById.length, 0);
     assert.equal(mocks.calls.updateRiskStatusById.length, 0);
     assert.equal(mocks.calls.monitoringEvents.length, 1);
+    assert.deepEqual(mocks.calls.enqueueDealRiskRecomputeRequest, [{
+      dealId: "deal-id-1",
+      source: "funding_prepare",
+    }]);
+    assert.equal(mocks.calls.markDealRiskRecomputeRequestAppliedByDealSource.length, 0);
+  });
+
+  test("recomputes immediately and marks queue applied for single-wallet deal screening", async () => {
+    mocks.provider.screenWallet = async () =>
+      makeCompositeResult([
+        makeProviderResult("chainalysis_sanctions_oracle"),
+        makeProviderResult("usdc_blacklist"),
+        makeProviderResult("local_denylist"),
+      ]);
+    mocks.findByDeal = async () => [makeCheck("Review", "FRAUD_SIGNAL")];
+    mocks.getById = async () => ({
+      id: "deal-id-1",
+      consultation_link_id: "link-id-1",
+      onchain_deal_id: "1",
+      buyer_address: BUYER,
+      seller_address: SELLER,
+      status: "ConfirmPending",
+      risk_status: "Clear",
+      funded_at: null,
+      completed_at: null,
+      released_at: null,
+      resolution_type: null,
+      resolved_at: null,
+      resolved_by_wallet: null,
+      resolved_from_status: null,
+      tx_hash: null,
+      created_at: "2026-04-27T00:00:00.000Z",
+    });
+
+    await screenWalletForDeal(BUYER, {
+      action: "lifecycle_release",
+      actorWallet: BUYER,
+      dealId: "deal-id-1",
+    });
+
+    assert.deepEqual(mocks.calls.enqueueDealRiskRecomputeRequest, [{
+      dealId: "deal-id-1",
+      source: "lifecycle_release",
+    }]);
+    assert.deepEqual(mocks.calls.markDealRiskRecomputeRequestAppliedByDealSource, [{
+      dealId: "deal-id-1",
+      source: "lifecycle_release",
+    }]);
   });
 
   test("records duration when provider screening fails before persistence", async () => {
@@ -518,6 +586,72 @@ describe("screenWalletsBatch", () => {
       walletCount: 1,
     });
     assert.equal(typeof mocks.calls.monitoringEvents[0].durationMs, "number");
+  });
+});
+
+describe("processPendingDealRiskRecomputeSweeps", () => {
+  test("recomputes pending requests and marks them applied", async () => {
+    mocks.listPendingDealRiskRecomputeRequests = async () => [{
+      id: "request-1",
+      deal_id: "deal-id-1",
+      source: "post_funding_sync",
+      status: "pending",
+      applied_at: null,
+      last_error_code: null,
+      last_error_message: null,
+      created_at: "2026-04-27T00:00:00.000Z",
+    }];
+    mocks.getById = async () => ({
+      id: "deal-id-1",
+      consultation_link_id: "link-id-1",
+      onchain_deal_id: "1",
+      buyer_address: BUYER,
+      seller_address: SELLER,
+      status: "Funded",
+      risk_status: "Clear",
+      funded_at: null,
+      completed_at: null,
+      released_at: null,
+      resolution_type: null,
+      resolved_at: null,
+      resolved_by_wallet: null,
+      resolved_from_status: null,
+      tx_hash: null,
+      created_at: "2026-04-27T00:00:00.000Z",
+    });
+    mocks.findByDeal = async () => [makeCheck("Blocked", "OFAC_SANCTIONS")];
+
+    await processPendingDealRiskRecomputeSweeps();
+
+    assert.equal(mocks.calls.listPendingDealRiskRecomputeRequests.length, 1);
+    assert.deepEqual(mocks.calls.updateRiskStatusById, [["deal-id-1", "Blocked"]]);
+    assert.deepEqual(mocks.calls.markDealRiskRecomputeRequestApplied, [["request-1"]]);
+    assert.equal(mocks.calls.markDealRiskRecomputeRequestFailure.length, 0);
+  });
+
+  test("keeps pending requests when recompute fails", async () => {
+    mocks.listPendingDealRiskRecomputeRequests = async () => [{
+      id: "request-1",
+      deal_id: "deal-id-1",
+      source: "post_funding_sync",
+      status: "pending",
+      applied_at: null,
+      last_error_code: null,
+      last_error_message: null,
+      created_at: "2026-04-27T00:00:00.000Z",
+    }];
+    mocks.findByDeal = async () => {
+      throw new Error("db read failed");
+    };
+
+    await processPendingDealRiskRecomputeSweeps();
+
+    assert.equal(mocks.calls.markDealRiskRecomputeRequestApplied.length, 0);
+    assert.deepEqual(mocks.calls.markDealRiskRecomputeRequestFailure, [[
+      "request-1",
+      "RISK_STATUS_RECOMPUTE_FAILED",
+      "Failed to load compliance history for deal.",
+    ]]);
   });
 });
 

@@ -13,6 +13,7 @@ import type {
 import { extractProviderResultsFromCompositeResult } from "@/lib/compliance/types";
 import type {
   ComplianceCheckRow,
+  DealRiskRecomputeRequestSource,
   DealRiskStatus,
 } from "@/lib/db/types";
 import {
@@ -26,6 +27,15 @@ import {
   getById,
   updateRiskStatusById,
 } from "@/server/repositories/deals";
+import type { ComplianceScreeningAction } from "@/lib/compliance/types";
+import {
+  DealRiskRecomputeRequestsRepositoryError,
+  enqueueDealRiskRecomputeRequest,
+  listPendingDealRiskRecomputeRequests,
+  markDealRiskRecomputeRequestApplied,
+  markDealRiskRecomputeRequestAppliedByDealSource,
+  markDealRiskRecomputeRequestFailure,
+} from "@/server/repositories/deal-risk-recompute-requests";
 import { ComplianceBlockedError } from "@/lib/compliance/error-mapping";
 import type { BlockingReasonCode } from "@/lib/compliance/types";
 
@@ -90,6 +100,98 @@ function compareBlockedChecks(left: ComplianceCheckRow, right: ComplianceCheckRo
 
 function getCompositeProvider() {
   return createCompositeComplianceProvider();
+}
+
+function resolveDealRiskRecomputeSource(
+  action: ComplianceScreeningAction,
+): DealRiskRecomputeRequestSource | null {
+  switch (action) {
+    case "post_funding_sync":
+    case "funding_prepare":
+    case "link_create":
+    case "lifecycle_complete":
+    case "lifecycle_release":
+    case "lifecycle_auto_release":
+    case "admin_resolve_release":
+    case "admin_resolve_refund":
+      return action;
+  }
+}
+
+async function ensureDealRiskRecomputePending(
+  ctx: ComplianceScreeningContext,
+): Promise<DealRiskRecomputeRequestSource | null> {
+  if (!ctx.dealId) {
+    return null;
+  }
+
+  const source = resolveDealRiskRecomputeSource(ctx.action);
+
+  if (!source) {
+    throw new ComplianceServiceError(
+      `Compliance action ${ctx.action} cannot schedule deal risk recompute.`,
+      "RISK_STATUS_RECOMPUTE_SCHEDULE_FAILED",
+    );
+  }
+
+  try {
+    await enqueueDealRiskRecomputeRequest({
+      dealId: ctx.dealId,
+      source,
+    });
+  } catch (error) {
+    if (error instanceof DealRiskRecomputeRequestsRepositoryError) {
+      throw new ComplianceServiceError(
+        "Failed to schedule deal risk recompute.",
+        "RISK_STATUS_RECOMPUTE_SCHEDULE_FAILED",
+        error,
+      );
+    }
+
+    throw new ComplianceServiceError(
+      "Failed to schedule deal risk recompute.",
+      "RISK_STATUS_RECOMPUTE_SCHEDULE_FAILED",
+      error,
+    );
+  }
+
+  return source;
+}
+
+async function recomputeDealRiskStatusWithPendingMarker(
+  ctx: ComplianceScreeningContext,
+  source: DealRiskRecomputeRequestSource | null,
+): Promise<void> {
+  if (!ctx.dealId) {
+    return;
+  }
+
+  await recomputeDealRiskStatus(ctx.dealId);
+
+  if (!source) {
+    return;
+  }
+
+  try {
+    await markDealRiskRecomputeRequestAppliedByDealSource({
+      dealId: ctx.dealId,
+      source,
+    });
+  } catch (error) {
+    if (error instanceof DealRiskRecomputeRequestsRepositoryError) {
+      throw new ComplianceServiceError(
+        "Failed to mark deal risk recompute as applied.",
+        "RISK_STATUS_RECOMPUTE_SCHEDULE_FAILED",
+        error,
+      );
+    }
+
+    throw new ComplianceServiceError(
+      "Failed to mark deal risk recompute as applied.",
+      "RISK_STATUS_RECOMPUTE_SCHEDULE_FAILED",
+      error,
+    );
+  }
 }
 
 async function persistProviderResults(
@@ -200,11 +302,9 @@ export async function screenWalletForDeal(
 
   const providerResults = extractProviderResultsOrThrow(result);
   emitProviderUnavailableEvents(providerResults, ctx, 1);
+  const recomputeSource = await ensureDealRiskRecomputePending(ctx);
   await persistProviderResults(providerResults, ctx);
-
-  if (ctx.dealId) {
-    await recomputeDealRiskStatus(ctx.dealId);
-  }
+  await recomputeDealRiskStatusWithPendingMarker(ctx, recomputeSource);
 
   return result;
 }
@@ -246,11 +346,9 @@ export async function screenWalletsBatch(
 
   const providerResults = results.flatMap((result) => extractProviderResultsOrThrow(result));
   emitProviderUnavailableEvents(providerResults, ctx, wallets.length);
+  const recomputeSource = await ensureDealRiskRecomputePending(ctx);
   await persistProviderResults(providerResults, ctx);
-
-  if (ctx.dealId) {
-    await recomputeDealRiskStatus(ctx.dealId);
-  }
+  await recomputeDealRiskStatusWithPendingMarker(ctx, recomputeSource);
 
   return results;
 }
@@ -328,6 +426,29 @@ export async function recomputeDealRiskStatus(dealId: string): Promise<DealRiskS
       "RISK_STATUS_RECOMPUTE_FAILED",
       error,
     );
+  }
+}
+
+export async function processPendingDealRiskRecomputeSweeps(): Promise<void> {
+  const pendingRequests = await listPendingDealRiskRecomputeRequests();
+
+  for (const request of pendingRequests) {
+    try {
+      await recomputeDealRiskStatus(request.deal_id);
+      await markDealRiskRecomputeRequestApplied(request.id);
+    } catch (error) {
+      await markDealRiskRecomputeRequestFailure(
+        request.id,
+        error instanceof Error && "code" in error && typeof error.code === "string"
+          ? error.code
+          : error instanceof Error
+            ? error.name
+            : "RISK_STATUS_RECOMPUTE_FAILED",
+        error instanceof Error
+          ? error.message
+          : "Failed to recompute deal risk status.",
+      );
+    }
   }
 }
 

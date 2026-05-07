@@ -196,6 +196,7 @@ Transaction-level screening в shipped MVP не используется. Ист
 - `risk_status` на уровне сделки
 - pre-money seller/buyer gates
 - post-funding rescreening + legal hold
+- deferred risk-status recompute recovery через `deal_risk_recompute_requests`, чтобы partial write в `compliance_checks` не оставлял сделку с устаревшим `risk_status`
 - payout-path legal hold для lifecycle и admin resolve
 - canonical `403 COMPLIANCE_BLOCKED`
 - frontend in-place compliance notice без redirect

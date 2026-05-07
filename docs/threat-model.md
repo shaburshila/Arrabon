@@ -128,6 +128,7 @@ MVP должен гарантировать:
 - Impact: illegal release/refund from escrow
 - Mitigation:
   - post-funding rescreening on confirmed `Funded`
+  - screening completion is persisted via `processed_transactions.compliance_screened_at`; a tx marker without this field set is treated as "screening not finished yet", not as a safe already-processed terminal state
   - `deals.risk_status = Blocked`
   - legal hold on all payout-path backend exchange / prepare endpoints
   - short-lived one-time execution grants for access-controlled payout paths (`confirmRelease`, `adminResolve*`)

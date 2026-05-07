@@ -124,6 +124,16 @@ created_at                        resolved_from_status
                                   tx_hash
                                   created_at
 
+processed_transactions            deal_risk_recompute_requests
+──────────────────────────────    ──────────────────────────────────────
+tx_hash UNIQUE                    id PK
+event_type                        deal_id FK → deals
+deal_id FK → deals                source
+hold_applied                      status (pending|applied)
+compliance_screened_at            applied_at
+processed_at                      last_error_code / message
+                                  created_at
+
 users                             sessions
 ─────────────────────             ─────────────────────────────
 id PK                             id PK
@@ -219,7 +229,8 @@ Chain events (confirmed)
    server/indexer
         │
         ├── updates deals.status
-        ├── inserts processed_transactions (tx_hash UNIQUE)
+        ├── inserts processed_transactions (tx_hash UNIQUE,
+        │    plus funded screening progress marker)
         └── appends audit_log
 
 Backend NEVER writes chain state without a confirmed tx.
@@ -298,7 +309,7 @@ Backend is source of truth for link metadata and meeting_url.
 | F-13 | **Offchain cancel до funding** — нет onchain cancel | Зафиндированная сделка отменяется только через dispute |
 | F-14 | **Base Pay не используется** в MVP как payment rail | ТЗ явно исключает |
 | F-15 | **`deals.consultation_link_id UNIQUE`** — одна ссылка = одна сделка в DB | Дублирует onchain `link_hash`; двойная защита |
-| F-16 | **`processed_transactions.tx_hash UNIQUE`** — идемпотентный indexer | Повторная обработка события не меняет state |
+| F-16 | **`processed_transactions.tx_hash UNIQUE`** — идемпотентный indexer | Повторная обработка события не меняет state; для `Funded` дополнительно хранится `compliance_screened_at`, чтобы post-funding screening можно было возобновить после сбоя |
 | F-17 | **Все timestamps в UTC** | Единственный формат хранения; timezone — display only |
 | F-18 | **`markCompleted` доступен продавцу с `scheduled_at`** | Buyer window стартует не раньше начала слота; fixed deadline считается от `scheduled_at + duration` |
 | F-19 | **Лимиты сделки $10–$1000 USDC** | Enforced в контракте при `createAndFundDeal` |

@@ -21,6 +21,16 @@ export type DealResolutionType =
   | "buyer_confirmed";
 export type DealPayoutBlockRequestSource = "denylist_add";
 export type DealPayoutBlockRequestStatus = "pending" | "applied" | "non_actionable";
+export type DealRiskRecomputeRequestSource =
+  | "post_funding_sync"
+  | "funding_prepare"
+  | "link_create"
+  | "lifecycle_complete"
+  | "lifecycle_release"
+  | "lifecycle_auto_release"
+  | "admin_resolve_release"
+  | "admin_resolve_refund";
+export type DealRiskRecomputeRequestStatus = "pending" | "applied";
 export type SecurityRequestAttemptScope = "siwe_verify" | "meeting_url_reveal";
 
 export type ComplianceCheckSubjectType = "wallet" | "transaction";
@@ -286,6 +296,38 @@ export interface DealPayoutBlockRequestUpdate {
   blocked?: boolean;
   source?: DealPayoutBlockRequestSource;
   status?: DealPayoutBlockRequestStatus;
+  applied_at?: string | null;
+  last_error_code?: string | null;
+  last_error_message?: string | null;
+  created_at?: string;
+}
+
+export interface DealRiskRecomputeRequestRow {
+  id: string;
+  deal_id: string;
+  source: DealRiskRecomputeRequestSource;
+  status: DealRiskRecomputeRequestStatus;
+  applied_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  created_at: string;
+}
+
+export interface DealRiskRecomputeRequestInsert {
+  id?: string;
+  deal_id: string;
+  source: DealRiskRecomputeRequestSource;
+  status?: DealRiskRecomputeRequestStatus;
+  applied_at?: string | null;
+  last_error_code?: string | null;
+  last_error_message?: string | null;
+  created_at?: string;
+}
+
+export interface DealRiskRecomputeRequestUpdate {
+  deal_id?: string;
+  source?: DealRiskRecomputeRequestSource;
+  status?: DealRiskRecomputeRequestStatus;
   applied_at?: string | null;
   last_error_code?: string | null;
   last_error_message?: string | null;
@@ -616,6 +658,20 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "deal_payout_block_requests_deal_id_fkey";
+            columns: ["deal_id"];
+            isOneToOne: false;
+            referencedRelation: "deals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deal_risk_recompute_requests: {
+        Row: DealRiskRecomputeRequestRow;
+        Insert: DealRiskRecomputeRequestInsert;
+        Update: DealRiskRecomputeRequestUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "deal_risk_recompute_requests_deal_id_fkey";
             columns: ["deal_id"];
             isOneToOne: false;
             referencedRelation: "deals";
