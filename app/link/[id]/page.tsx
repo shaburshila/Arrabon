@@ -3,13 +3,16 @@
 // /link/[id] — public link page + funding flow.
 // Handles: display, wallet connect, SIWE, fund, post-fund polling, deal redirect.
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { useLinkPage } from "@/hooks/use-link-page";
 import { useFundingFlow } from "@/hooks/use-funding-flow";
+import {
+  shouldShowConsumedLinkPrivateNotice,
+} from "@/app/link/[id]/consumed-link-state";
 
 import { LinkSummary } from "@/components/link/link-summary";
 import { LinkActionCard } from "@/components/link/link-action-card";
@@ -23,7 +26,6 @@ export default function LinkPage() {
 
   const session = useWalletSessionContext();
   const linkPage = useLinkPage(linkId, session.address);
-  const consumedIndexingPollingStartedRef = useRef(false);
 
   const handleDealIndexed = useCallback(
     (dealId: string) => {
@@ -72,32 +74,6 @@ export default function LinkPage() {
     }
   }, [linkPage.link, linkPage.status, linkPage.stopPolling, router]);
 
-  useEffect(() => {
-    const shouldPollConsumedLink =
-      linkPage.status === "ready" &&
-      linkPage.link?.status === "Consumed" &&
-      !linkPage.link.deal_id &&
-      funding.state.step === "idle";
-
-    if (!shouldPollConsumedLink) {
-      if (linkPage.link?.status !== "Consumed" || linkPage.link.deal_id) {
-        consumedIndexingPollingStartedRef.current = false;
-      }
-      return;
-    }
-
-    if (consumedIndexingPollingStartedRef.current) {
-      return;
-    }
-
-    consumedIndexingPollingStartedRef.current = true;
-    linkPage.startDealIdPolling(handleDealIndexed);
-  }, [
-    funding.state.step,
-    handleDealIndexed,
-    linkPage,
-  ]);
-
   return (
     <main style={mainStyle}>
       <div style={pageStyle}>
@@ -137,7 +113,8 @@ export default function LinkPage() {
         {/* Consumed but deal_id not yet available (indexing lag) */}
         {linkPage.status === "ready" &&
           linkPage.link?.status === "Consumed" &&
-          !linkPage.link.deal_id && (
+          !linkPage.link.deal_id &&
+          funding.state.txHash !== null && (
             <>
               <StatusNotice type="consumed_indexing" />
               <div style={indexingRetryCardStyle}>
@@ -154,6 +131,15 @@ export default function LinkPage() {
                 </button>
               </div>
             </>
+          )}
+
+        {linkPage.status === "ready" &&
+          shouldShowConsumedLinkPrivateNotice({
+            dealId: linkPage.link?.deal_id ?? null,
+            status: linkPage.link?.status,
+            txHash: funding.state.txHash,
+          }) && (
+            <StatusNotice type="consumed_private" />
           )}
 
         {/* Main content */}

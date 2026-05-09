@@ -4,7 +4,13 @@
 
 import { Notice } from "@/components/shared/notice";
 
-type NoticeType = "cancelled" | "consumed_indexing" | "error" | "expired" | "not_found";
+type NoticeType =
+  | "cancelled"
+  | "consumed_indexing"
+  | "consumed_private"
+  | "error"
+  | "expired"
+  | "not_found";
 
 interface StatusNoticeProps {
   type: NoticeType;
@@ -21,6 +27,11 @@ const config: Record<NoticeType, { body: string; title: string; tone: "danger" |
     body: "Funding was confirmed on chain. Waiting for the deal to be indexed.",
     title: "Deal indexing...",
     tone: "info",
+  },
+  consumed_private: {
+    body: "This consultation link has already been used. The resulting deal is private.",
+    title: "Link already used",
+    tone: "muted",
   },
   error: {
     body: "Failed to load this link. Please refresh and try again.",
