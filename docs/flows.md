@@ -175,6 +175,11 @@ Expert                     Client                   Contract / Backend
 - В этом состоянии page показывает явный warning notice, что статус сделки может быть устаревшим и refresh сейчас задержан.
 - После следующего успешного refresh этот degraded marker исчезает автоматически.
 
+### 3.4 Public consumed link behavior
+
+- Если public link уже `Consumed`, нейтральный viewer остаётся на `/link/:id` и видит terminal notice, что ссылка уже использована, а детали resulting deal приватны.
+- Автоматический redirect на `/deal/:id` сохраняется только для локального recovery path после собственного funding, когда у клиента есть локальный `txHash` текущей попытки.
+
 ---
 
 ## 4. Unhappy Paths

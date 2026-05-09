@@ -31,7 +31,7 @@ describe("consumed link state helpers", () => {
         status: "Consumed",
         txHash: null,
       }),
-      false,
+      true,
     );
   });
 });

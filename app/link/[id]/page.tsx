@@ -62,17 +62,19 @@ export default function LinkPage() {
     router.push("/");
   }, [router]);
 
-  // If link is already consumed + deal_id exists → redirect immediately
+  // If the current viewer has a local funding tx and the consumed link already has a deal,
+  // redirect them into their private recovery path.
   useEffect(() => {
     if (
       linkPage.status === "ready" &&
       linkPage.link?.status === "Consumed" &&
-      linkPage.link.deal_id
+      linkPage.link.deal_id &&
+      funding.state.txHash !== null
     ) {
       linkPage.stopPolling();
       router.replace(`/deal/${linkPage.link.deal_id}`);
     }
-  }, [linkPage.link, linkPage.status, linkPage.stopPolling, router]);
+  }, [funding.state.txHash, linkPage.link, linkPage.status, linkPage.stopPolling, router]);
 
   return (
     <main style={mainStyle}>

@@ -9,5 +9,5 @@ interface ConsumedLinkRecoveryInput {
 export function shouldShowConsumedLinkPrivateNotice(
   input: ConsumedLinkRecoveryInput,
 ): boolean {
-  return input.status === "Consumed" && input.dealId === null && input.txHash === null;
+  return input.status === "Consumed" && input.txHash === null;
 }
