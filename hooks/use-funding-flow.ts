@@ -4,7 +4,7 @@
 // backend prepare → USDC approve (if needed) → createAndFundDeal → poll for deal_id
 // No calldata is built independently — all comes from the backend prepare endpoint.
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useConfig } from "wagmi";
 import { getAddress, type Address, type Hex } from "viem";
 
@@ -109,6 +109,17 @@ export function getFundingErrorState(
   };
 }
 
+export function canStartFundingExecution(
+  step: FundingStep,
+  isLocked: boolean,
+): boolean {
+  if (isLocked) {
+    return false;
+  }
+
+  return step === "idle" || step === "failed";
+}
+
 export interface FundingFlow {
   execute: () => Promise<void>;
   handlePollingTimeout: () => void;
@@ -133,6 +144,7 @@ export function useFundingFlow(
   ) => void,
 ): FundingFlow {
   const config = useConfig();
+  const executionLockRef = useRef(false);
 
   const [state, setState] = useState<FundingState>(createInitialFundingState);
 
@@ -194,7 +206,11 @@ export function useFundingFlow(
   }, [handleSyncStatus, linkId]);
 
   const execute = useCallback(async () => {
-    if (state.step !== "idle" && state.step !== "failed") return;
+    if (!canStartFundingExecution(state.step, executionLockRef.current)) {
+      return;
+    }
+
+    executionLockRef.current = true;
 
     set({
       complianceReasonCode: null,
@@ -256,6 +272,8 @@ export function useFundingFlow(
       }, handlePollingTimeout, handleSyncStatus, fundHash);
     } catch (err) {
       set(getFundingErrorState(err));
+    } finally {
+      executionLockRef.current = false;
     }
   }, [
     config,

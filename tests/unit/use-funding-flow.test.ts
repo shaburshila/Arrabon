@@ -3,11 +3,25 @@ import assert from "node:assert/strict";
 
 import { ApiError } from "@/lib/api/auth";
 import {
+  canStartFundingExecution,
   createInitialFundingState,
   getFundingErrorState,
 } from "@/hooks/use-funding-flow";
 
 describe("useFundingFlow helpers", () => {
+  test("allows starting funding execution only from idle or failed when unlocked", () => {
+    assert.equal(canStartFundingExecution("idle", false), true);
+    assert.equal(canStartFundingExecution("failed", false), true);
+    assert.equal(canStartFundingExecution("preparing", false), false);
+    assert.equal(canStartFundingExecution("fund_pending", false), false);
+    assert.equal(canStartFundingExecution("indexing_failed", false), false);
+  });
+
+  test("blocks funding execution while the in-flight lock is held", () => {
+    assert.equal(canStartFundingExecution("idle", true), false);
+    assert.equal(canStartFundingExecution("failed", true), false);
+  });
+
   test("creates an idle state with cleared compliance fields", () => {
     assert.deepEqual(createInitialFundingState(), {
       complianceReasonCode: null,
