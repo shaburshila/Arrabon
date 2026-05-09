@@ -39,6 +39,26 @@ export interface WalletSessionState {
   switchToCorrectChain: () => Promise<void>;
 }
 
+export function shouldAutoSignIn(params: {
+  isConnected: boolean;
+  isCorrectChain: boolean;
+  isSigningIn: boolean;
+  manualSignOut: boolean;
+  pingDone: boolean;
+  siweStatus: SiweStatus;
+  autoSignAttempted: boolean;
+}): boolean {
+  return (
+    params.isConnected &&
+    params.isCorrectChain &&
+    params.siweStatus === "unauthenticated" &&
+    !params.isSigningIn &&
+    params.pingDone &&
+    !params.autoSignAttempted &&
+    !params.manualSignOut
+  );
+}
+
 function normalizeAuthDomain(value: string): string {
   const trimmedValue = value.trim();
 
@@ -83,6 +103,7 @@ export function useWalletSession(): WalletSessionState {
   const [visibilityVersion, setVisibilityVersion] = useState(0);
   const pingDone = useRef(false);
   const autoSignAttempted = useRef(false);
+  const manualSignOutRef = useRef(false);
 
   const isCorrectChain = chainId === baseRuntimeConfig.chainId;
 
@@ -124,6 +145,7 @@ export function useWalletSession(): WalletSessionState {
       setSignInError(null);
       pingDone.current = false;
       autoSignAttempted.current = false;
+      manualSignOutRef.current = false;
       return;
     }
 
@@ -189,6 +211,7 @@ export function useWalletSession(): WalletSessionState {
     setSignInError(null);
     pingDone.current = false;
     autoSignAttempted.current = false;
+    manualSignOutRef.current = false;
     await disconnectAsync();
   }, [disconnectAsync]);
 
@@ -200,6 +223,7 @@ export function useWalletSession(): WalletSessionState {
       return;
     }
 
+    manualSignOutRef.current = false;
     setIsSigningIn(true);
     setSignInError(null);
 
@@ -235,6 +259,7 @@ export function useWalletSession(): WalletSessionState {
   }, [address, signMessageAsync]);
 
   const signOut = useCallback(async () => {
+    manualSignOutRef.current = true;
     await logout().catch(() => {});
     setSession(null);
     setSiweStatus("unauthenticated");
@@ -245,20 +270,25 @@ export function useWalletSession(): WalletSessionState {
 
   useEffect(() => {
     if (
-      isConnected &&
-      isCorrectChain &&
-      siweStatus === "unauthenticated" &&
-      !isSigningIn &&
-      pingDone.current &&
-      !autoSignAttempted.current
+      !shouldAutoSignIn({
+        autoSignAttempted: autoSignAttempted.current,
+        isConnected,
+        isCorrectChain,
+        isSigningIn,
+        manualSignOut: manualSignOutRef.current,
+        pingDone: pingDone.current,
+        siweStatus,
+      })
     ) {
-      if (typeof document !== "undefined" && document.hidden) {
-        return;
-      }
-
-      autoSignAttempted.current = true;
-      void signIn();
+      return;
     }
+
+    if (typeof document !== "undefined" && document.hidden) {
+      return;
+    }
+
+    autoSignAttempted.current = true;
+    void signIn();
   }, [visibilityVersion, isConnected, isCorrectChain, siweStatus, isSigningIn, signIn]);
 
   const switchToCorrectChain = useCallback(async () => {
