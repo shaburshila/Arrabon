@@ -93,6 +93,7 @@ const mocks = {
     isBuyer: true,
     isParticipant: true,
     isSeller: false,
+    isStale: false,
     refetch: async () => null,
     role: "buyer",
     status: "ready" as const,
@@ -172,7 +173,23 @@ describe("DealPage funded dispute timing", () => {
     mocks.dealPage.isBuyer = true;
     mocks.dealPage.isParticipant = true;
     mocks.dealPage.isSeller = false;
+    mocks.dealPage.isStale = false;
     mocks.dealPage.role = "buyer";
+  });
+
+  test("shows a degraded notice when deal data is stale", () => {
+    mocks.dealPage.isStale = true;
+
+    const html = renderToStaticMarkup(createElement(DealPage));
+
+    assert.match(html, /Deal status may be outdated right now/);
+    assert.match(html, /status-card/);
+  });
+
+  test("does not show the degraded notice for fresh ready state", () => {
+    const html = renderToStaticMarkup(createElement(DealPage));
+
+    assert.doesNotMatch(html, /Deal status may be outdated right now/);
   });
 
   test("hides open dispute before scheduled_at", () => {

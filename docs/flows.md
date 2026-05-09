@@ -168,6 +168,13 @@ Expert                     Client                   Contract / Backend
   fee → treasury
 ```
 
+### 3.3 Deal page refresh visibility
+
+- Для pollable deal statuses (`Funded`, `ConfirmPending`, `Disputed`) deal page продолжает делать silent refresh в фоне.
+- Если silent refresh временно ломается после уже успешной загрузки сделки, экран **не** сваливается в hard error: пользователь продолжает видеть последний известный snapshot сделки.
+- В этом состоянии page показывает явный warning notice, что статус сделки может быть устаревшим и refresh сейчас задержан.
+- После следующего успешного refresh этот degraded marker исчезает автоматически.
+
 ---
 
 ## 4. Unhappy Paths

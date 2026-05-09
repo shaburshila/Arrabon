@@ -132,6 +132,14 @@ export default function DealPage() {
       {/* Main content */}
       {dealPage.status === "ready" && dealPage.deal && (
         <>
+          {dealPage.isStale && (
+            <Notice
+              message="Deal status may be outdated right now. We’re having trouble refreshing it."
+              title="Refresh delayed"
+              tone="warning"
+            />
+          )}
+
           {riskStatusNotice && (
             <Notice
               message={riskStatusNotice.message}

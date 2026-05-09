@@ -26,6 +26,7 @@ export interface DealPageState {
   isBuyer: boolean;
   isParticipant: boolean;
   isSeller: boolean;
+  isStale: boolean;
   role: DealRole;
   status: DealPageStatus;
   refetch: () => Promise<DealReadModel | null>;
@@ -39,6 +40,7 @@ export function useDealPage(
   const [deal, setDeal] = useState<DealReadModel | null>(null);
   const [status, setStatus] = useState<DealPageStatus>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [isStale, setIsStale] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(
     () => typeof document === "undefined" || document.visibilityState === "visible",
   );
@@ -54,6 +56,7 @@ export function useDealPage(
     try {
       const data = await fetchDeal(dealId);
       setDeal(data);
+      setIsStale(false);
       setStatus("ready");
 
       return data;
@@ -73,6 +76,8 @@ export function useDealPage(
       if (!silent) {
         setError(err instanceof Error ? err.message : "Failed to load deal.");
         setStatus("error");
+      } else {
+        setIsStale(true);
       }
 
       return null;
@@ -151,6 +156,7 @@ export function useDealPage(
     isBuyer,
     isParticipant,
     isSeller,
+    isStale,
     role,
     status,
     refetch,
