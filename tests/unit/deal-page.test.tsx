@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { DealReadModel } from "@/lib/api/deals";
+import type { DealPageStatus } from "@/hooks/use-deal-page";
 
 function makeEntry(id: string, exports: unknown) {
   return {
@@ -96,7 +97,7 @@ const mocks = {
     isStale: false,
     refetch: async () => null,
     role: "buyer",
-    status: "ready" as const,
+    status: "ready" as DealPageStatus,
   },
   actions: {
     autoRelease: idleAction,
@@ -190,6 +191,30 @@ describe("DealPage funded dispute timing", () => {
     const html = renderToStaticMarkup(createElement(DealPage));
 
     assert.doesNotMatch(html, /Deal status may be outdated right now/);
+  });
+
+  test("renders wallet recovery UI for auth_required", () => {
+    mocks.dealPage.status = "auth_required";
+
+    try {
+      const html = renderToStaticMarkup(createElement(DealPage));
+      assert.match(html, /wallet-card/);
+      assert.doesNotMatch(html, /Access denied/);
+    } finally {
+      mocks.dealPage.status = "ready";
+    }
+  });
+
+  test("renders a denied notice for access_denied instead of wallet recovery UI", () => {
+    mocks.dealPage.status = "access_denied";
+
+    try {
+      const html = renderToStaticMarkup(createElement(DealPage));
+      assert.match(html, /Access denied\. This deal is only visible to its participants\./);
+      assert.doesNotMatch(html, /wallet-card/);
+    } finally {
+      mocks.dealPage.status = "ready";
+    }
   });
 
   test("hides open dispute before scheduled_at", () => {

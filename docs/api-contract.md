@@ -383,6 +383,11 @@ Errors:
 - `403` session wallet is not buyer, seller, or admin
 - `404` deal not found
 
+Frontend notes:
+
+- `401` should drive an auth recovery state (`WalletSessionCard` / sign-in prompt).
+- `403` should drive a distinct terminal-style `access denied` state, not the same recovery UI as missing auth.
+
 ### `GET /api/me/deals`
 
 Returns deals where the authenticated wallet is the buyer. This endpoint is the buyer recovery path after a paid consultation page is closed or the `/deal/:id` URL is lost.

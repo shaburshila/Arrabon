@@ -16,7 +16,13 @@ import type { SiweStatus } from "@/hooks/use-wallet-session";
 
 const DEAL_PAGE_POLL_INTERVAL_MS = 7_500;
 
-export type DealPageStatus = "auth_required" | "error" | "loading" | "not_found" | "ready";
+export type DealPageStatus =
+  | "access_denied"
+  | "auth_required"
+  | "error"
+  | "loading"
+  | "not_found"
+  | "ready";
 
 export type DealRole = "buyer" | "seller" | "viewer";
 
@@ -67,9 +73,15 @@ export function useDealPage(
         return null;
       }
 
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+      if (err instanceof ApiError && err.status === 401) {
         setDeal(null);
         setStatus("auth_required");
+        return null;
+      }
+
+      if (err instanceof ApiError && err.status === 403) {
+        setDeal(null);
+        setStatus("access_denied");
         return null;
       }
 

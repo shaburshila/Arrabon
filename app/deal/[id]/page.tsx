@@ -124,6 +124,13 @@ export default function DealPage() {
         <WalletSessionCard session={session} />
       )}
 
+      {dealPage.status === "access_denied" && (
+        <Notice
+          message="Access denied. This deal is only visible to its participants."
+          tone="muted"
+        />
+      )}
+
       {/* Error */}
       {dealPage.status === "error" && (
         <Notice message={dealPage.error ?? "Failed to load deal."} tone="danger" />
