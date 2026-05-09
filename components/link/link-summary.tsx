@@ -67,6 +67,15 @@ export function LinkSummary({ link }: LinkSummaryProps) {
         />
       </div>
 
+      <div style={paymentDeadlineStyle}>
+        Payment must be made before{" "}
+        {formatDate(link.expires_at, {
+          showTimeZoneName: true,
+          timeZone: link.timezone,
+        })}
+        .
+      </div>
+
       <div style={escrowLineStyle}>
         Funds are held in escrow on Base until the consultation is confirmed or disputed.
       </div>
@@ -149,6 +158,16 @@ const descriptionStyle = {
 
 const detailsStyle = {
   padding: "8px 20px",
+};
+
+const paymentDeadlineStyle = {
+  background: "var(--accent-muted)",
+  borderTop: "1px solid var(--border)",
+  color: "var(--foreground)",
+  fontSize: 13,
+  fontWeight: 700,
+  lineHeight: 1.45,
+  padding: "12px 20px",
 };
 
 const escrowLineStyle = {
