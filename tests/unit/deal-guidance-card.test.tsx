@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 
-import { DealGuidanceCard } from "../../components/deal/deal-guidance-card";
+import {
+  DealGuidanceCard,
+  getGuidanceMessageAt,
+} from "../../components/deal/deal-guidance-card";
 
 function renderCard(
   overrides: Partial<Parameters<typeof DealGuidanceCard>[0]> = {},
@@ -50,6 +53,37 @@ describe("DealGuidanceCard compliance messaging", () => {
     } finally {
       Date.now = originalNow;
     }
+  });
+
+  test("shows a live buyer deadline countdown before the confirm/dispute window closes", () => {
+    const message = getGuidanceMessageAt({
+      dealStatus: "ConfirmPending",
+      isBuyer: true,
+      isSeller: false,
+      isViewer: false,
+      priceUsdc: "100.00",
+      releaseDeadlineAt: "2026-05-08T13:00:00.000Z",
+      riskStatus: "Clear",
+      scheduledAt: "2026-05-06T12:00:00.000Z",
+    }, new Date("2026-05-08T12:30:00.000Z").getTime());
+
+    assert.match(message, /30 minutes left/i);
+    assert.match(message, /Confirm payment release or open a dispute before the deadline/i);
+  });
+
+  test("shows seller waiting guidance before auto-release becomes available", () => {
+    const message = getGuidanceMessageAt({
+      dealStatus: "ConfirmPending",
+      isBuyer: false,
+      isSeller: true,
+      isViewer: false,
+      priceUsdc: "100.00",
+      releaseDeadlineAt: "2026-05-08T13:00:00.000Z",
+      riskStatus: "Clear",
+      scheduledAt: "2026-05-06T12:00:00.000Z",
+    }, new Date("2026-05-08T12:59:00.000Z").getTime());
+
+    assert.match(message, /Waiting for the buyer to confirm payment release/i);
   });
 
   test("overrides active guidance for blocked deals", () => {

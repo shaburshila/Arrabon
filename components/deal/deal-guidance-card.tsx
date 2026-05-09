@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import type { DealRiskStatus, DealStatus } from "@/lib/api/deals";
 import { ActionPanel } from "@/components/shared/action-panel";
 
@@ -28,19 +30,19 @@ function formatAbsoluteDate(iso: string): string {
   }
 }
 
-function hasScheduledTimeStarted(iso: string): boolean {
+function hasScheduledTimeStartedAt(iso: string, nowMs: number): boolean {
   const scheduledAtMs = new Date(iso).getTime();
 
-  return !Number.isNaN(scheduledAtMs) && Date.now() >= scheduledAtMs;
+  return !Number.isNaN(scheduledAtMs) && nowMs >= scheduledAtMs;
 }
 
-function formatTimeLeft(iso: string | null): string | null {
+function formatTimeLeftAt(iso: string | null, nowMs: number): string | null {
   if (!iso) {
     return null;
   }
 
   const deadline = new Date(iso);
-  const msUntil = deadline.getTime() - Date.now();
+  const msUntil = deadline.getTime() - nowMs;
 
   if (Number.isNaN(deadline.getTime()) || msUntil <= 0) {
     return null;
@@ -60,7 +62,8 @@ function formatTimeLeft(iso: string | null): string | null {
   return `${minutes} minutes left, ${absolute}`;
 }
 
-function getGuidanceMessage({
+export function getGuidanceMessageAt(
+  {
   dealStatus,
   isBuyer,
   isSeller,
@@ -69,7 +72,9 @@ function getGuidanceMessage({
   riskStatus = "Clear",
   releaseDeadlineAt,
   scheduledAt,
-}: DealGuidanceCardProps): string {
+}: DealGuidanceCardProps,
+  nowMs: number,
+): string {
   if (isViewer) {
     return "This page is for the buyer and seller of this deal.";
   }
@@ -93,7 +98,7 @@ function getGuidanceMessage({
   switch (dealStatus) {
     case "Funded":
       if (isBuyer) {
-        if (!hasScheduledTimeStarted(scheduledAt)) {
+        if (!hasScheduledTimeStartedAt(scheduledAt, nowMs)) {
           return `Your booking is confirmed. Reveal the meeting link below and join at the scheduled time (${scheduledTime}). If the seller does not show up, you can open a dispute after that time.`;
         }
 
@@ -108,7 +113,7 @@ function getGuidanceMessage({
 
     case "ConfirmPending": {
       if (isBuyer) {
-        const deadline = formatTimeLeft(releaseDeadlineAt);
+        const deadline = formatTimeLeftAt(releaseDeadlineAt, nowMs);
         return deadline
           ? `The seller has marked the consultation as completed. Confirm payment release or open a dispute before the deadline (${deadline}).`
           : "The seller has marked the consultation as completed. Confirm payment release or open a dispute before the deadline.";
@@ -159,10 +164,30 @@ function getGuidanceMessage({
 }
 
 export function DealGuidanceCard(props: DealGuidanceCardProps) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const needsLiveCountdown =
+      !props.isViewer &&
+      (props.dealStatus === "Funded" || props.dealStatus === "ConfirmPending");
+
+    if (!needsLiveCountdown) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [props.dealStatus, props.isViewer]);
+
   return (
     <ActionPanel style={cardStyle}>
       <p style={labelStyle}>What happens next</p>
-      <p style={messageStyle}>{getGuidanceMessage(props)}</p>
+      <p style={messageStyle}>{getGuidanceMessageAt(props, nowMs)}</p>
     </ActionPanel>
   );
 }

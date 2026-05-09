@@ -180,6 +180,13 @@ Expert                     Client                   Contract / Backend
 - Если public link уже `Consumed`, нейтральный viewer остаётся на `/link/:id` и видит terminal notice, что ссылка уже использована, а детали resulting deal приватны.
 - Автоматический redirect на `/deal/:id` сохраняется только для локального recovery path после собственного funding, когда у клиента есть локальный `txHash` текущей попытки.
 
+### 3.5 Live deal countdowns
+
+- На deal page guidance countdown для buyer и seller обновляется в реальном времени, а не только после очередного background refresh.
+- Buyer видит живое оставшееся время до конца окна `confirmRelease / openDispute`.
+- Seller видит живой countdown до момента, когда `autoRelease` становится доступен.
+- Domain timing rules не меняются: live timer обновляет только presentation layer и естественно переведёт guidance через временную границу без ручного refresh.
+
 ---
 
 ## 4. Unhappy Paths
