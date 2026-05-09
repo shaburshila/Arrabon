@@ -47,7 +47,8 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
   const [unavailableReason, setUnavailableReason] = useState<UnavailableReason>(null);
   const [error, setError] = useState<string | null>(null);
   const [dealIdPollingTimedOut, setDealIdPollingTimedOut] = useState(false);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollingGenerationRef = useRef(0);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -85,8 +86,9 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
   }, [linkId]);
 
   const stopPolling = useCallback(() => {
+    pollingGenerationRef.current += 1;
     if (pollingRef.current !== null) {
-      clearInterval(pollingRef.current);
+      clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
   }, []);
@@ -102,18 +104,38 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
     ) => {
       stopPolling();
       setDealIdPollingTimedOut(false);
+      const generation = pollingGenerationRef.current;
       let count = 0;
       let syncConfirmed = false;
       const MAX_POLLS = 40;
+      const POLL_DELAY_MS = 2000;
 
-      pollingRef.current = setInterval(async () => {
+      const scheduleNext = () => {
+        if (pollingGenerationRef.current !== generation) {
+          return;
+        }
+
+        pollingRef.current = setTimeout(() => {
+          void runTick();
+        }, POLL_DELAY_MS);
+      };
+
+      const runTick = async () => {
+        if (pollingGenerationRef.current !== generation) {
+          return;
+        }
+
         count += 1;
         if (count > MAX_POLLS) {
-          stopPolling();
+          if (pollingGenerationRef.current === generation) {
+            pollingGenerationRef.current += 1;
+            pollingRef.current = null;
+          }
           setDealIdPollingTimedOut(true);
           onTimeout?.();
           return;
         }
+
         if (!syncConfirmed) {
           try {
             const syncResult = await triggerFundingSync(linkId, txHash);
@@ -124,7 +146,10 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
             }
 
             if (!syncResult.ok && syncResult.status === "fatal") {
-              stopPolling();
+              if (pollingGenerationRef.current === generation) {
+                pollingGenerationRef.current += 1;
+                pollingRef.current = null;
+              }
               return;
             }
           } catch (err) {
@@ -143,13 +168,21 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
           }
         }
 
+        if (pollingGenerationRef.current !== generation) {
+          return;
+        }
+
         try {
           const data = await fetchLink(linkId);
           setLink(data);
           if (data.deal_id) {
-            stopPolling();
+            if (pollingGenerationRef.current === generation) {
+              pollingGenerationRef.current += 1;
+              pollingRef.current = null;
+            }
             setDealIdPollingTimedOut(false);
             onDealId(data.deal_id);
+            return;
           }
         } catch (err) {
           const errorMessage =
@@ -165,7 +198,11 @@ export function useLinkPage(linkId: string, walletAddress: string | null): LinkP
             status: "retryable",
           });
         }
-      }, 2000);
+
+        scheduleNext();
+      };
+
+      scheduleNext();
     },
     [linkId, stopPolling],
   );
