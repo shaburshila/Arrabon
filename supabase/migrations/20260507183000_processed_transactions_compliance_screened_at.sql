@@ -4,6 +4,8 @@ alter table public.processed_transactions
 comment on column public.processed_transactions.compliance_screened_at is
   'Set after post-funding compliance screening completes successfully for Funded-event processing.';
 
+drop function if exists public.process_confirmed_funded_event_once(uuid,text,text,text,text,timestamptz,text,text,boolean);
+
 create or replace function public.process_confirmed_funded_event_once(
   p_consultation_link_id uuid,
   p_onchain_deal_id text,

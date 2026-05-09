@@ -1,3 +1,5 @@
+drop function if exists public.process_confirmed_funded_event_once(uuid,text,text,text,text,timestamptz,text,text,boolean);
+
 create or replace function public.process_confirmed_funded_event_once(
   p_consultation_link_id uuid,
   p_onchain_deal_id text,
