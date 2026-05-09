@@ -188,6 +188,7 @@ MVP должен гарантировать:
 | Funding stale-window is narrowed, not eliminated | After funding grant exchange there is still a residual window before buyer broadcasts `createAndFundDeal` |
 | `autoRelease` direct-contract bypass window | Closed by automatic `setDealPayoutBlocked` from indexer upon `Blocked` detection (C-16); residual window is indexer confirmation latency only |
 | Accidentally sent non-USDC tokens locked in contract | Mitigated by `rescueToken(address, amount)` — owner-only, blocked for USDC address (see C-24) |
+| Seller key loss after `markCompleted` — funds remain in `ConfirmPending` with no admin recovery path | Seller is sole custodian of their private key; no admin escape hatch from `ConfirmPending` is provided by design. `adminResolveRelease/Refund` require `Disputed` status. Key management is seller's responsibility. Accepted MVP trade-off (see C-25) |
 
 ---
 
@@ -195,7 +196,7 @@ MVP должен гарантировать:
 
 Security assumptions опираются на неизменность следующих интерфейсов:
 
-- `createAndFundDeal(link_hash, seller, buyer, amount, scheduled_at, duration_minutes)`
+- `createAndFundDeal(consultation_link_id_hash, link_hash, seller, buyer, price, scheduled_at, duration_minutes, link_expires_at, deadline, nonce, signature)`
 - `markCompleted(dealId)`
 - `confirmRelease(dealId)`
 - `openDispute(dealId)`

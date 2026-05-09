@@ -120,7 +120,7 @@ describe("ConsultEscrow", function () {
     const effectiveNonce = nonce ?? ethers.hexlify(ethers.randomBytes(32));
     const effectiveConsultationLinkIdHash =
       consultationLinkIdHash ?? ethers.keccak256(ethers.toUtf8Bytes("link-id-1"));
-    const effectiveLinkExpiresAt = linkExpiresAt ?? (scheduledAt + 7n * 24n * 60n * 60n);
+    const effectiveLinkExpiresAt = linkExpiresAt ?? (scheduledAt - 5n * 60n);
     const effectiveSignature = signature ?? await signFundingAuthorization({
       escrow,
       authorizer,
@@ -166,7 +166,7 @@ describe("ConsultEscrow", function () {
   }) {
     const now = BigInt(await time.latest());
     const effectiveScheduledAt = scheduledAt ?? (now + 24n * 60n * 60n);
-    const effectiveLinkExpiresAt = linkExpiresAt ?? (effectiveScheduledAt + 7n * 24n * 60n * 60n);
+    const effectiveLinkExpiresAt = linkExpiresAt ?? (effectiveScheduledAt - 5n * 60n);
     const dealId = await escrow.nextDealId();
     let effectiveAuthorizer = authorizer;
 
@@ -604,6 +604,54 @@ describe("ConsultEscrow", function () {
       ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
     });
 
+    it("rejects link expiry equal to scheduled time", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkExpiresAt: scheduledAt,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("expires-equals-scheduled")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
+    });
+
+    it("rejects link expiry after scheduled time", async function () {
+      const { seller, buyer, token, escrow, authorizer } = await deployFixture();
+      const now = BigInt(await time.latest());
+      const scheduledAt = now + 3600n;
+
+      await token.mint(buyer.address, MIN_PRICE);
+      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+
+      await expect(
+        createAndFundDealAuthorized({
+          authorizer,
+          buyer: buyer.address,
+          caller: buyer,
+          durationMinutes: 30n,
+          escrow,
+          linkExpiresAt: scheduledAt + 1n,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes("expires-after-scheduled")),
+          price: MIN_PRICE,
+          scheduledAt,
+          seller: seller.address,
+        })
+      ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
+    });
+
     it("invalid duration fails", async function () {
       const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
@@ -788,7 +836,7 @@ describe("ConsultEscrow", function () {
       const scheduledAt = now + 3600n;
       const linkHash = ethers.keccak256(ethers.toUtf8Bytes("bad-signature"));
       const consultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-1"));
-      const linkExpiresAt = scheduledAt + 7n * 24n * 60n * 60n;
+      const linkExpiresAt = scheduledAt - 5n * 60n;
       const deadline = now + FUNDING_AUTHORIZATION_LIFETIME;
       const nonce = ethers.hexlify(ethers.randomBytes(32));
       const signature = await signFundingAuthorization({
@@ -838,7 +886,7 @@ describe("ConsultEscrow", function () {
       const nonce = ethers.hexlify(ethers.randomBytes(32));
       const signedConsultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-1"));
       const suppliedConsultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-2"));
-      const linkExpiresAt = scheduledAt + 7n * 24n * 60n * 60n;
+      const linkExpiresAt = scheduledAt - 5n * 60n;
       const signature = await signFundingAuthorization({
         authorizer,
         buyer: buyer.address,
@@ -883,7 +931,7 @@ describe("ConsultEscrow", function () {
       const scheduledAt = now + 3600n;
       const linkHash = ethers.keccak256(ethers.toUtf8Bytes("old-authorizer-signature"));
       const consultationLinkIdHash = ethers.keccak256(ethers.toUtf8Bytes("link-id-rotation-old"));
-      const linkExpiresAt = scheduledAt + 7n * 24n * 60n * 60n;
+      const linkExpiresAt = scheduledAt - 5n * 60n;
       const deadline = now + FUNDING_AUTHORIZATION_LIFETIME;
       const nonce = ethers.hexlify(ethers.randomBytes(32));
       const oldSignature = await signFundingAuthorization({
