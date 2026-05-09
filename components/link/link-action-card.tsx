@@ -33,7 +33,15 @@ export function LinkActionCard({
   role,
   session,
 }: LinkActionCardProps) {
-  const { isConnected, isCorrectChain, siweStatus, connect, signIn, signInError } = session;
+  const {
+    isConnected,
+    isCorrectChain,
+    siweStatus,
+    connect,
+    signIn,
+    signInError,
+    switchToCorrectChain,
+  } = session;
   const { execute, reset, state: fundingState } = funding;
 
   const isFunding =
@@ -75,10 +83,15 @@ export function LinkActionCard({
       )}
 
       {isConnected && !isCorrectChain && (
-        <Notice
-          message="Switch to the correct network to continue."
-          tone="warning"
-        />
+        <div style={stackStyle}>
+          <Notice
+            message="Switch to the correct network to continue."
+            tone="warning"
+          />
+          <Btn fullWidth onClick={switchToCorrectChain} variant="secondary">
+            Switch to Base
+          </Btn>
+        </div>
       )}
 
       {isConnected && isCorrectChain && siweStatus === "unauthenticated" && (

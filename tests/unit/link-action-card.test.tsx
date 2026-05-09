@@ -61,6 +61,27 @@ function makeLink(): PublicLink {
 }
 
 describe("LinkActionCard", () => {
+  test("renders a switch-network action for connected viewers on the wrong chain", () => {
+    const html = renderToStaticMarkup(
+      createElement(LinkActionCard, {
+        dealIdPollingTimedOut: false,
+        funding: makeFunding(),
+        link: makeLink(),
+        onRetryPolling: () => {},
+        role: "viewer",
+        session: {
+          ...makeSession(),
+          isCorrectChain: false,
+          siweStatus: "unauthenticated",
+        },
+      }),
+    );
+
+    assert.match(html, /Switch to the correct network to continue/);
+    assert.match(html, /Switch to Base/);
+    assert.doesNotMatch(html, /Sign in with Ethereum/);
+  });
+
   test("renders compliance notice without retry controls for blocked funding", () => {
     const html = renderToStaticMarkup(
       createElement(LinkActionCard, {
