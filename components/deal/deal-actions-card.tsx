@@ -7,6 +7,7 @@
 import type { DealStatus } from "@/lib/api/deals";
 import type { DealAction } from "@/hooks/use-deal-action";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
+import { hasScheduledTimeStarted } from "@/lib/ui/deal-timing";
 import { Btn } from "@/components/shared/btn";
 import { AsyncActionState } from "@/components/shared/async-action-state";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -21,6 +22,7 @@ interface DealActionsCardProps {
   dealStatus: DealStatus;
   isSeller: boolean;
   isBuyer: boolean;
+  scheduledAt: string;
   session: WalletSessionState;
   complete: DealAction;
   release: DealAction;
@@ -42,12 +44,14 @@ export function DealActionsCard({
   isSeller,
   onRefreshStatus,
   release,
+  scheduledAt,
   session,
 }: DealActionsCardProps) {
   const { isConnected, isCorrectChain, siweStatus } = session;
 
   // Determine what's visible to this user
   const showComplete = isSeller && dealStatus === "Funded";
+  const completeAvailable = hasScheduledTimeStarted(scheduledAt);
   const showRelease = isBuyer && buyerReleasable;
   const showDispute = isBuyer && buyerDisputable;
   const showAutoRelease = autoReleaseAvailable;
@@ -90,7 +94,9 @@ export function DealActionsCard({
           {showComplete && (
             <ActionGroup
               action={complete}
+              disabled={!completeAvailable}
               disabledByOtherAction={isAnyActionInFlight}
+              disabledReason="Available once the consultation starts."
               description="Mark the consultation as completed so the buyer can confirm payment release or open a dispute."
               label="Mark completed"
               onRefreshStatus={onRefreshStatus}

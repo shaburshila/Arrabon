@@ -83,6 +83,7 @@ describe("DealActionsCard", () => {
         isSeller: true,
         onRefreshStatus: async () => null,
         release: makeIdleAction(),
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
         session: makeSession(),
       }),
     );
@@ -107,6 +108,7 @@ describe("DealActionsCard", () => {
         isSeller: false,
         onRefreshStatus: async () => null,
         release: makeIdleAction(),
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
         session: makeSession(),
       }),
     );
@@ -129,6 +131,7 @@ describe("DealActionsCard", () => {
         isSeller: false,
         onRefreshStatus: async () => null,
         release: makeIdleAction(),
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
         session: makeSession(),
       }),
     );
@@ -151,6 +154,7 @@ describe("DealActionsCard", () => {
         isSeller: false,
         onRefreshStatus: async () => null,
         release: makeBlockedAction(),
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
         session: makeSession(),
       }),
     );
@@ -176,6 +180,7 @@ describe("DealActionsCard", () => {
         isSeller: false,
         onRefreshStatus: async () => null,
         release: makeSyncFailedAction(),
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
         session: makeSession(),
       }),
     );

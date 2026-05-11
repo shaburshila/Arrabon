@@ -207,6 +207,7 @@ export default function DealPage() {
             isSeller={dealPage.isSeller}
             onRefreshStatus={dealPage.refetch}
             release={actions.release}
+            scheduledAt={dealPage.deal.scheduled_at}
             session={session}
           />
 
