@@ -264,7 +264,7 @@ contract ConsultEscrow is ReentrancyGuard {
         if (link_expires_at <= block.timestamp) {
             revert LinkExpired();
         }
-        if (link_expires_at >= scheduled_at) {
+        if (link_expires_at > scheduled_at) {
             revert InvalidSchedule();
         }
         if (deadline < block.timestamp) {
