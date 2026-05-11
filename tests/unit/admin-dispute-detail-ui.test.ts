@@ -1,7 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { getAdminResolveAvailability } from "@/app/admin/disputes/[id]/ui";
+import { getAdminResolveAvailability } from "@/app/admin/disputes/ui";
 
 describe("admin dispute detail ui helpers", () => {
   test("blocks resolution for blocked risk", () => {

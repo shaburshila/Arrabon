@@ -755,6 +755,11 @@ Admin                         Backend                   Frontend
   │   ≠ Blocked)               │                           │
 ```
 
+**Инварианты:**
+- и `/admin/disputes`, и `/admin/disputes/[id]` используют один и тот же `getAdminResolveAvailability(...)` как frontend gate для inline/detail admin resolve;
+- `risk_status = Blocked` на обеих страницах показывает legal hold notice и не даёт перейти к resolve confirm step;
+- `risk_status = Review` на обеих страницах требует явного acknowledge перед resolve.
+
 ---
 
 ### 8.6 Denylist management

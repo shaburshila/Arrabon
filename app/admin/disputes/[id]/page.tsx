@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
-import { getAdminResolveAvailability } from "@/app/admin/disputes/[id]/ui";
+import { getAdminResolveAvailability } from "@/app/admin/disputes/ui";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { ApiError } from "@/lib/api/auth";
 import type { AdminComplianceCheck, AdminDealCompliance } from "@/lib/api/admin";
