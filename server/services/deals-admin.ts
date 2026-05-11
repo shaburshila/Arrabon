@@ -34,7 +34,8 @@ import {
   listResolvedDealReviewRows,
   type AdminDealReviewRow,
 } from "@/server/repositories/deals";
-import { screenWalletForDeal } from "@/server/services/compliance";
+import { assertCompliance } from "@/lib/compliance/error-mapping";
+import { assertDealNotBlocked, screenWalletForDeal } from "@/server/services/compliance";
 import type { ListPagination } from "@/lib/validators/pagination";
 
 export type AdminResolution = AdminResolveBody["resolution"];
@@ -530,6 +531,8 @@ export async function prepareAdminResolveForDeal(
     );
   }
 
+  await assertDealNotBlocked(context.id);
+
   try {
     return await issueAdminResolveGrant(currentUser, context.id, resolution, now);
   } catch (error) {
@@ -563,27 +566,6 @@ export async function exchangeAdminResolveGrantForDeal(
     );
   }
 
-  const screeningContexts = {
-    refund: {
-      action: "admin_resolve_refund" as const,
-      actorWallet: currentUser.wallet_address,
-      dealId: context.id,
-    },
-    release: {
-      action: "admin_resolve_release" as const,
-      actorWallet: currentUser.wallet_address,
-      dealId: context.id,
-    },
-  };
-  const releaseScreeningResult = await screenWalletForDeal(
-    context.seller_address,
-    screeningContexts.release,
-  );
-  const refundScreeningResult = await screenWalletForDeal(
-    context.buyer_address,
-    screeningContexts.refund,
-  );
-
   let grant;
 
   try {
@@ -604,12 +586,24 @@ export async function exchangeAdminResolveGrantForDeal(
 
   const screeningContext =
     resolution === "release"
-      ? screeningContexts.release
-      : screeningContexts.refund;
-  const screeningResult =
-    resolution === "release"
-      ? releaseScreeningResult
-      : refundScreeningResult;
+      ? {
+          action: "admin_resolve_release" as const,
+          actorWallet: currentUser.wallet_address,
+          dealId: context.id,
+        }
+      : {
+          action: "admin_resolve_refund" as const,
+          actorWallet: currentUser.wallet_address,
+          dealId: context.id,
+        };
+  const recipientWallet =
+    resolution === "release" ? context.seller_address : context.buyer_address;
+  const screeningResult = await screenWalletForDeal(
+    recipientWallet,
+    screeningContext,
+  );
+  assertCompliance(screeningResult, recipientWallet, screeningContext);
+
   logAdminResolveComplianceContext({
     action: resolution === "release" ? "adminResolveRelease" : "adminResolveRefund",
     dealId: context.id,

@@ -2,6 +2,7 @@ import { beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { CurrentUserContext } from "../../lib/auth/guards";
+import { ComplianceBlockedError } from "../../lib/compliance/error-mapping";
 import type {
   AdminDealReviewRow,
   DealActionContextRow,
@@ -260,16 +261,15 @@ describe("prepareAdminResolveForDeal", () => {
   });
 
   test("does not screen release recipient during grant issuance", async () => {
-    let screeningCalls = 0;
+    let checkedDealId: string | null = null;
 
-    mocks.screenWalletForDeal = async () => {
-      screeningCalls += 1;
-      return makeScreeningResult(makeActionContext().seller_address);
+    mocks.assertDealNotBlocked = async (dealId: unknown) => {
+      checkedDealId = String(dealId);
     };
 
     await prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release");
 
-    assert.equal(screeningCalls, 0);
+    assert.equal(checkedDealId, "deal-id-1");
   });
 
   test("stores admin grant for the authenticated admin wallet", async () => {
@@ -338,20 +338,11 @@ describe("prepareAdminResolveForDeal", () => {
         },
         wallet: makeActionContext().seller_address,
       },
-      {
-        context: {
-          action: "admin_resolve_refund",
-          actorWallet: ADMIN_WALLET,
-          dealId: "deal-id-1",
-        },
-        wallet: makeActionContext().buyer_address,
-      },
     ]);
   });
 
   test("exchange screens buyer for refund with admin as actor", async () => {
-    let screenedWallet: unknown = null;
-    let screenedContext: unknown = null;
+    const screenedCalls: Array<{ context: unknown; wallet: unknown }> = [];
 
     mocks.consumePayoutExecutionGrant = async () => ({
       action: "adminResolveRefund",
@@ -366,8 +357,9 @@ describe("prepareAdminResolveForDeal", () => {
       used_at: "2026-05-05T00:01:00.000Z",
     });
     mocks.screenWalletForDeal = async (...args: unknown[]) => {
-      [screenedWallet, screenedContext] = args;
-      return makeScreeningResult(makeActionContext().buyer_address);
+      const [wallet, context] = args;
+      screenedCalls.push({ context, wallet });
+      return makeScreeningResult(String(wallet));
     };
 
     const result = await exchangeAdminResolveGrantForDeal(
@@ -378,12 +370,16 @@ describe("prepareAdminResolveForDeal", () => {
 
     assert.equal(result.contract_call.function_name, "adminResolveRefund");
     assert.equal(result.resolution, "refund");
-    assert.equal(screenedWallet, makeActionContext().buyer_address);
-    assert.deepEqual(screenedContext, {
-      action: "admin_resolve_refund",
-      actorWallet: ADMIN_WALLET,
-      dealId: "deal-id-1",
-    });
+    assert.deepEqual(screenedCalls, [
+      {
+        context: {
+          action: "admin_resolve_refund",
+          actorWallet: ADMIN_WALLET,
+          dealId: "deal-id-1",
+        },
+        wallet: makeActionContext().buyer_address,
+      },
+    ]);
   });
 
   test("rejects resolve for non-disputed deal", async () => {
@@ -513,53 +509,51 @@ describe("prepareAdminResolveForDeal", () => {
     assert.equal(intentCalls, 0);
   });
 
-  test("allows admin resolve even when live recipient screening is blocked", async () => {
-    let intentCalls = 0;
-
+  test("rejects exchange when recipient screening is blocked", async () => {
     mocks.screenWalletForDeal = async (walletAddress: unknown) => ({
       ...makeScreeningResult(String(walletAddress)),
       provider: "chainalysis_sanctions_oracle",
       reasonCode: "OFAC_SANCTIONS",
       result: "Blocked",
     });
-    mocks.createAdminResolutionIntent = async () => {
-      intentCalls += 1;
-      return { id: "intent-id-1" };
+    mocks.assertCompliance = () => {
+      throw new ComplianceBlockedError({
+        dealId: "deal-id-1",
+        provider: "chainalysis_sanctions_oracle",
+        reasonCode: "OFAC_SANCTIONS",
+        walletAddress: makeActionContext().seller_address.toLowerCase(),
+      });
     };
 
-    const result = await exchangeAdminResolveGrantForDeal(
-      adminUser,
-      { dealId: "deal-id-1" },
-      "a".repeat(64),
+    await assert.rejects(
+      () =>
+        exchangeAdminResolveGrantForDeal(
+          adminUser,
+          { dealId: "deal-id-1" },
+          "a".repeat(64),
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof ComplianceBlockedError);
+        assert.equal(error.reasonCode, "OFAC_SANCTIONS");
+        return true;
+      },
     );
-
-    assert.equal(result.contract_call.function_name, "adminResolveRelease");
-    assert.equal(intentCalls, 1);
   });
 
-  test("allows admin resolve for legal-hold deals", async () => {
-    let complianceCalls = 0;
-    let intentCalls = 0;
-
+  test("rejects prepare for legal-hold blocked deal", async () => {
     mocks.getDealActionContextById = async () => makeActionContext({ risk_status: "Blocked" });
-    mocks.screenWalletForDeal = async () => {
-      complianceCalls += 1;
-      return makeScreeningResult(makeActionContext().seller_address);
-    };
-    mocks.createAdminResolutionIntent = async () => {
-      intentCalls += 1;
-      return { id: "intent-id-1" };
+    mocks.assertDealNotBlocked = async () => {
+      throw new Error("DEAL_BLOCKED");
     };
 
-    const result = await exchangeAdminResolveGrantForDeal(
-      adminUser,
-      { dealId: "deal-id-1" },
-      "a".repeat(64),
+    await assert.rejects(
+      () => prepareAdminResolveForDeal(adminUser, { dealId: "deal-id-1" }, "release"),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "DEAL_BLOCKED");
+        return true;
+      },
     );
-
-    assert.equal(result.contract_call.function_name, "adminResolveRelease");
-    assert.equal(complianceCalls, 2);
-    assert.equal(intentCalls, 1);
   });
 
   test("rejects exchange when grant token is malformed", async () => {
