@@ -25,6 +25,7 @@
     "test:compliance": "npm run test:unit:links-route-compliance && npm run test:unit:funding-compliance && npm run test:unit:deal-events && npm run test:unit:compliance-service && npm run test:unit:deals-completion && npm run test:unit:deals-admin && npm run test:unit:admin-denylist && npm run test:unit:compliance-plain",
     "test:smoke": "TS_NODE_PROJECT=tsconfig.test.json node --require tsconfig-paths/register --require ts-node/register --test --test-reporter spec ./tests/api/smoke.test.ts",
     "test:contract": "hardhat test",
+    "start:worker": "TS_NODE_PROJECT=tsconfig.worker.json node --require dotenv/config --require tsconfig-paths/register --require ts-node/register server/worker-process.ts",
     "deploy:mock-usdc:base-sepolia": "hardhat run scripts/deploy-mock-usdc.js --network baseSepolia",
     "deploy:escrow:base-sepolia": "hardhat run scripts/deploy-consult-escrow.js --network baseSepolia"
   },

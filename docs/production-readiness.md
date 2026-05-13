@@ -45,7 +45,11 @@ It is intentionally separate from testnet validation notes. Testnet/dev may allo
 - [ ] Set production-safe `CHAIN_SYNC_CONFIRMATIONS`.
 - [ ] Set production-safe `CHAIN_SYNC_MAX_RANGE`.
 - [ ] Confirm the internal worker route is protected by `INTERNAL_SYNC_SECRET`.
-- [ ] Configure a production scheduler/worker process for event syncing.
+- [ ] Configure a dedicated long-running worker service for event syncing.
+  - Run a second Railway service alongside the Next.js app.
+  - Startup command: `npm run start:worker`
+  - This service does not need a public HTTP port.
+  - `/api/internal/deal-events/sync` remains a debug/manual trigger, not the primary production runner.
 
 ## Contracts
 

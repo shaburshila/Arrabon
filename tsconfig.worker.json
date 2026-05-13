@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node"
+  },
+  "include": ["server/worker-process.ts"],
+  "exclude": [".next", "node_modules", "design-reference"]
+}
