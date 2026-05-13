@@ -95,3 +95,19 @@ describe("AdminDisputeResolveControls", () => {
     assert.equal((html.match(/disabled=""/g) ?? []).length, 0);
   });
 });
+
+describe("admin disputes list labels", () => {
+  test("renders confirm-pending blocked deals with non-dispute lifecycle copy", async () => {
+    const module = await import("@/app/admin/disputes/page");
+    const html = renderToStaticMarkup(
+      createElement("div", null, [
+        createElement("span", { key: "status" }, module["adminDealStatusLabel"]("ConfirmPending")),
+        createElement("span", { key: "link" }, module["adminDealLinkLabel"]("ConfirmPending")),
+      ]),
+    );
+
+    assert.match(html, /Awaiting confirmation/);
+    assert.match(html, /View blocked deal/);
+    assert.doesNotMatch(html, /View dispute/);
+  });
+});

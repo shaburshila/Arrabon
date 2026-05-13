@@ -49,7 +49,7 @@ export interface AdminDealReview {
   resolved_from_status: DealStatus | null;
   scheduled_at: string;
   seller_address: string;
-  status: Extract<DealStatus, "Disputed">;
+  status: Extract<DealStatus, "ConfirmPending" | "Disputed">;
   timezone: string;
   title: string;
   tx_hash: string | null;

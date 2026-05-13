@@ -652,7 +652,7 @@ export async function listDisputedDealReviewRows(
   const { data: deals, error } = await db
     .from("deals")
     .select("*")
-    .eq("status", "Disputed")
+    .or("status.eq.Disputed,and(status.eq.ConfirmPending,risk_status.eq.Blocked)")
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

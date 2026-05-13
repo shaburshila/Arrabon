@@ -129,6 +129,22 @@ describe("listAdminDisputedDeals", () => {
     assert.equal(result[0].release_deadline_at, "2026-04-11T02:00:00.000Z");
   });
 
+  test("includes blocked confirm-pending deals in admin list model", async () => {
+    mocks.listDisputedDealReviewRows = async () => [
+      makeReviewRow({
+        id: "deal-id-2",
+        risk_status: "Blocked",
+        status: "ConfirmPending",
+      }),
+    ];
+
+    const result = await listAdminDisputedDeals();
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].status, "ConfirmPending");
+    assert.equal(result[0].risk_status, "Blocked");
+  });
+
   test("passes pagination options to the repository", async () => {
     let receivedPagination: unknown = null;
     mocks.listDisputedDealReviewRows = async (pagination) => {

@@ -59,7 +59,7 @@ export interface AdminDealReviewModel {
   resolved_from_status: AdminDealReviewRow["resolved_from_status"];
   scheduled_at: string;
   seller_address: string;
-  status: "Disputed";
+  status: Extract<AdminDealReviewRow["status"], "ConfirmPending" | "Disputed">;
   timezone: string;
   title: string;
   tx_hash: string | null;
@@ -85,8 +85,30 @@ export interface ComplianceSummary {
   wallets: string[];
 }
 
-export interface AdminDealReviewDetailsModel extends AdminDealReviewModel {
+export interface AdminDealReviewDetailsModel {
+  buyer_address: string;
+  completed_at: string | null;
   compliance_summary: ComplianceSummary;
+  consultation_link_id: string;
+  created_at: string;
+  duration_minutes: number;
+  expires_at: string;
+  id: string;
+  onchain_deal_id: string;
+  price_usdc: string;
+  release_deadline_at: string | null;
+  released_at: string | null;
+  resolution_type: AdminDealReviewRow["resolution_type"];
+  resolved_at: string | null;
+  resolved_by_wallet: string | null;
+  resolved_from_status: AdminDealReviewRow["resolved_from_status"];
+  risk_status: DealRiskStatus;
+  scheduled_at: string;
+  seller_address: string;
+  status: "Disputed";
+  timezone: string;
+  title: string;
+  tx_hash: string | null;
 }
 
 export interface AdminDealComplianceModel {
@@ -182,11 +204,11 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
     throw new DealAdminServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
   }
 
-  if (row.status !== "Disputed") {
+  if (row.status !== "Disputed" && row.status !== "ConfirmPending") {
     throw new DealAdminServiceError(
-      "Deal is not in dispute.",
+      "Deal is not in the admin review queue.",
       409,
-      "DEAL_NOT_DISPUTED",
+      "DEAL_NOT_REVIEWABLE",
     );
   }
 
@@ -210,6 +232,47 @@ function toReviewModel(row: AdminDealReviewRow | null): AdminDealReviewModel {
     scheduled_at: row.scheduled_at,
     seller_address: row.seller_address,
     status: row.status,
+    timezone: row.timezone,
+    title: row.title,
+    tx_hash: row.tx_hash,
+  };
+}
+
+function toReviewDetailsModel(
+  row: AdminDealReviewRow | null,
+): Omit<AdminDealReviewDetailsModel, "compliance_summary"> {
+  if (!row) {
+    throw new DealAdminServiceError("Deal not found.", 404, "DEAL_NOT_FOUND");
+  }
+
+  if (row.status !== "Disputed") {
+    throw new DealAdminServiceError(
+      "Deal is not in dispute.",
+      409,
+      "DEAL_NOT_DISPUTED",
+    );
+  }
+
+  return {
+    buyer_address: row.buyer_address,
+    completed_at: row.completed_at,
+    consultation_link_id: row.consultation_link_id,
+    created_at: row.created_at,
+    duration_minutes: row.duration_minutes,
+    expires_at: row.expires_at,
+    id: row.id,
+    onchain_deal_id: row.onchain_deal_id,
+    price_usdc: row.price_usdc,
+    release_deadline_at: computeReleaseDeadline(row),
+    released_at: row.released_at,
+    resolution_type: row.resolution_type,
+    resolved_at: row.resolved_at,
+    resolved_by_wallet: row.resolved_by_wallet,
+    resolved_from_status: row.resolved_from_status,
+    risk_status: row.risk_status,
+    scheduled_at: row.scheduled_at,
+    seller_address: row.seller_address,
+    status: "Disputed",
     timezone: row.timezone,
     title: row.title,
     tx_hash: row.tx_hash,
@@ -279,7 +342,7 @@ async function getAdminDealReviewWithChecks(
     mapRepositoryError(error);
   }
 
-  const review = toReviewModel(reviewRow);
+  const review = toReviewDetailsModel(reviewRow);
   const checks = await getComplianceChecksForDeal(review.id);
 
   return {

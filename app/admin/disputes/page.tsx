@@ -90,6 +90,20 @@ function actionLabel(resolution: AdminResolution) {
   return resolution === "release" ? "Release to seller" : "Refund to buyer";
 }
 
+export function adminDealStatusLabel(status: AdminDealReview["status"]) {
+  return status === "ConfirmPending" ? "Awaiting confirmation" : "Disputed";
+}
+
+export function adminDealStatusTone(
+  status: AdminDealReview["status"],
+): "danger" | "warning" {
+  return status === "ConfirmPending" ? "warning" : "danger";
+}
+
+export function adminDealLinkLabel(status: AdminDealReview["status"]) {
+  return status === "ConfirmPending" ? "View blocked deal" : "View dispute";
+}
+
 function statusText(state: ResolveState) {
   switch (state.step) {
     case "preparing":
@@ -458,7 +472,7 @@ export default function AdminDisputesPage() {
       <div style={headerStyle}>
         <h1 style={h1Style}>Disputes</h1>
         <p style={subtitleStyle}>
-          Review disputed escrow deals and prepare the admin resolution transaction.
+          Review disputed and blocked payout-path deals and prepare the admin resolution transaction.
         </p>
         <Link href="/admin/denylist" style={adminLinkStyle}>
           Open compliance denylist →
@@ -524,7 +538,7 @@ export default function AdminDisputesPage() {
           )}
 
           {!loading && !loadError && view === "open" && visibleOpenDeals.length === 0 && (
-            <Notice message="No open disputes." tone="muted" />
+            <Notice message="No open disputes or blocked payout cases." tone="muted" />
           )}
 
           {!loading && !loadError && view === "resolved" && visibleResolvedDeals.length === 0 && (
@@ -546,11 +560,15 @@ export default function AdminDisputesPage() {
                       <h2 style={dealTitleStyle}>{deal.title}</h2>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                       <Link href={`/admin/disputes/${deal.id}`} style={detailLinkStyle}>
-                        View dispute
+                        {adminDealLinkLabel(deal.status)}
                       </Link>
                     </div>
                     <div style={badgeStackStyle}>
-                      <StatusPill label="Disputed" size="md" tone="danger" />
+                      <StatusPill
+                        label={adminDealStatusLabel(deal.status)}
+                        size="md"
+                        tone={adminDealStatusTone(deal.status)}
+                      />
                       <RiskBadge riskStatus={deal.risk_status} size="md" />
                     </div>
                   </div>

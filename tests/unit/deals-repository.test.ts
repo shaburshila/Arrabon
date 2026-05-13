@@ -140,6 +140,38 @@ describe("deals repository list rows", () => {
     assert.equal(result[1].title, "Second dispute");
   });
 
+  test("includes blocked confirm-pending deals in admin review rows but excludes funded and resolved blocked deals", async () => {
+    mocks.dealsResult = {
+      data: [
+        makeDeal({ id: "deal-id-1", onchain_deal_id: "41", risk_status: "Clear", status: "Disputed" }),
+        makeDeal({
+          id: "deal-id-2",
+          onchain_deal_id: "42",
+          risk_status: "Blocked",
+          status: "ConfirmPending",
+        }),
+      ],
+      error: null,
+    };
+    mocks.getByIds = async (...args) => {
+      mocks.calls.getByIds.push(args);
+      return [
+        makeLink({ id: "link-id-1", title: "Disputed consultation" }),
+        makeLink({ id: "link-id-2", title: "Blocked confirm-pending consultation" }),
+      ];
+    };
+
+    const result = await listDisputedDealReviewRows();
+
+    assert.deepEqual(mocks.calls.or, [
+      "status.eq.Disputed,and(status.eq.ConfirmPending,risk_status.eq.Blocked)",
+    ]);
+    assert.deepEqual(result.map((deal) => [deal.id, deal.status]), [
+      ["deal-id-1", "Disputed"],
+      ["deal-id-2", "ConfirmPending"],
+    ]);
+  });
+
   test("deduplicates consultation link ids before batch loading", async () => {
     mocks.dealsResult = {
       data: [
