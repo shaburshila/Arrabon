@@ -253,11 +253,14 @@ export async function getByOnchainDealId(
 export async function listActiveDealPayoutBlockTargetsByWallet(
   walletAddress: string,
 ): Promise<DealPayoutBlockTargetRow[]> {
+  const normalizedWalletAddress = walletAddress.trim().toLowerCase();
   const db = getServerDbClient().schema("public");
   const { data, error } = await db
     .from("deals")
     .select("id, onchain_deal_id, status")
-    .or(`buyer_address.eq.${walletAddress},seller_address.eq.${walletAddress}`);
+    .or(
+      `buyer_address.ilike.${normalizedWalletAddress},seller_address.ilike.${normalizedWalletAddress}`,
+    );
 
   if (error) {
     throw new DealsRepositoryError(

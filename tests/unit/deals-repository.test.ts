@@ -217,9 +217,20 @@ describe("deals repository list rows", () => {
   test("returns only active payout block targets for a wallet", async () => {
     mocks.dealsResult = {
       data: [
-        makeDeal({ id: "deal-id-1", onchain_deal_id: "41", status: "Funded" }),
+        makeDeal({
+          buyer_address: "0x0000000000000000000000000000000000000002",
+          id: "deal-id-1",
+          onchain_deal_id: "41",
+          seller_address: "0x000000000000000000000000000000000000000A",
+          status: "Funded",
+        }),
         makeDeal({ id: "deal-id-2", onchain_deal_id: "42", status: "ConfirmPending" }),
-        makeDeal({ id: "deal-id-3", onchain_deal_id: "43", status: "Disputed" }),
+        makeDeal({
+          id: "deal-id-3",
+          onchain_deal_id: "43",
+          seller_address: "0x0000000000000000000000000000000000000002",
+          status: "Disputed",
+        }),
         makeDeal({ id: "deal-id-4", onchain_deal_id: "44", status: "Released" }),
       ],
       error: null,
@@ -228,7 +239,7 @@ describe("deals repository list rows", () => {
     const result = await listActiveDealPayoutBlockTargetsByWallet(BUYER_ADDRESS);
 
     assert.deepEqual(mocks.calls.or, [
-      `buyer_address.eq.${BUYER_ADDRESS},seller_address.eq.${BUYER_ADDRESS}`,
+      `buyer_address.ilike.${BUYER_ADDRESS},seller_address.ilike.${BUYER_ADDRESS}`,
     ]);
     assert.deepEqual(result, [
       { id: "deal-id-1", onchain_deal_id: "41" },
