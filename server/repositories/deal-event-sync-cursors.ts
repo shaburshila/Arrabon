@@ -1,4 +1,8 @@
-import type { DealEventSyncCursorInsert, DealEventSyncCursorRow } from "@/lib/db/types";
+import type {
+  DealEventSyncCursorAdvanceResult,
+  DealEventSyncCursorInsert,
+  DealEventSyncCursorRow,
+} from "@/lib/db/types";
 import { getServerDbClient } from "@/lib/db/server";
 
 export class DealEventSyncCursorsRepositoryError extends Error {
@@ -79,7 +83,7 @@ export async function advanceDealEventsSyncCursor(
       p_last_indexed_block: lastIndexedBlock.toString(10),
       p_name: DEAL_EVENTS_CURSOR_NAME,
     })
-    .returns<DealEventSyncCursorRow[]>()
+    .returns<DealEventSyncCursorAdvanceResult[]>()
     .single();
 
   if (error) {

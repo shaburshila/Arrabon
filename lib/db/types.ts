@@ -39,6 +39,12 @@ export interface DealEventSyncCursorRow {
   updated_at: string;
 }
 
+export interface DealEventSyncCursorAdvanceResult {
+  cursor_name: string;
+  last_indexed_block: string;
+  updated_at: string;
+}
+
 export interface DealEventSyncCursorInsert {
   name: string;
   last_indexed_block: string;
