@@ -209,8 +209,8 @@ Usage:
 
 Release paths:
 
-- seller accrues `price - feeAmount` into `pendingPayouts[seller]`
-- treasury accrues `feeAmount` into `pendingTreasuryFees`
+- seller receives `price - feeAmount` immediately
+- treasury receives `feeAmount` immediately
 
 Refund path:
 
@@ -252,8 +252,9 @@ Implementation invariant:
 
 For all token-moving paths:
 
-- `withdrawPayout`
-- `withdrawTreasuryFees`
+- `confirmRelease`
+- `autoRelease`
+- `adminResolveRelease`
 - `adminResolveRefund`
 
 Must hold:
@@ -295,9 +296,7 @@ Must not use:
 Token flows:
 
 - funding: contract pulls full `price` from buyer
-- release: contract accrues seller net and treasury fee without external token transfers
-- seller withdraw: contract pays seller from `pendingPayouts[msg.sender]`
-- treasury withdraw: contract pays current treasury from `pendingTreasuryFees`
+- release: contract pays seller net and treasury fee immediately
 - refund: contract pays buyer full price
 
 ## Event Contract
@@ -323,22 +322,6 @@ Implement exactly these events:
 
 - `Refunded`
   - `dealId` indexed
-
-- `PayoutAccrued`
-  - `seller` indexed
-  - `amount`
-
-- `PayoutWithdrawn`
-  - `seller` indexed
-  - `amount`
-
-- `TreasuryFeesAccrued`
-  - `treasury` indexed
-  - `amount`
-
-- `TreasuryFeesWithdrawn`
-  - `treasury` indexed
-  - `amount`
 
 - `TreasuryUpdated`
   - `previousTreasury` indexed
@@ -409,5 +392,5 @@ Once contract is implemented, repo must be aligned in:
 - QA/docs wording for:
   - `DealFunded` naming
   - no fee waiver in v1
-  - treasury fees accrue only on release paths
+  - treasury fees are paid only on release paths
   - accepted offchain funding-validity limitation

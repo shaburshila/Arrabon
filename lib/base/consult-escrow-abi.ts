@@ -85,38 +85,6 @@ export const treasuryFunctionAbi = {
   outputs: [{ name: "", type: "address" }],
 } as const;
 
-export const pendingPayoutsFunctionAbi = {
-  type: "function",
-  name: "pendingPayouts",
-  stateMutability: "view",
-  inputs: [{ name: "", type: "address" }],
-  outputs: [{ name: "", type: "uint256" }],
-} as const;
-
-export const pendingTreasuryFeesFunctionAbi = {
-  type: "function",
-  name: "pendingTreasuryFees",
-  stateMutability: "view",
-  inputs: [],
-  outputs: [{ name: "", type: "uint256" }],
-} as const;
-
-export const withdrawPayoutFunctionAbi = {
-  type: "function",
-  name: "withdrawPayout",
-  stateMutability: "nonpayable",
-  inputs: [],
-  outputs: [],
-} as const;
-
-export const withdrawTreasuryFeesFunctionAbi = {
-  type: "function",
-  name: "withdrawTreasuryFees",
-  stateMutability: "nonpayable",
-  inputs: [],
-  outputs: [],
-} as const;
-
 export const setTreasuryFunctionAbi = {
   type: "function",
   name: "setTreasury",
@@ -185,46 +153,6 @@ export const ownershipTransferredEventAbi = {
   inputs: [
     { indexed: true, name: "previousOwner", type: "address" },
     { indexed: true, name: "newOwner", type: "address" },
-  ],
-  anonymous: false,
-} as const;
-
-export const payoutAccruedEventAbi = {
-  type: "event",
-  name: "PayoutAccrued",
-  inputs: [
-    { indexed: true, name: "seller", type: "address" },
-    { indexed: false, name: "amount", type: "uint256" },
-  ],
-  anonymous: false,
-} as const;
-
-export const payoutWithdrawnEventAbi = {
-  type: "event",
-  name: "PayoutWithdrawn",
-  inputs: [
-    { indexed: true, name: "seller", type: "address" },
-    { indexed: false, name: "amount", type: "uint256" },
-  ],
-  anonymous: false,
-} as const;
-
-export const treasuryFeesAccruedEventAbi = {
-  type: "event",
-  name: "TreasuryFeesAccrued",
-  inputs: [
-    { indexed: true, name: "treasury", type: "address" },
-    { indexed: false, name: "amount", type: "uint256" },
-  ],
-  anonymous: false,
-} as const;
-
-export const treasuryFeesWithdrawnEventAbi = {
-  type: "event",
-  name: "TreasuryFeesWithdrawn",
-  inputs: [
-    { indexed: true, name: "treasury", type: "address" },
-    { indexed: false, name: "amount", type: "uint256" },
   ],
   anonymous: false,
 } as const;
