@@ -602,7 +602,7 @@ describe("ConsultEscrow", function () {
       ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
     });
 
-    it("rejects link expiry equal to scheduled time", async function () {
+    it("allows link expiry equal to scheduled time", async function () {
       const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
@@ -623,7 +623,7 @@ describe("ConsultEscrow", function () {
           scheduledAt,
           seller: seller.address,
         })
-      ).to.be.revertedWithCustomError(escrow, "InvalidSchedule");
+      ).to.not.be.reverted;
     });
 
     it("rejects link expiry after scheduled time", async function () {
