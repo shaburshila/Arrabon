@@ -1,5 +1,6 @@
 import { readSessionCookie } from "@/lib/auth/cookies";
 import { getAuthSessionFromToken, type AuthSessionContext } from "@/lib/auth/session";
+import { getContractAdminCheckStatus } from "@/server/services/contract-admins";
 import { getByWallet } from "@/server/repositories/users";
 
 export class AuthGuardError extends Error {
@@ -82,6 +83,16 @@ export async function requireAdmin() {
   const user = await requireUser();
 
   if (!user.is_admin) {
+    throw new AuthGuardError("Access denied.", 403);
+  }
+
+  const adminStatus = await getContractAdminCheckStatus(user.wallet_address);
+
+  if (adminStatus.source !== "ok") {
+    throw new AuthGuardError("Admin role check is temporarily unavailable.", 503);
+  }
+
+  if (!adminStatus.isAdmin) {
     throw new AuthGuardError("Access denied.", 403);
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveAllowedAuthDomains } from "@/lib/auth/config";
 import { setSessionCookie } from "@/lib/auth/cookies";
-import { createAuthSession, isAdminWallet } from "@/lib/auth/session";
+import { createAuthSession } from "@/lib/auth/session";
 import {
   AUTH_VERIFY_RATE_LIMIT_MAX_REQUESTS,
   AUTH_VERIFY_RATE_LIMIT_WINDOW_MS,
@@ -83,10 +83,10 @@ export async function POST(request: Request) {
 
     await getOrCreateUser(verifiedMessage.address);
 
-    const { expiresAt, token } = await createAuthSession(verifiedMessage.address);
+    const { expiresAt, session, token } = await createAuthSession(verifiedMessage.address);
     const response = NextResponse.json({
       expires_at: expiresAt.toISOString(),
-      is_admin: isAdminWallet(verifiedMessage.address),
+      is_admin: session.is_admin,
       ok: true,
       wallet_address: verifiedMessage.address,
     });

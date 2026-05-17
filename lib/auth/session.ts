@@ -1,41 +1,15 @@
 import { createHash, randomBytes } from "crypto";
-import { getAddress } from "viem";
 import { readSessionCookie } from "@/lib/auth/cookies";
+import { isContractAdmin } from "@/server/services/contract-admins";
 import { createSession, getSession, revokeSession } from "@/server/repositories/sessions";
 
 export const AUTH_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
-let hasLoggedMissingAdminWallets = false;
 
 export interface AuthSessionContext {
   expires_at: string;
   is_admin: boolean;
   session_id: string;
   wallet_address: string;
-}
-
-function getAdminWalletAllowlist() {
-  const rawValue = process.env.ADMIN_WALLETS?.trim();
-
-  if (!rawValue) {
-    if (!hasLoggedMissingAdminWallets) {
-      hasLoggedMissingAdminWallets = true;
-      console.error("ADMIN_WALLETS is empty or not set; admin functionality is disabled.");
-    }
-
-    return new Set<string>();
-  }
-
-  return new Set(
-    rawValue
-      .split(",")
-      .map((wallet) => wallet.trim())
-      .filter(Boolean)
-      .map((wallet) => getAddress(wallet).toLowerCase()),
-  );
-}
-
-export function isAdminWallet(wallet: string) {
-  return getAdminWalletAllowlist().has(getAddress(wallet).toLowerCase());
 }
 
 export function generateSessionToken() {
@@ -49,7 +23,7 @@ export function hashSessionToken(token: string) {
 export async function createAuthSession(wallet: string) {
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + AUTH_SESSION_TTL_MS);
-  const isAdmin = isAdminWallet(wallet);
+  const isAdmin = await isContractAdmin(wallet);
   const session = await createSession(wallet, isAdmin, hashSessionToken(token), expiresAt);
 
   return {

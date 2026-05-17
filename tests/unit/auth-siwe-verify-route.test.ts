@@ -7,13 +7,16 @@ interface AuthSiweVerifyMocks {
   countRecentSecurityRequestAttempts: (...args: unknown[]) => Promise<number>;
   createAuthSession: (...args: unknown[]) => Promise<{
     expiresAt: Date;
+    session: {
+      id: string;
+      is_admin: boolean;
+    };
     token: string;
   }>;
   createSecurityRequestAttempt: (...args: unknown[]) => Promise<unknown>;
   consumeValidNonce: (...args: unknown[]) => Promise<{ id: string } | null>;
   deleteExpiredSecurityRequestAttempts: (...args: unknown[]) => Promise<void>;
   getOrCreateUser: (...args: unknown[]) => Promise<unknown>;
-  isAdminWallet: (...args: unknown[]) => boolean;
   parseSiweMessage: (...args: unknown[]) => {
     address: string;
   };
@@ -50,9 +53,12 @@ beforeEach(() => {
   });
   mocks.createAuthSession = async () => ({
     expiresAt: new Date("2026-05-01T12:00:00.000Z"),
+    session: {
+      id: "session-id-1",
+      is_admin: false,
+    },
     token: "session-token",
   });
-  mocks.isAdminWallet = () => false;
   mocks.setSessionCookie = () => {};
 });
 

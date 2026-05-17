@@ -109,6 +109,14 @@ export const adminCountFunctionAbi = {
   outputs: [{ name: "", type: "uint256" }],
 } as const;
 
+export const adminsFunctionAbi = {
+  type: "function",
+  name: "admins",
+  stateMutability: "view",
+  inputs: [{ name: "", type: "address" }],
+  outputs: [{ name: "", type: "bool" }],
+} as const;
+
 export const addAdminFunctionAbi = {
   type: "function",
   name: "addAdmin",

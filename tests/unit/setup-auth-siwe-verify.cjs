@@ -18,6 +18,10 @@ const mocks = {
   countRecentSecurityRequestAttempts: async () => 0,
   createAuthSession: async () => ({
     expiresAt: new Date('2026-05-01T12:00:00.000Z'),
+    session: {
+      id: 'session-id-1',
+      is_admin: false,
+    },
     token: 'session-token',
   }),
   createSecurityRequestAttempt: async () => ({
@@ -31,7 +35,6 @@ const mocks = {
     id: 'user-id-1',
     wallet: '0x0000000000000000000000000000000000000001',
   }),
-  isAdminWallet: () => false,
   parseSiweMessage: () => ({
     address: '0x0000000000000000000000000000000000000001',
   }),
@@ -62,7 +65,6 @@ require.cache[authCookiesPath] = makeEntry(authCookiesPath, {
 const authSessionPath = path.resolve(root, 'lib/auth/session.ts');
 require.cache[authSessionPath] = makeEntry(authSessionPath, {
   createAuthSession: (...args) => mocks.createAuthSession(...args),
-  isAdminWallet: (...args) => mocks.isAdminWallet(...args),
 });
 
 const authSiwePath = path.resolve(root, 'lib/auth/siwe.ts');

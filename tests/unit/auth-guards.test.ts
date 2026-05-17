@@ -13,6 +13,10 @@ interface AuthGuardMocks {
     session_id: string;
     wallet_address: string;
   } | null>;
+  getContractAdminCheckStatus: (...args: unknown[]) => Promise<{
+    isAdmin: boolean;
+    source: "ok" | "rpc_error";
+  }>;
   getByWallet: (...args: unknown[]) => Promise<{
     avatar_url: string | null;
     created_at: string;
@@ -40,6 +44,10 @@ beforeEach(() => {
     username: null,
     wallet: "0x0000000000000000000000000000000000000001",
   });
+  mocks.getContractAdminCheckStatus = async () => ({
+    isAdmin: false,
+    source: "ok",
+  });
 });
 
 describe("requireAdmin", () => {
@@ -61,10 +69,58 @@ describe("requireAdmin", () => {
       session_id: "session-id-1",
       wallet_address: "0x0000000000000000000000000000000000000001",
     });
+    mocks.getContractAdminCheckStatus = async () => ({
+      isAdmin: true,
+      source: "ok",
+    });
 
     const result = await requireAdmin();
 
     assert.equal(result.id, "user-id-1");
     assert.equal(result.is_admin, true);
+  });
+
+  test("rejects with 403 when session says admin but onchain role is absent", async () => {
+    mocks.getAuthSessionFromToken = async () => ({
+      expires_at: "2026-04-12T12:00:00.000Z",
+      is_admin: true,
+      session_id: "session-id-1",
+      wallet_address: "0x0000000000000000000000000000000000000001",
+    });
+    mocks.getContractAdminCheckStatus = async () => ({
+      isAdmin: false,
+      source: "ok",
+    });
+
+    await assert.rejects(
+      () => requireAdmin(),
+      (error: unknown) => {
+        assert.ok(error instanceof AuthGuardError);
+        assert.equal(error.status, 403);
+        return true;
+      },
+    );
+  });
+
+  test("rejects with 503 when onchain admin check is unavailable", async () => {
+    mocks.getAuthSessionFromToken = async () => ({
+      expires_at: "2026-04-12T12:00:00.000Z",
+      is_admin: true,
+      session_id: "session-id-1",
+      wallet_address: "0x0000000000000000000000000000000000000001",
+    });
+    mocks.getContractAdminCheckStatus = async () => ({
+      isAdmin: false,
+      source: "rpc_error",
+    });
+
+    await assert.rejects(
+      () => requireAdmin(),
+      (error: unknown) => {
+        assert.ok(error instanceof AuthGuardError);
+        assert.equal(error.status, 503);
+        return true;
+      },
+    );
   });
 });

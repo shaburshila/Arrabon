@@ -29,6 +29,10 @@ const mocks = {
     username: null,
     wallet: '0x0000000000000000000000000000000000000001',
   }),
+  getContractAdminCheckStatus: async () => ({
+    isAdmin: false,
+    source: 'ok',
+  }),
 };
 
 global.__authGuardMocks = mocks;
@@ -43,6 +47,11 @@ require.cache[cookiesPath] = makeEntry(cookiesPath, {
 const sessionPath = path.resolve(root, 'lib/auth/session.ts');
 require.cache[sessionPath] = makeEntry(sessionPath, {
   getAuthSessionFromToken: (...args) => mocks.getAuthSessionFromToken(...args),
+});
+
+const contractAdminsPath = path.resolve(root, 'server/services/contract-admins.ts');
+require.cache[contractAdminsPath] = makeEntry(contractAdminsPath, {
+  getContractAdminCheckStatus: (...args) => mocks.getContractAdminCheckStatus(...args),
 });
 
 const usersRepoPath = path.resolve(root, 'server/repositories/users.ts');
