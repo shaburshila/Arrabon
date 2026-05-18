@@ -489,7 +489,7 @@ export default function AdminDisputesPage() {
       )}
 
       {session.siweStatus === "authenticated" && session.session?.is_admin !== true && (
-        <Notice message="This wallet is not on the admin allowlist." tone="danger" />
+        <Notice message="This wallet does not have admin permissions." tone="danger" />
       )}
 
       {canLoadAdminDeals && (
