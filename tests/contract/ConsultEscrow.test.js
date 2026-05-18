@@ -10,7 +10,7 @@ describe("ConsultEscrow", function () {
   const MAX_FEE = 30_000_000n;
   const FEE_NUMERATOR = 300n;
   const FEE_DENOMINATOR = 10_000n;
-  const DISPUTE_WINDOW = 1n * 60n;
+  const DISPUTE_WINDOW = 48n * 60n * 60n;
   const FUNDING_AUTHORIZATION_LIFETIME = 180n;
   const ATTACK_AUTO_RELEASE = 0;
   const ATTACK_ADMIN_RESOLVE_REFUND = 1;
