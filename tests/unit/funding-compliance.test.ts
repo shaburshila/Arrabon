@@ -103,6 +103,7 @@ describe("prepareFundingForLink compliance gate", () => {
     assert.equal(result.consultation_link_id, "link-id-1");
     assert.match(result.grant_token, /^[0-9a-f]{64}$/);
     assert.equal(result.contract_address, "0x0000000000000000000000000000000000000001");
+    assert.equal(result.approval_amount, String(103_000_000));
     assert.equal(mocks.calls.screenWalletsBatch.length, 0);
     assert.equal(mocks.calls.assertCompliance.length, 0);
     assert.equal(mocks.calls.prepareCreateAndFundDealCall.length, 0);

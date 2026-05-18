@@ -147,6 +147,36 @@ describe("parseCreateConsultationLinkInput timezone", () => {
   });
 });
 
+describe("parseCreateConsultationLinkInput price", () => {
+  test("accepts the raised maximum price", () => {
+    const result = parseCreateConsultationLinkInput(
+      makePayload({ price_usdc: "100000" }),
+      NOW,
+    );
+
+    assert.equal(result.priceUsdc, "100000");
+  });
+
+  test("rejects prices above the raised maximum", () => {
+    assert.throws(
+      () => parseCreateConsultationLinkInput(
+        makePayload({ price_usdc: "100000.01" }),
+        NOW,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ConsultationLinkValidationError);
+        assert.deepEqual(error.issues, [
+          {
+            field: "price_usdc",
+            message: "Must be between 10 and 100000 USDC.",
+          },
+        ]);
+        return true;
+      },
+    );
+  });
+});
+
 describe("parseCreateConsultationLinkInput expiration and removed grace period", () => {
   test("accepts a valid payload without client-provided grace_period_minutes", () => {
     const result = parseCreateConsultationLinkInput(makePayload(), NOW);

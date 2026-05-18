@@ -140,7 +140,7 @@ Admin rotation model:
 - `seller != buyer`
 - `usedLinkHashes[link_hash] == false`
 - `usedFundingNonces[nonce] == false`
-- `price` in `[10 USDC, 1000 USDC]`
+- `price` in `[10 USDC, 100000 USDC]`
 - `scheduled_at > block.timestamp`
 - `duration_minutes > 0`
 - `link_expires_at > block.timestamp`
@@ -186,21 +186,21 @@ Required ordering:
 5. set `usedFundingNonces[nonce] = true`
 6. set `usedLinkHashes[link_hash] = true`
 7. write deal storage
-8. transfer `price` from buyer into contract
+8. transfer `price + feeAmount` from buyer into contract
 9. emit `DealFunded`
 
 ## Fee Logic
 
 Locked fee model:
 
-- fixed 2%
+- fee is paid on top of `price` by buyer
 - no waiver
 - snapshot at funding
-- treasury fees accrue only on release paths
+- treasury receives the fee on both release and refund paths
 
 Formula:
 
-- `feeAmount = floor(price * 200 / 10000)`
+- `feeAmount = min(max(floor(price * 300 / 10000), 1.50 USDC), 30 USDC)`
 
 Usage:
 
@@ -209,13 +209,13 @@ Usage:
 
 Release paths:
 
-- seller receives `price - feeAmount` immediately
+- seller receives `price` immediately
 - treasury receives `feeAmount` immediately
 
 Refund path:
 
-- buyer gets full `price`
-- treasury gets `0`
+- buyer gets `price`
+- treasury gets `feeAmount`
 
 ## Time Logic
 
@@ -295,9 +295,9 @@ Must not use:
 
 Token flows:
 
-- funding: contract pulls full `price` from buyer
-- release: contract pays seller net and treasury fee immediately
-- refund: contract pays buyer full price
+- funding: contract pulls full `price + feeAmount` from buyer
+- release: contract pays seller `price` and treasury `feeAmount` immediately
+- refund: contract pays buyer `price` and treasury `feeAmount`
 
 ## Event Contract
 
@@ -375,10 +375,8 @@ Before considering contract done, verify:
 - `openDispute` works from `ConfirmPending` within deadline
 - `openDispute` fails after release
 - admin-only resolution enforced
-- refund returns full `price`
-- release accrues net to seller and fee to treasury
-- seller can withdraw accrued payout exactly once per balance
-- treasury can withdraw accrued fees exactly once per balance
+- refund returns `price` while treasury keeps `feeAmount`
+- release pays seller `price` and treasury `feeAmount`
 - terminal states cannot be reopened
 - timestamps in `Completed` and `Released` events are exact
 - no second payout is possible after terminal transition
@@ -392,5 +390,5 @@ Once contract is implemented, repo must be aligned in:
 - QA/docs wording for:
   - `DealFunded` naming
   - no fee waiver in v1
-  - treasury fees are paid only on release paths
+  - treasury fees are paid on release and refund paths
   - accepted offchain funding-validity limitation

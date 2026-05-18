@@ -5,6 +5,7 @@ import { getAddress, parseUnits } from "viem";
 
 import type { CurrentUserContext } from "@/lib/auth/guards";
 import { assertLinkHash } from "@/lib/crypto/link-hash";
+import { calculateTotalWithFee, parseUsdcAmount } from "@/lib/fees/calculate-fee";
 import { resolveEffectiveConsultationLinkStatus } from "@/lib/constants/consultation-links";
 import type { ConsultationLinkRow, ConsultationLinkStatus } from "@/lib/db/types";
 import { assertCompliance } from "@/lib/compliance/error-mapping";
@@ -104,6 +105,7 @@ async function issueFundingGrant(input: {
 }): Promise<FundingGrantIssueResult> {
   const { token, tokenHash } = buildGrantToken();
   const expiresAt = new Date(input.now.getTime() + FUNDING_GRANT_TTL_MS).toISOString();
+  const priceAmount = parseUsdcAmount(String(input.link.price_usdc));
   let contractAddress: string;
 
   try {
@@ -133,7 +135,7 @@ async function issueFundingGrant(input: {
   }
 
   return {
-    approval_amount: parseUnits(String(input.link.price_usdc), 6).toString(10),
+    approval_amount: calculateTotalWithFee(priceAmount).toString(10),
     buyer_address: getAddress(input.currentUser.wallet_address),
     consultation_link_id: input.link.id,
     contract_address: contractAddress,

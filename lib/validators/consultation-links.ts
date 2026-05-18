@@ -27,7 +27,7 @@ export interface CreateConsultationLinkInput {
 }
 
 const MIN_PRICE_USDC = 10;
-const MAX_PRICE_USDC = 1000;
+const MAX_PRICE_USDC = 100000;
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 3000;
 const MAX_DURATION_MINUTES = 24 * 60;

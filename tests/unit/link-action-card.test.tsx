@@ -99,4 +99,34 @@ describe("LinkActionCard", () => {
     assert.doesNotMatch(html, /Try again/);
     assert.doesNotMatch(html, /Payment progress/);
   });
+
+  test("renders payment breakdown and total-based CTA for authenticated viewers", () => {
+    const html = renderToStaticMarkup(
+      createElement(LinkActionCard, {
+        dealIdPollingTimedOut: false,
+        funding: {
+          ...makeFunding(),
+          state: {
+            complianceReasonCode: null,
+            complianceWallet: null,
+            error: null,
+            step: "idle",
+            txHash: null,
+          },
+        },
+        link: makeLink(),
+        onRetryPolling: () => {},
+        role: "viewer",
+        session: makeSession(),
+      }),
+    );
+
+    assert.match(html, /Consultation/);
+    assert.match(html, /Platform escrow fee/);
+    assert.match(html, /Non-refundable escrow service fee/);
+    assert.match(html, /\$100\.00/);
+    assert.match(html, /\$3\.00/);
+    assert.match(html, /\$103\.00/);
+    assert.match(html, /Pay into escrow · \$103\.00/);
+  });
 });

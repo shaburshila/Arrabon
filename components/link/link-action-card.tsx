@@ -9,6 +9,12 @@ import Link from "next/link";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import type { FundingFlow } from "@/hooks/use-funding-flow";
 import type { PublicLink } from "@/lib/api/links";
+import {
+  calculateFee,
+  calculateTotalWithFee,
+  formatUsdcAmount,
+  parseUsdcAmount,
+} from "@/lib/fees/calculate-fee";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
@@ -43,6 +49,8 @@ export function LinkActionCard({
     switchToCorrectChain,
   } = session;
   const { execute, reset, state: fundingState } = funding;
+  const priceAmount = parseUsdcAmount(link.price_usdc);
+  const totalAmount = calculateTotalWithFee(priceAmount);
 
   const isFunding =
     fundingState.step !== "idle" &&
@@ -126,7 +134,7 @@ export function LinkActionCard({
               loading={false}
               onClick={execute}
             >
-              Pay into escrow · {link.price_usdc} USDC
+              Pay into escrow · ${formatUsdcAmount(totalAmount)}
             </Btn>
           )}
 
@@ -177,16 +185,21 @@ export function LinkActionCard({
 }
 
 function PaymentSummary({ priceUsdc }: { priceUsdc: string }) {
+  const priceAmount = parseUsdcAmount(priceUsdc);
+  const feeAmount = calculateFee(priceAmount);
+  const totalAmount = calculateTotalWithFee(priceAmount);
+
   return (
     <div style={paymentSummaryStyle}>
-      <DetailRow label="Consultation price" value={`${priceUsdc} USDC`} />
-      <DetailRow label="Network" value="Base" accent />
+      <DetailRow label="Consultation" value={`$${formatUsdcAmount(priceAmount)}`} />
+      <DetailRow label="Platform escrow fee" value={`$${formatUsdcAmount(feeAmount)}`} />
       <DetailRow
         bordered={false}
         label="Total"
         style={{ paddingBottom: 0 }}
-        value={`${priceUsdc} USDC`}
+        value={`$${formatUsdcAmount(totalAmount)}`}
       />
+      <p style={feeNoteStyle}>Non-refundable escrow service fee</p>
     </div>
   );
 }
@@ -217,6 +230,13 @@ const paymentSummaryStyle = {
   background: "var(--panel-muted)",
   borderRadius: "var(--radius-sm)",
   padding: "4px 14px 12px",
+};
+
+const feeNoteStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+  lineHeight: 1.45,
+  margin: "10px 0 0",
 };
 
 const myLinksLinkStyle = {

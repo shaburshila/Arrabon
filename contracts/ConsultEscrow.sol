@@ -8,10 +8,12 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 contract ConsultEscrow is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 public constant FEE_BPS = 200;
+    uint256 public constant MIN_FEE = 1_500_000;
+    uint256 public constant MAX_FEE = 30_000_000;
+    uint256 public constant FEE_NUMERATOR = 300;
     uint256 public constant FEE_DENOMINATOR = 10_000;
     uint256 public constant MIN_PRICE = 10_000_000;
-    uint256 public constant MAX_PRICE = 1_000_000_000;
+    uint256 public constant MAX_PRICE = 100_000_000_000;
     uint256 public constant MAX_DURATION_MINUTES = 1440;
     uint256 public constant DISPUTE_WINDOW = 1 minutes;
     bytes32 public constant EIP712_DOMAIN_TYPEHASH =
@@ -282,7 +284,7 @@ contract ConsultEscrow is ReentrancyGuard {
             revert InvalidFundingSignature();
         }
 
-        uint256 feeAmount = (price * FEE_BPS) / FEE_DENOMINATOR;
+        uint256 feeAmount = _calculateFee(price);
         uint256 dealId = nextDealId;
         nextDealId = dealId + 1;
 
@@ -300,7 +302,7 @@ contract ConsultEscrow is ReentrancyGuard {
             status: Status.Funded
         });
 
-        usdc.safeTransferFrom(buyer, address(this), price);
+        usdc.safeTransferFrom(buyer, address(this), price + feeAmount);
 
         emit DealFunded(dealId, link_hash, seller, buyer);
     }
@@ -428,6 +430,7 @@ contract ConsultEscrow is ReentrancyGuard {
 
         deal.status = Status.Refunded;
         usdc.safeTransfer(deal.buyer, deal.price);
+        usdc.safeTransfer(treasury, deal.feeAmount);
 
         emit Refunded(dealId);
     }
@@ -457,13 +460,24 @@ contract ConsultEscrow is ReentrancyGuard {
     }
 
     function _release(uint256 dealId, Deal storage deal) internal {
-        uint256 sellerAmount = deal.price - deal.feeAmount;
-
         deal.status = Status.Released;
-        usdc.safeTransfer(deal.seller, sellerAmount);
+        usdc.safeTransfer(deal.seller, deal.price);
         usdc.safeTransfer(treasury, deal.feeAmount);
 
         emit Released(dealId, block.timestamp);
+    }
+
+    function _calculateFee(uint256 price) internal pure returns (uint256) {
+        uint256 fee = (price * FEE_NUMERATOR) / FEE_DENOMINATOR;
+
+        if (fee < MIN_FEE) {
+            fee = MIN_FEE;
+        }
+        if (fee > MAX_FEE) {
+            fee = MAX_FEE;
+        }
+
+        return fee;
     }
 
     function _recoverFundingAuthorizationSigner(

@@ -36,7 +36,7 @@
 
 - scheduled consultation;
 - single-use link;
-- лимиты сделки: $10–$1000;
+- лимиты сделки: $10–$100000;
 - escrow;
 - seller completion + buyer confirmation;
 - dispute window = 48 часов;
@@ -203,7 +203,7 @@ Authorization model:
 - ConfirmPending
 - Released
   - payout зафиксирован onchain
-  - seller и treasury выводят средства отдельными claim-транзакциями
+  - seller получает `price`, treasury получает `fee`
 - Refunded
 - Disputed
 
@@ -297,11 +297,13 @@ Onchain методы:
 
 ## 11. Комиссия
 
-- 2% с эксперта
+- buyer платит `price + fee`
+- seller получает `price` полностью
+- формула: `clamp(price * 3%, $1.50, $30)`
 - фиксируется в момент funding
 - округление вниз
-- при release комиссия сначала начисляется в pending treasury fees
-- treasury выводит её отдельной транзакцией
+- при `Released` treasury получает `fee`
+- при `Refunded` buyer получает только `price`, treasury получает `fee`
 
 ## 12. Auth и Session
 

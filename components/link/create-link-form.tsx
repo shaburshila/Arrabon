@@ -381,7 +381,7 @@ export function CreateLinkForm({ session }: { session: WalletSessionState }) {
               label="Price"
               onChange={(value) => setField("price_usdc", value)}
               required
-              sublabel="Buyer pays USDC into escrow."
+              sublabel="You will receive this amount in full. Buyer pays an additional platform fee (3%, min $1.50, max $30)."
               token="USDC"
             />
             <Divider />

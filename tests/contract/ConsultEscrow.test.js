@@ -4,9 +4,11 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("ConsultEscrow", function () {
   const MIN_PRICE = 10_000_000n;
-  const MAX_PRICE = 1_000_000_000n;
+  const MAX_PRICE = 100_000_000_000n;
   const MAX_DURATION_MINUTES = 1440n;
-  const FEE_BPS = 200n;
+  const MIN_FEE = 1_500_000n;
+  const MAX_FEE = 30_000_000n;
+  const FEE_NUMERATOR = 300n;
   const FEE_DENOMINATOR = 10_000n;
   const DISPUTE_WINDOW = 1n * 60n;
   const FUNDING_AUTHORIZATION_LIFETIME = 180n;
@@ -56,7 +58,21 @@ describe("ConsultEscrow", function () {
   }
 
   function feeFor(price) {
-    return (price * FEE_BPS) / FEE_DENOMINATOR;
+    const percentFee = (price * FEE_NUMERATOR) / FEE_DENOMINATOR;
+
+    if (percentFee < MIN_FEE) {
+      return MIN_FEE;
+    }
+
+    if (percentFee > MAX_FEE) {
+      return MAX_FEE;
+    }
+
+    return percentFee;
+  }
+
+  function totalFor(price) {
+    return price + feeFor(price);
   }
 
   async function signFundingAuthorization({
@@ -174,8 +190,8 @@ describe("ConsultEscrow", function () {
       effectiveAuthorizer = signers.find((signer) => signer.address === authorizerAddress);
     }
 
-    await token.mint(buyer.address, price);
-    await token.connect(buyer).approve(escrow.target, price);
+    await token.mint(buyer.address, totalFor(price));
+    await token.connect(buyer).approve(escrow.target, totalFor(price));
 
     const tx = await createAndFundDealAuthorized({
       authorizer: effectiveAuthorizer,
@@ -392,8 +408,8 @@ describe("ConsultEscrow", function () {
       const scheduledAt = now + 3600n;
       const effectiveNonce = ethers.hexlify(ethers.randomBytes(32));
 
-      await token.mint(buyer.address, price);
-      await token.connect(buyer).approve(escrow.target, price);
+      await token.mint(buyer.address, totalFor(price));
+      await token.connect(buyer).approve(escrow.target, totalFor(price));
 
       await expect(
         createAndFundDealAuthorized({
@@ -425,7 +441,7 @@ describe("ConsultEscrow", function () {
       expect(await escrow.usedLinkHashes(linkHash)).to.equal(true);
       expect(await escrow.usedFundingNonces(effectiveNonce)).to.equal(true);
       expect(await escrow.nextDealId()).to.equal(2n);
-      expect(await token.balanceOf(escrow.target)).to.equal(price);
+      expect(await token.balanceOf(escrow.target)).to.equal(totalFor(price));
       expect(await token.balanceOf(await escrow.treasury())).to.equal(0n);
     });
 
@@ -435,8 +451,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
       await createAndFundDealAuthorized({
         authorizer,
         buyer: buyer.address,
@@ -449,8 +465,8 @@ describe("ConsultEscrow", function () {
         seller: seller.address,
       });
 
-      await token.mint(outsider.address, MIN_PRICE);
-      await token.connect(outsider).approve(escrow.target, MIN_PRICE);
+      await token.mint(outsider.address, totalFor(MIN_PRICE));
+      await token.connect(outsider).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -472,8 +488,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -495,8 +511,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -518,10 +534,12 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      for (const amount of [9_999_999n, 10_000_000n, 1_000_000_000n, 1_000_000_001n]) {
-        await token.mint(buyer.address, amount);
+      for (const amount of [9_999_999n, 10_000_000n, 100_000_000_000n, 100_000_000_001n]) {
+        await token.mint(buyer.address, totalFor(amount));
       }
-      await token.connect(buyer).approve(escrow.target, 9_999_999n + 10_000_000n + 1_000_000_000n + 1_000_000_001n);
+      await token.connect(
+        buyer
+      ).approve(escrow.target, totalFor(9_999_999n) + totalFor(10_000_000n) + totalFor(100_000_000_000n) + totalFor(100_000_000_001n));
 
       await expect(
         createAndFundDealAuthorized({
@@ -559,7 +577,7 @@ describe("ConsultEscrow", function () {
           durationMinutes: 30n,
           escrow,
           linkHash: ethers.keccak256(ethers.toUtf8Bytes("max-ok")),
-          price: 1_000_000_000n,
+          price: 100_000_000_000n,
           scheduledAt: scheduledAt + 2n,
           seller: seller.address,
         })
@@ -573,7 +591,7 @@ describe("ConsultEscrow", function () {
           durationMinutes: 30n,
           escrow,
           linkHash: ethers.keccak256(ethers.toUtf8Bytes("above-max")),
-          price: 1_000_000_001n,
+          price: 100_000_000_001n,
           scheduledAt: scheduledAt + 3n,
           seller: seller.address,
         })
@@ -584,8 +602,8 @@ describe("ConsultEscrow", function () {
       const { seller, buyer, token, escrow, authorizer } = await deployFixture();
       const now = BigInt(await time.latest());
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -607,8 +625,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -631,8 +649,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -655,8 +673,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -678,8 +696,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -701,8 +719,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -724,8 +742,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -747,8 +765,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -771,8 +789,8 @@ describe("ConsultEscrow", function () {
       const now = BigInt(await time.latest());
       const scheduledAt = now + 3600n;
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -796,8 +814,8 @@ describe("ConsultEscrow", function () {
       const scheduledAt = now + 3600n;
       const nonce = ethers.hexlify(ethers.randomBytes(32));
 
-      await token.mint(buyer.address, MIN_PRICE * 2n);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE * 2n);
+      await token.mint(buyer.address, totalFor(MIN_PRICE) * 2n);
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE) * 2n);
 
       await createAndFundDealAuthorized({
         authorizer,
@@ -852,8 +870,8 @@ describe("ConsultEscrow", function () {
         seller: seller.address,
       });
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -900,8 +918,8 @@ describe("ConsultEscrow", function () {
         seller: seller.address,
       });
 
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -948,8 +966,8 @@ describe("ConsultEscrow", function () {
       });
 
       await escrow.connect(owner).setFundingAuthorizer(outsider.address);
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -977,8 +995,8 @@ describe("ConsultEscrow", function () {
       const scheduledAt = now + 3600n;
 
       await escrow.connect(owner).setFundingAuthorizer(outsider.address);
-      await token.mint(buyer.address, MIN_PRICE);
-      await token.connect(buyer).approve(escrow.target, MIN_PRICE);
+      await token.mint(buyer.address, totalFor(MIN_PRICE));
+      await token.connect(buyer).approve(escrow.target, totalFor(MIN_PRICE));
 
       await expect(
         createAndFundDealAuthorized({
@@ -1138,7 +1156,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("allowed at exact deadline, pays seller net and treasury fee immediately, and emits exact timestamp", async function () {
+    it("allowed at exact deadline, pays seller price and treasury fee immediately, and emits exact timestamp", async function () {
       const { seller, buyer, treasury, token, escrow } = await deployFixture();
       const price = 250_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
@@ -1152,8 +1170,6 @@ describe("ConsultEscrow", function () {
 
       const deadline = releaseDeadlineFor(funded);
       const fee = feeFor(price);
-      const sellerNet = price - fee;
-
       await time.setNextBlockTimestamp(deadline);
 
       const tx = await escrow.connect(buyer).confirmRelease(funded.dealId);
@@ -1164,9 +1180,45 @@ describe("ConsultEscrow", function () {
 
       const deal = await escrow.deals(funded.dealId);
       expect(deal.status).to.equal(3n);
-      expect(await token.balanceOf(seller.address)).to.equal(sellerNet);
+      expect(await token.balanceOf(seller.address)).to.equal(price);
       expect(await token.balanceOf(treasury.address)).to.equal(fee);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
+    });
+
+    it("applies fee boundaries on release payouts", async function () {
+      const scenarios = [
+        { fee: 1_500_000n, price: 10_000_000n },
+        { fee: 1_500_000n, price: 50_000_000n },
+        { fee: 3_000_000n, price: 100_000_000n },
+        { fee: 30_000_000n, price: 1_000_000_000n },
+        { fee: 30_000_000n, price: 100_000_000_000n },
+      ];
+
+      for (const [index, scenario] of scenarios.entries()) {
+        const { seller, buyer, treasury, token, escrow } = await deployFixture();
+        const funded = await fundDeal({
+          escrow,
+          token,
+          seller,
+          buyer,
+          price: scenario.price,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes(`release-boundary-${index}`)),
+        });
+        await markCompletedAtThreshold({
+          escrow,
+          seller,
+          dealId: funded.dealId,
+          scheduledAt: funded.scheduledAt,
+          durationMinutes: funded.durationMinutes,
+        });
+        await time.setNextBlockTimestamp(releaseDeadlineFor(funded));
+
+        await escrow.connect(buyer).confirmRelease(funded.dealId);
+
+        expect(await token.balanceOf(seller.address)).to.equal(scenario.price);
+        expect(await token.balanceOf(treasury.address)).to.equal(scenario.fee);
+        expect(await token.balanceOf(escrow.target)).to.equal(0n);
+      }
     });
 
     it("reverts after deadline", async function () {
@@ -1392,7 +1444,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("succeeds for seller only after deadline and pays seller net plus treasury fee", async function () {
+    it("succeeds for seller only after deadline and pays seller price plus treasury fee", async function () {
       const { seller, buyer, treasury, token, escrow } = await deployFixture();
       const price = 300_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
@@ -1413,7 +1465,7 @@ describe("ConsultEscrow", function () {
       await expect(tx).to.emit(escrow, "Released").withArgs(funded.dealId, block.timestamp);
 
       const fee = feeFor(price);
-      expect(await token.balanceOf(seller.address)).to.equal(price - fee);
+      expect(await token.balanceOf(seller.address)).to.equal(price);
       expect(await token.balanceOf(treasury.address)).to.equal(fee);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
       expect((await escrow.deals(funded.dealId)).status).to.equal(3n);
@@ -1503,7 +1555,7 @@ describe("ConsultEscrow", function () {
       );
     });
 
-    it("adminResolveRelease only from Disputed and pays net to seller plus fee to treasury", async function () {
+    it("adminResolveRelease only from Disputed and pays price to seller plus fee to treasury", async function () {
       const { seller, buyer, treasury, admin, token, escrow } = await deployFixture();
       const price = 80_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
@@ -1521,14 +1573,14 @@ describe("ConsultEscrow", function () {
       await expect(tx).to.emit(escrow, "Released").withArgs(funded.dealId, block.timestamp);
 
       const fee = feeFor(price);
-      expect(await token.balanceOf(seller.address)).to.equal(price - fee);
+      expect(await token.balanceOf(seller.address)).to.equal(price);
       expect(await token.balanceOf(treasury.address)).to.equal(fee);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
       expect((await escrow.deals(funded.dealId)).status).to.equal(3n);
     });
 
-    it("adminResolveRefund only from Disputed and refund returns full price to buyer", async function () {
-      const { seller, buyer, admin, token, escrow } = await deployFixture();
+    it("adminResolveRefund only from Disputed and refund returns price while treasury keeps fee", async function () {
+      const { seller, buyer, admin, treasury, token, escrow } = await deployFixture();
       const price = 90_000_000n;
       const funded = await fundDeal({ escrow, token, seller, buyer, price });
 
@@ -1543,6 +1595,7 @@ describe("ConsultEscrow", function () {
         .withArgs(funded.dealId);
 
       expect(await token.balanceOf(buyer.address)).to.equal(price);
+      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(price));
       expect((await escrow.deals(funded.dealId)).status).to.equal(4n);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
     });
@@ -1562,7 +1615,7 @@ describe("ConsultEscrow", function () {
       await escrow.connect(admin).setDealPayoutBlocked(fundedRelease.dealId, true);
 
       await expect(escrow.connect(admin).adminResolveRelease(fundedRelease.dealId)).to.not.be.reverted;
-      expect(await token.balanceOf(seller.address)).to.equal(price - feeFor(price));
+      expect(await token.balanceOf(seller.address)).to.equal(price);
       expect(await token.balanceOf(treasury.address)).to.equal(feeFor(price));
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
 
@@ -1579,6 +1632,36 @@ describe("ConsultEscrow", function () {
 
       await expect(escrow.connect(admin).adminResolveRefund(fundedRefund.dealId)).to.not.be.reverted;
       expect(await token.balanceOf(buyer.address)).to.equal(price);
+      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(price) * 2n);
+    });
+
+    it("applies fee boundaries on refund payouts", async function () {
+      const scenarios = [
+        { fee: 1_500_000n, price: 10_000_000n },
+        { fee: 1_500_000n, price: 50_000_000n },
+        { fee: 3_000_000n, price: 100_000_000n },
+        { fee: 30_000_000n, price: 1_000_000_000n },
+        { fee: 30_000_000n, price: 100_000_000_000n },
+      ];
+
+      for (const [index, scenario] of scenarios.entries()) {
+        const { seller, buyer, admin, treasury, token, escrow } = await deployFixture();
+        const funded = await fundDeal({
+          escrow,
+          token,
+          seller,
+          buyer,
+          price: scenario.price,
+          linkHash: ethers.keccak256(ethers.toUtf8Bytes(`refund-boundary-${index}`)),
+        });
+
+        await escrow.connect(buyer).openDispute(funded.dealId);
+        await escrow.connect(admin).adminResolveRefund(funded.dealId);
+
+        expect(await token.balanceOf(buyer.address)).to.equal(scenario.price);
+        expect(await token.balanceOf(treasury.address)).to.equal(scenario.fee);
+        expect(await token.balanceOf(escrow.target)).to.equal(0n);
+      }
     });
   });
 
@@ -1626,7 +1709,7 @@ describe("ConsultEscrow", function () {
       await escrow.connect(buyer).confirmRelease(second.dealId);
 
       expect(await token.balanceOf(seller.address)).to.equal(
-        (firstPrice - feeFor(firstPrice)) + (secondPrice - feeFor(secondPrice))
+        firstPrice + secondPrice
       );
       expect(await token.balanceOf(treasury.address)).to.equal(
         feeFor(firstPrice) + feeFor(secondPrice)
@@ -1795,11 +1878,11 @@ describe("ConsultEscrow", function () {
       const buyer = ethers.Wallet.createRandom().address;
       const seller = outsider.address;
 
-      await token.mint(buyer, MIN_PRICE);
+      await token.mint(buyer, totalFor(MIN_PRICE));
       await ethers.provider.send("hardhat_impersonateAccount", [buyer]);
       const buyerSigner = await ethers.getSigner(buyer);
       await outsider.sendTransaction({ to: buyer, value: ethers.parseEther("1") });
-      await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE);
+      await token.connect(buyerSigner).approve(escrow.target, totalFor(MIN_PRICE));
 
       const scheduledAt = BigInt(await time.latest()) + 3600n;
       await createAndFundDealAuthorized({
@@ -1829,7 +1912,7 @@ describe("ConsultEscrow", function () {
       expect((await escrow.deals(1n)).status).to.equal(4n);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
       expect(await token.balanceOf(buyer)).to.equal(MIN_PRICE);
-      expect(await token.balanceOf(treasury.address)).to.equal(0n);
+      expect(await token.balanceOf(treasury.address)).to.equal(feeFor(MIN_PRICE));
 
       await ethers.provider.send("hardhat_stopImpersonatingAccount", [buyer]);
     });
@@ -1841,11 +1924,11 @@ describe("ConsultEscrow", function () {
       const hook = await Hook.deploy(escrow.target, 1n, ATTACK_AUTO_RELEASE);
       await hook.waitForDeployment();
 
-      await token.mint(buyer, MIN_PRICE);
+      await token.mint(buyer, totalFor(MIN_PRICE));
       await ethers.provider.send("hardhat_impersonateAccount", [buyer]);
       const buyerSigner = await ethers.getSigner(buyer);
       await outsider.sendTransaction({ to: buyer, value: ethers.parseEther("1") });
-      await token.connect(buyerSigner).approve(escrow.target, MIN_PRICE);
+      await token.connect(buyerSigner).approve(escrow.target, totalFor(MIN_PRICE));
 
       const scheduledAt = BigInt(await time.latest()) + 3600n;
       await createAndFundDealAuthorized({
@@ -1867,7 +1950,7 @@ describe("ConsultEscrow", function () {
 
       expect(await hook.attempted()).to.equal(true);
       expect(await hook.reentrantCallSucceeded()).to.equal(false);
-      expect(await token.balanceOf(hook.target)).to.equal(MIN_PRICE - feeFor(MIN_PRICE));
+      expect(await token.balanceOf(hook.target)).to.equal(MIN_PRICE);
       expect(await token.balanceOf(escrow.target)).to.equal(0n);
 
       await ethers.provider.send("hardhat_stopImpersonatingAccount", [buyer]);
