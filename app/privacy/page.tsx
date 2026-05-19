@@ -7,7 +7,7 @@ type LegalSection =
 const sections: readonly LegalSection[] = [
   {
     body: [
-      "This Privacy Policy explains how Base Consult Link collects, uses, and shares data in connection with the service. Your use of the service is subject to this policy as well as the Terms of Service.",
+      "This Privacy Policy explains how Arrabon collects, uses, and shares data in connection with the service. Your use of the service is subject to this policy as well as the Terms of Service.",
     ],
     title: "Introduction",
   },

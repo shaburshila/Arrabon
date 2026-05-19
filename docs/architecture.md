@@ -1,8 +1,8 @@
-# Architecture — Base Consult Link
+# Architecture — Arrabon
 
 > Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.1: исправлен технологический стек backend (Next.js App Router вместо Hono), расширена схема БД до 10 таблиц, обновлены модули frontend/backend, добавлены внешние сервисы compliance.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 

@@ -1,14 +1,14 @@
-# Frontend MVP Architecture — Base Consult Link
+# Frontend MVP Architecture — Arrabon
 
 > Version: 2.0 | Status: Implemented | Date: 2026-04-28
 > Replaces: v1.0 (pre-implementation architecture draft)
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 
 ## 1. Purpose
 
-Этот документ фиксирует реализованную архитектуру MVP фронтенда Base Consult Link.
+Этот документ фиксирует реализованную архитектуру MVP фронтенда Arrabon.
 
 Документ описывает:
 

@@ -1,7 +1,7 @@
-# Documentation Index — Base Consult Link
+# Documentation Index — Arrabon
 
 > Version: 1.0 | Status: Актуален | Date: 2026-04-28
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 Индекс проектной документации MVP. Все документы расположены в `/docs/`. Технологический стек: Next.js App Router, TypeScript, wagmi + viem, Supabase PostgreSQL, SIWE.
 

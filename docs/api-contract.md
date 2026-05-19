@@ -1,10 +1,10 @@
-# API Contract — Base Consult Link
+# API Contract — Arrabon
 
 > Version: 1.3 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-05-05
 > Изменения v1.2: удалён ошибочный блок "Compliance errors" из GET /api/links/:id (GET не запускает compliance checks).
 > Изменения v1.1: GET /api/deals/:id перенесён в приватные endpoints (требует SIWE); добавлен §9 Operational & Internal Endpoints.
 > Изменения v1.3: funding flow переведён на двухшаговый grant/exchange; `POST /api/links/:id/funding/prepare` больше не возвращает calldata или `link_hash`; добавлен `POST /api/links/:id/funding/execute`.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 
@@ -660,7 +660,7 @@ Errors:
 
 ### `POST /api/deals/:id/dispute-messages`
 
-Adds a message to the offchain dispute discussion. MVP supports external evidence links only; files are not uploaded to Base Consult Link.
+Adds a message to the offchain dispute discussion. MVP supports external evidence links only; files are not uploaded to Arrabon.
 
 Behavior:
 
@@ -1014,7 +1014,7 @@ Response:
 ```json
 {
   "ok": true,
-  "service": "base-consult-link",
+  "service": "arrabon",
   "status": "sprint-0-skeleton"
 }
 ```

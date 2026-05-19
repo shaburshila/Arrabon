@@ -1,7 +1,7 @@
 # Compliance Operations Runbook
 
 > Version: 1.0 | Status: Draft | Date: 2026-05-06
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 This runbook covers operational procedures for three compliance scenarios:
 

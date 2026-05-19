@@ -8,14 +8,12 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-  Check,
   ChevronDown,
   Link2,
-  Lock,
   Plus,
-  Shield,
-  User,
 } from "lucide-react";
+
+import { Icon } from "@/components/icons";
 
 import { AppShell } from "@/components/app/app-shell";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -23,7 +21,7 @@ import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 const howItWorksCards = [
   {
     description: "Set your price, schedule, and private meeting URL. Share the link with your buyer.",
-    icon: Plus,
+    icon: <Plus size={20} />,
     iconBg: "var(--accent-soft)",
     iconColor: "var(--accent)",
     number: 1,
@@ -31,7 +29,7 @@ const howItWorksCards = [
   },
   {
     description: "The buyer pays USDC on Base. Funds stay locked in the escrow contract while the consultation is pending.",
-    icon: Shield,
+    icon: <Icon name="utility-secure-subtle" size={20} />,
     iconBg: "rgba(34, 197, 94, 0.1)",
     iconColor: "var(--success)",
     number: 2,
@@ -39,37 +37,37 @@ const howItWorksCards = [
   },
   {
     description: "After the consultation, funds can be released, refunded, auto-released, or reviewed during a dispute.",
-    icon: Check,
+    icon: <Icon name="status-released" size={20} />,
     iconBg: "var(--accent-muted)",
     iconColor: "var(--accent)",
     number: 3,
     title: "Release, refund, or review",
   },
-] as const;
+];
 
 const benefitCards = [
   {
     description: "Create private paid links, keep meeting URLs hidden until funding, and receive USDC after confirmation or resolution.",
-    icon: Link2,
+    icon: <Link2 size={22} />,
     iconBg: "var(--accent-soft)",
     iconColor: "var(--accent)",
     title: "For sellers",
   },
   {
     description: "Pay into escrow, recover paid consultations from My deals, and open a dispute if something goes wrong.",
-    icon: User,
+    icon: <Icon name="utility-user" size={22} />,
     iconBg: "rgba(34, 197, 94, 0.1)",
     iconColor: "var(--success)",
     title: "For buyers",
   },
   {
     description: "Disputed consultations can be reviewed by an appointed neutral admin before funds are released or refunded.",
-    icon: Shield,
+    icon: <Icon name="utility-secure-subtle" size={22} />,
     iconBg: "var(--accent-muted)",
     iconColor: "var(--accent)",
     title: "Neutral dispute review",
   },
-] as const;
+];
 
 const footerLinks = [
   { href: "/refund-policy", label: "Refund Policy" },
@@ -159,7 +157,7 @@ function HeroSection() {
         </div>
 
         <div style={trustLineStyle}>
-          <Lock size={12} />
+          <Icon name="status-locked-meeting-url-hidden" size={12} />
           <span>Funds held on-chain · Wallet-signed actions · Base L2</span>
         </div>
       </div>
@@ -178,7 +176,7 @@ function HowItWorksSection() {
         {howItWorksCards.map((card) => (
           <InfoCard
             description={card.description}
-            icon={<card.icon size={20} />}
+            icon={card.icon}
             iconBg={card.iconBg}
             iconColor={card.iconColor}
             key={card.title}
@@ -203,7 +201,7 @@ function BenefitsSection() {
           {benefitCards.map((card) => (
             <InfoCard
               description={card.description}
-              icon={<card.icon size={22} />}
+              icon={card.icon}
               iconBg={card.iconBg}
               iconColor={card.iconColor}
               key={card.title}
@@ -251,7 +249,7 @@ function HomeFooter() {
         </nav>
         <div style={footerBottomStyle}>
           <p style={footerTextStyle}>
-            Base Consult Link · Built on Base · Consultation escrow workflow
+            Arrabon · Built on Base · Onchain escrow for internet deals
           </p>
           <p style={footerDisclaimerStyle}>
             Users are responsible for complying with applicable laws and platform terms.
@@ -355,7 +353,7 @@ function CtaLink({
           ? "var(--accent)"
           : "transparent",
         border: isPrimary ? "1px solid transparent" : "1px solid var(--border)",
-        color: isPrimary ? "#fff" : "var(--foreground)",
+        color: isPrimary ? "#161616" : "var(--foreground)",
         minWidth: 160,
         transform: "translateY(0)",
       }}

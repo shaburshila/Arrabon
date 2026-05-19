@@ -13,7 +13,7 @@ export const wagmiConfig = createConfig({
     // Injected first: works in Base App embedded browser (window.ethereum)
     injected(),
     // Coinbase Wallet: for web users without injected provider
-    coinbaseWallet({ appName: "Base Consult Link" }),
+    coinbaseWallet({ appName: "Arrabon" }),
   ],
   ssr: true,
   transports: {

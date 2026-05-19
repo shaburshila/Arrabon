@@ -7,8 +7,8 @@ type LegalSection =
 const sections: readonly LegalSection[] = [
   {
     body: [
-      "This Refund Policy explains when and how refunds may be issued for transactions processed through Base Consult Link. This policy is incorporated into our Terms of Service.",
-      "Base Consult Link is a blockchain-based escrow platform. When a buyer funds a consultation link, USDC is transferred into a smart contract and held in escrow until funds are released to the seller, returned to the buyer, or placed under review.",
+      "This Refund Policy explains when and how refunds may be issued for transactions processed through Arrabon. This policy is incorporated into our Terms of Service.",
+      "Arrabon is a blockchain-based escrow platform. When a buyer funds a consultation link, USDC is transferred into a smart contract and held in escrow until funds are released to the seller, returned to the buyer, or placed under review.",
       "All confirmed on-chain outcomes are final and irreversible. Once funds have been released to the seller, no refund is possible.",
     ],
     title: "Overview",

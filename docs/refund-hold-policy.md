@@ -1,7 +1,7 @@
 # Refund and Hold Policy — Internal
 
 > Version: 1.0 | Status: Draft — requires legal review before production | Date: 2026-05-06
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 This document defines the platform's internal policy for refund eligibility, fund holds, and prohibited actions. It is the authoritative reference for admin decisions involving fund disposition and must be read alongside the [Compliance Runbook](compliance-runbook.md).
 

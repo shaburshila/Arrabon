@@ -114,7 +114,7 @@ function DetailValue({
   return (
     <span
       style={{
-        fontFamily: mono ? "var(--font-geist-mono), monospace" : undefined,
+        fontFamily: mono ? "var(--font-mono), monospace" : undefined,
         overflowWrap: "anywhere",
       }}
     >
@@ -763,7 +763,7 @@ const rowsStyle = {
 } as const;
 
 const txStyle = {
-  fontFamily: "var(--font-geist-mono), monospace",
+  fontFamily: "var(--font-mono), monospace",
   fontSize: 12,
   marginTop: 6,
   overflowWrap: "anywhere" as const,

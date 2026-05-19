@@ -7,7 +7,7 @@ type LegalSection =
 const sections: readonly LegalSection[] = [
   {
     body: [
-      "These Terms of Service explain the terms and conditions by which you may access and use Base Consult Link. The service enables users to create, fund, and manage single-use consultation payment links using USDC on the Base blockchain.",
+      "These Terms of Service explain the terms and conditions by which you may access and use Arrabon. The service enables users to create, fund, and manage single-use consultation payment links using USDC on the Base blockchain.",
       "By accessing or using the service, you agree to be bound by these terms in full. If you do not agree, you are not authorized to access or use the service.",
       "You represent that you are at least 18 years old, or the age of majority in your jurisdiction if higher, and that you have the authority to enter into this agreement.",
       "You also represent that you are not a sanctioned person and are not using the service in violation of applicable laws or sanctions restrictions.",
@@ -16,7 +16,7 @@ const sections: readonly LegalSection[] = [
   },
   {
     body: [
-      "Base Consult Link is a web-based interface through which sellers may create single-use consultation links and buyers may fund escrow arrangements using USDC on Base.",
+      "Arrabon is a web-based interface through which sellers may create single-use consultation links and buyers may fund escrow arrangements using USDC on Base.",
       "Each consultation link is intended for a single consultation transaction. Once funded or otherwise consumed in accordance with service rules, it may not be reused.",
       "Funds are processed through blockchain-based smart contracts and related off-chain workflows. If there is a conflict between on-chain state and off-chain records, on-chain state is authoritative except where a compliance hold or administrative action applies under these terms.",
     ],
@@ -42,7 +42,7 @@ const sections: readonly LegalSection[] = [
   },
   {
     body: [
-      "Base Consult Link is a technology platform and is not a party to the underlying consultation agreement between buyer and seller.",
+      "Arrabon is a technology platform and is not a party to the underlying consultation agreement between buyer and seller.",
       "We do not guarantee the quality, legality, safety, suitability, or outcome of any consultation, and we do not guarantee that a seller will perform or that a buyer will act in good faith.",
       "Users are solely responsible for the content, performance, and legality of their consultation arrangements.",
     ],
@@ -65,7 +65,7 @@ const sections: readonly LegalSection[] = [
   },
   {
     body: [
-      "Base Consult Link does not hold, and does not represent that it holds, a banking license, money transmitter license, broker-dealer registration, investment adviser registration, or equivalent financial-services authorization in any jurisdiction.",
+      "Arrabon does not hold, and does not represent that it holds, a banking license, money transmitter license, broker-dealer registration, investment adviser registration, or equivalent financial-services authorization in any jurisdiction.",
       "The service is a software platform that facilitates user interaction with blockchain-based smart contracts. It does not accept regulated deposits, provide financial advice, or act as a regulated custodian of user assets.",
     ],
     title: "Regulatory Disclaimer",

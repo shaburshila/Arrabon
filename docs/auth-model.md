@@ -1,8 +1,8 @@
-# Auth Model — Base Consult Link
+# Auth Model — Arrabon
 
 > Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.2: исправлена формулировка A-04 — убрано ошибочное "и сделок"; GET /api/deals/:id явно указан как требующий SIWE.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 

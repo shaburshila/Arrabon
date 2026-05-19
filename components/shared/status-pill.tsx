@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import type { IconName } from "@/components/icons";
+import { Icon } from "@/components/icons";
 
 type StatusPillTone = "accent" | "danger" | "muted" | "success" | "warning";
 type StatusPillSize = "md" | "sm";
@@ -29,6 +31,7 @@ const toneStyles: Record<StatusPillTone, { background: string; color: string }> 
 export function StatusPill({
   bg,
   color,
+  icon,
   label,
   size = "sm",
   style,
@@ -36,6 +39,7 @@ export function StatusPill({
 }: {
   bg?: string;
   color?: string;
+  icon?: IconName;
   label: string;
   size?: StatusPillSize;
   style?: CSSProperties;
@@ -43,6 +47,7 @@ export function StatusPill({
 }) {
   const colors = toneStyles[tone];
   const sizeStyle = size === "md" ? mdStyle : smStyle;
+  const iconSize = size === "md" ? 14 : 12;
 
   return (
     <span
@@ -54,12 +59,14 @@ export function StatusPill({
         color: color ?? colors.color,
         display: "inline-flex",
         fontWeight: 500,
+        gap: icon ? 5 : 0,
         lineHeight: 1,
         whiteSpace: "nowrap",
         ...sizeStyle,
         ...style,
       }}
     >
+      {icon && <Icon aria-hidden name={icon} size={iconSize} />}
       {label}
     </span>
   );

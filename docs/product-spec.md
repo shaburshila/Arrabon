@@ -1,12 +1,12 @@
-# ТЗ v1.2 — Base Consult Link
+# ТЗ v1.2 — Arrabon
 
 > Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.2: исправлено противоречие fee_snapshot в §6.2, исправлен paymaster fallback в §14, добавлен §24 AML/Compliance Screening, добавлено описание dispute messages в §9.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ## 1. Продукт
 
-**Base Consult Link** — standard web app для Base App.
+**Arrabon** — standard web app для Base App.
 Назначение: продажа одного фиксированного слота консультации за USDC на Base через escrow.
 
 Приложение:

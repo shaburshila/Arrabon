@@ -1,6 +1,6 @@
-# Base Consult Link
+# Arrabon
 
-Base Consult Link is a mobile-first web app for selling a single scheduled consultation slot with USDC escrow on Base.
+Arrabon is a mobile-first web app for selling a single scheduled consultation slot with USDC escrow on Base.
 
 > Project documentation index: [docs/INDEX.md](docs/INDEX.md)
 

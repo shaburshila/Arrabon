@@ -1,8 +1,8 @@
-# Glossary — Base Consult Link
+# Glossary — Arrabon
 
 > Version: 1.1 | Status: Актуален | Date: 2026-04-28
 > Изменения v1.1: исправлены ComplianceBlockedError (canonical shape с полем code), ComplianceProviderId (chainalysis_sanctions_oracle), DealReadModel (приватный endpoint).
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 Глоссарий терминов, используемых в документации и кодовой базе MVP. Термины упорядочены по алфавиту.
 
@@ -64,7 +64,7 @@
 
 ## E
 
-**escrow** — механизм хранения средств в смарт-контракте до выполнения условий. В Base Consult Link: USDC locked в `ConsultEscrow.sol` до `confirmRelease`, `autoRelease` или `adminResolveRefund`.
+**escrow** — механизм хранения средств в смарт-контракте до выполнения условий. В Arrabon: USDC locked в `ConsultEscrow.sol` до `confirmRelease`, `autoRelease` или `adminResolveRefund`.
 
 **Expert** — создатель ссылки и продавец консультации. В коде обозначается как `seller_address` / `expert_address`. Синоним: Seller.
 

@@ -173,7 +173,7 @@ function pillStyle(tone: "accent" | "danger" | "muted" | "success") {
   const colors = {
     accent: {
       background: "var(--accent)",
-      color: "#fff",
+      color: "#161616",
     },
     danger: {
       background: "var(--danger-muted)",
@@ -251,7 +251,7 @@ function avatarStyle(tone: "accent" | "danger" | "muted" | "success") {
   const colors = {
     accent: {
       background: "linear-gradient(135deg, var(--accent), var(--warning))",
-      color: "#fff",
+      color: "#161616",
     },
     danger: {
       background: "var(--danger-muted)",
@@ -263,7 +263,7 @@ function avatarStyle(tone: "accent" | "danger" | "muted" | "success") {
     },
     success: {
       background: "linear-gradient(135deg, var(--accent), var(--success))",
-      color: "#fff",
+      color: "#161616",
     },
   }[tone];
 
@@ -281,7 +281,7 @@ function avatarStyle(tone: "accent" | "danger" | "muted" | "success") {
 
 function dotStyle(tone: "accent" | "danger" | "muted" | "success") {
   const colors = {
-    accent: "#fff",
+    accent: "#161616",
     danger: "var(--danger)",
     muted: "var(--muted)",
     success: "var(--success)",
@@ -355,7 +355,7 @@ const dropdownLabelStyle = {
 
 const addressStyle = {
   color: "var(--foreground)",
-  fontFamily: "monospace",
+  fontFamily: "var(--font-mono, monospace)",
   fontSize: 14,
   fontWeight: 500,
   margin: 0,

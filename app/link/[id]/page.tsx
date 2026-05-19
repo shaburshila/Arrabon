@@ -81,7 +81,7 @@ export default function LinkPage() {
       <div style={pageStyle}>
         <div style={pageHeaderStyle}>
           <Link href="/" style={brandStyle}>
-            Base Consult Link
+            Arrabon
           </Link>
           <button onClick={handleBack} style={backButtonStyle} type="button">
             ← Back

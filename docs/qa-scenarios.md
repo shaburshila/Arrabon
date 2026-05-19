@@ -1,9 +1,9 @@
-# QA Scenarios — Base Consult Link (ТЗ v1.2)
+# QA Scenarios — Arrabon (ТЗ v1.2)
 
 > Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.2: исправлены QA-061…063 — удалён несуществующий reason_code LEGAL_HOLD; заменён на canonical reason_code из compliance_checks.
 > Изменения v1.1: добавлен §15 Compliance (QA-057…QA-068); обновлена таблица Critical Invariants (I-14…I-20).
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 Формат: Given / When / Then
 Уровни: **[CONTRACT]** — onchain, **[API]** — backend, **[UI]** — frontend

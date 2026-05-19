@@ -1,7 +1,7 @@
-# Deployments — Base Consult Link
+# Deployments — Arrabon
 
 > Version: 1.3 | Status: Актуален | Date: 2026-05-18
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ## Base Sepolia (testnet)
 

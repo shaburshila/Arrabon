@@ -1,7 +1,7 @@
 # Production Readiness Checklist
 
 > Version: 1.1 | Status: Актуален | Date: 2026-05-05
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 This document tracks work and configuration that must be completed before a production launch.
 

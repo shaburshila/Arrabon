@@ -2,13 +2,13 @@
 
 **Last Updated:** May 6, 2026
 
-This Refund Policy explains when and how refunds may be issued for transactions processed through Base Consult Link (the "Service"). This Policy is incorporated into our Terms of Service.
+This Refund Policy explains when and how refunds may be issued for transactions processed through Arrabon (the "Service"). This Policy is incorporated into our Terms of Service.
 
 ---
 
 ## Overview
 
-Base Consult Link is a blockchain-based escrow platform. When a Buyer funds a Consultation Link, USDC is transferred into a smart contract and held in escrow until one of the following outcomes occurs: the funds are released to the Seller, returned to the Buyer, or placed under review.
+Arrabon is a blockchain-based escrow platform. When a Buyer funds a Consultation Link, USDC is transferred into a smart contract and held in escrow until one of the following outcomes occurs: the funds are released to the Seller, returned to the Buyer, or placed under review.
 
 Because escrow transactions are processed on the Base blockchain, **all confirmed on-chain outcomes are final and irreversible.** Once funds have been released to the Seller, no refund is possible.
 

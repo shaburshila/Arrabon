@@ -2,11 +2,11 @@
 
 **Last Updated:** May 6, 2026
 
-This Privacy Policy (the "Policy") explains how Base Consult Link, operated by its founders ("Base Consult Link," "we," "us," or "our"), collects, uses, and shares data in connection with our web application and all related products and services (the "Services"). Your use of the Services is subject to this Policy as well as our Terms of Service.
+This Privacy Policy (the "Policy") explains how Arrabon, operated by its founders ("Arrabon," "we," "us," or "our"), collects, uses, and shares data in connection with our web application and all related products and services (the "Services"). Your use of the Services is subject to this Policy as well as our Terms of Service.
 
 ## High Level Summary
 
-- Base Consult Link is a web application operated by its founders that enables single-use consultation payments using USDC on the Base blockchain.
+- Arrabon is a web application operated by its founders that enables single-use consultation payments using USDC on the Base blockchain.
 - We collect wallet addresses, transaction data, and consultation details necessary to operate the Service. We also collect server-side technical data, including IP addresses, as part of routine logging.
 - We conduct compliance and sanctions screening using third-party providers. Wallet addresses may be processed by those providers as part of this screening.
 - We use strictly necessary session cookies for authentication. These cannot be disabled without affecting Service functionality.

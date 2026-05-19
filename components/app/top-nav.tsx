@@ -33,8 +33,13 @@ export function TopNav() {
     <header style={headerStyle(isAtTop)}>
       <div style={headerInnerStyle}>
         <Link href="/" style={brandStyle}>
-          <span style={brandMarkStyle}>B</span>
-          <span style={brandTextStyle}>Base Consult Link</span>
+          <span style={brandMarkStyle}>
+            <svg aria-hidden fill="none" height={22} viewBox="0 0 64 64" width={22}>
+              <path d="M32 6 8 58h13l3-8h16l3 8h13L32 6Zm0 17 10 23H22l10-23Z" fill="var(--accent)" fillRule="evenodd" />
+              <path d="M19 40h26v7H19z" fill="var(--accent)" />
+            </svg>
+          </span>
+          <span style={brandTextStyle}>Arrabon</span>
         </Link>
         <nav aria-label="Primary navigation" style={navStyle}>
           {navItems.map((item) => (
@@ -103,21 +108,18 @@ const brandStyle = {
 
 const brandMarkStyle = {
   alignItems: "center",
-  background: "var(--accent)",
-  borderRadius: 12,
-  color: "#fff",
   display: "inline-flex",
-  fontSize: 14,
-  fontWeight: 800,
+  flexShrink: 0,
   height: 32,
   justifyContent: "center",
   width: 32,
 } as const;
 
 const brandTextStyle = {
-  fontSize: 14,
+  fontFamily: "var(--font-brand), Georgia, serif",
+  fontSize: 15,
   fontWeight: 600,
-  letterSpacing: "0",
+  letterSpacing: "0.01em",
   whiteSpace: "nowrap" as const,
 };
 

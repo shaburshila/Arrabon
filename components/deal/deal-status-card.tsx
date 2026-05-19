@@ -28,7 +28,7 @@ export function DealStatusCard({ deal, isAdmin = false, role }: DealStatusCardPr
           <h1 style={titleStyle}>Consultation escrow</h1>
         </div>
         <div style={badgeGroupStyle}>
-          <StatusPill bg={sc.bg} color={sc.color} label={sc.label} size="md" />
+          <StatusPill bg={sc.bg} color={sc.color} icon={sc.icon} label={sc.label} size="md" />
           <StatusPill label={getRoleLabel(role, isAdmin)} tone={getRoleTone(role, isAdmin)} />
         </div>
       </div>
@@ -138,6 +138,6 @@ const titleStyle = {
 };
 
 const monoValueStyle = {
-  fontFamily: "monospace",
+  fontFamily: "var(--font-mono, monospace)",
   overflowWrap: "anywhere" as const,
 };

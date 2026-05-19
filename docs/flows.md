@@ -1,9 +1,9 @@
-# Flows — Base Consult Link (ТЗ v1.2)
+# Flows — Arrabon (ТЗ v1.2)
 
 > Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-05-05
 > Изменения v1.1: добавлен §8 Compliance Flows (6 subsections); обновлён §1 (добавлен Compliance Service).
 > Изменения v1.2: funding flow переведён на prepare-grant + execute exchange; добавлены stale funding и post-approve compliance notes.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ## 1. Акторы
 

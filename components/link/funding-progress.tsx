@@ -100,7 +100,7 @@ export function FundingProgress({
       {txHash && (
         <p style={txStyle}>
           <span style={{ color: "var(--muted)" }}>Tx: </span>
-          <code style={{ fontFamily: "monospace" }}>
+          <code style={{ fontFamily: "var(--font-mono, monospace)" }}>
             {txHash.slice(0, 10)}...{txHash.slice(-6)}
           </code>
         </p>

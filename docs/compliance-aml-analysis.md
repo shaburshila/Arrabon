@@ -2,15 +2,15 @@
 
 > Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.1: добавлено примечание о type stubs (ofac_sdn, chainabuse) в "Что отложено после MVP".
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
-Документ содержит полный анализ минимального compliance-слоя для Base Consult Link: архитектурные решения, ответы на policy questions, рекомендованную последовательность реализации.
+Документ содержит полный анализ минимального compliance-слоя для Arrabon: архитектурные решения, ответы на policy questions, рекомендованную последовательность реализации.
 
 ---
 
 ## Общая оценка ситуации
 
-Base Consult Link — это crypto escrow на публичном блокчейне (Base), где деньги проходят путь: buyer wallet → USDC approve → smart contract → seller wallet / refund. Это ровно та схема, которую регуляторы и FATF называют "virtual asset service provider" (VASP). При этом admin wallet имеет возможность направлять средства — это дополнительный фактор риска с точки зрения money transmitter.
+Arrabon — это crypto escrow на публичном блокчейне (Base), где деньги проходят путь: buyer wallet → USDC approve → smart contract → seller wallet / refund. Это ровно та схема, которую регуляторы и FATF называют "virtual asset service provider" (VASP). При этом admin wallet имеет возможность направлять средства — это дополнительный фактор риска с точки зрения money transmitter.
 
 **Главный вывод:** полноценный KYC/AML перед public pilot скорее всего избыточен и нереализуем малой командой, но sanctions screening — необходим и реализуем бесплатно. Без него платформа несёт прямой legal риск с первой транзакции.
 

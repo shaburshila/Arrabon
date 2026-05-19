@@ -1,9 +1,9 @@
-# State Machine — Base Consult Link
+# State Machine — Arrabon
 
 > Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.2: добавлено примечание к §9.1 и §9.4 — Review недостижим в текущем MVP через shipped провайдеры.
 > Изменения v1.1: добавлен §9 Risk Status State Machine (deals.risk_status как отдельная ось).
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 

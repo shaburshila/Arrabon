@@ -1,8 +1,8 @@
-# Decisions — Base Consult Link
+# Decisions — Arrabon
 
 > Version: 1.1 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
 > Изменения v1.1: добавлены §3 строки AML (risk_status, legal hold, in-place notice), §3.1 Frozen Compliance Invariants C-06…C-15.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 

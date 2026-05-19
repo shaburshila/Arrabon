@@ -1,9 +1,9 @@
-# Threat Model — Base Consult Link
+# Threat Model — Arrabon
 
 > Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-05-05
 > Изменения v1.1: добавлены T-08 (sanctions evasion), T-09 (payout to blocked recipient), T-10 (admin bypass of legal hold).
 > Изменения v1.2: funding path переведён на short-lived execution grants; добавлен residual stale-window для funding exchange/broadcast.
-> Составил: Base Consult Link Team | Проверил: — | Утвердил: —
+> Составил: Arrabon Team | Проверил: — | Утвердил: —
 
 ---
 

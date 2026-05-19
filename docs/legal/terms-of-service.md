@@ -2,7 +2,7 @@
 
 **Last Updated:** May 6, 2026
 
-These Terms of Service (the "Agreement") explain the terms and conditions by which you may access and use the products and services provided by Base Consult Link, operated by its founders ("Base Consult Link," "we," "our," or "us"). Base Consult Link provides a web application that enables users to create, fund, and manage single-use consultation payment links using USDC on the Base blockchain (the "Service"). You must read this Agreement carefully as it governs your use of the Service. By accessing or using the Service, you signify that you have read, understand, and agree to be bound by this Agreement in its entirety. If you do not agree, you are not authorized to access or use the Service.
+These Terms of Service (the "Agreement") explain the terms and conditions by which you may access and use the products and services provided by Arrabon, operated by its founders ("Arrabon," "we," "our," or "us"). Arrabon provides a web application that enables users to create, fund, and manage single-use consultation payment links using USDC on the Base blockchain (the "Service"). You must read this Agreement carefully as it governs your use of the Service. By accessing or using the Service, you signify that you have read, understand, and agree to be bound by this Agreement in its entirety. If you do not agree, you are not authorized to access or use the Service.
 
 To access or use the Service, you must be able to form a legally binding contract with us. Accordingly, you represent that you are at least 18 years of age, or the age of majority in your jurisdiction, whichever is higher, and have the full right, power, and authority to enter into and comply with the terms and conditions of this Agreement.
 
@@ -28,7 +28,7 @@ For purposes of this Agreement:
 
 ## 2. The Service
 
-**2.1 Overview.** Base Consult Link provides a web-based interface through which Sellers may create single-use Consultation Links and Buyers may fund Escrow arrangements using USDC on the Base blockchain. Funds are processed through blockchain-based smart contracts and related off-chain workflows. The Service is intended solely for lawful consultation transactions and the related dispute-resolution and release flows supported by the platform.
+**2.1 Overview.** Arrabon provides a web-based interface through which Sellers may create single-use Consultation Links and Buyers may fund Escrow arrangements using USDC on the Base blockchain. Funds are processed through blockchain-based smart contracts and related off-chain workflows. The Service is intended solely for lawful consultation transactions and the related dispute-resolution and release flows supported by the platform.
 
 **2.2 Single-Use Consultation Links.** Each Consultation Link is created for a single consultation transaction. Once funded or otherwise consumed in accordance with Service rules, a Consultation Link may not be reused. We may impose operational limits, including limits on transaction size, supported assets, link expiration periods, and supported workflow states.
 
@@ -66,7 +66,7 @@ The Service relies on smart contracts and blockchain infrastructure that we do n
 
 ## 6. Consultation Relationship
 
-Base Consult Link is a technology platform. We are not a party to any consultation agreement between Buyer and Seller, and we do not guarantee the quality, legality, safety, suitability, or outcome of any consultation; that a Seller will appear, perform, or complete any services; that a Buyer will cooperate, respond, or act in good faith; or the accuracy, completeness, or legality of any representation made by either party. Users are solely responsible for the content, terms, performance, and legality of their consultation arrangements.
+Arrabon is a technology platform. We are not a party to any consultation agreement between Buyer and Seller, and we do not guarantee the quality, legality, safety, suitability, or outcome of any consultation; that a Seller will appear, perform, or complete any services; that a Buyer will cooperate, respond, or act in good faith; or the accuracy, completeness, or legality of any representation made by either party. Users are solely responsible for the content, terms, performance, and legality of their consultation arrangements.
 
 ## 7. Disputes, Release, Refunds, and Auto-Release
 
@@ -78,7 +78,7 @@ We may apply sanctions screening, denylist checks, fraud controls, blockchain-re
 
 ## 9. No Financial Services Representation
 
-Base Consult Link does not hold, and does not represent that it holds, a banking license, money transmitter license, broker-dealer registration, investment adviser registration, or any equivalent financial services authorization in any jurisdiction. We are not registered with the U.S. Securities and Exchange Commission as a national securities exchange or in any other capacity. The Service is a software platform that facilitates user interaction with blockchain-based smart contracts. It does not accept regulated deposits, issue or exchange currency for profit, provide investment or financial advice, or act as a regulated custodian of user assets. Nothing in the Service or this Agreement constitutes legal, tax, financial, investment, fiduciary, or regulatory advice. You are solely responsible for determining the legal and tax treatment of any transaction in your jurisdiction.
+Arrabon does not hold, and does not represent that it holds, a banking license, money transmitter license, broker-dealer registration, investment adviser registration, or any equivalent financial services authorization in any jurisdiction. We are not registered with the U.S. Securities and Exchange Commission as a national securities exchange or in any other capacity. The Service is a software platform that facilitates user interaction with blockchain-based smart contracts. It does not accept regulated deposits, issue or exchange currency for profit, provide investment or financial advice, or act as a regulated custodian of user assets. Nothing in the Service or this Agreement constitutes legal, tax, financial, investment, fiduciary, or regulatory advice. You are solely responsible for determining the legal and tax treatment of any transaction in your jurisdiction.
 
 ## 10. Fees
 
@@ -112,7 +112,7 @@ SOME JURISDICTIONS DO NOT ALLOW THE LIMITATION OF LIABILITY FOR INCIDENTAL OR CO
 
 ## 15. Indemnification
 
-You agree to hold harmless, release, defend, and indemnify Base Consult Link and its founders, affiliates, personnel, and service providers (collectively, the "Indemnified Parties") from and against all claims, damages, obligations, losses, liabilities, costs, and expenses (including reasonable attorney's fees) arising from or relating to: (a) your access to or use of the Service; (b) your violation of any term or condition of this Agreement, the right of any third party, or any other applicable law, rule, or regulation; and (c) your consultation content, conduct, representations, or transaction activity. We reserve the right to assume the exclusive defense and control of any matter subject to indemnification under this section, and you agree to cooperate with any reasonable requests assisting our defense of such matter.
+You agree to hold harmless, release, defend, and indemnify Arrabon and its founders, affiliates, personnel, and service providers (collectively, the "Indemnified Parties") from and against all claims, damages, obligations, losses, liabilities, costs, and expenses (including reasonable attorney's fees) arising from or relating to: (a) your access to or use of the Service; (b) your violation of any term or condition of this Agreement, the right of any third party, or any other applicable law, rule, or regulation; and (c) your consultation content, conduct, representations, or transaction activity. We reserve the right to assume the exclusive defense and control of any matter subject to indemnification under this section, and you agree to cooperate with any reasonable requests assisting our defense of such matter.
 
 ## 16. Privacy and Data Processing
 

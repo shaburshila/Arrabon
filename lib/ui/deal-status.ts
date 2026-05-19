@@ -1,8 +1,10 @@
 import type { DealResolutionType, DealStatus } from "@/lib/api/deals";
+import type { IconName } from "@/components/icons";
 
 export interface DealStatusConfig {
   bg: string;
   color: string;
+  icon: IconName;
   label: string;
 }
 
@@ -10,26 +12,31 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
   ConfirmPending: {
     bg: "var(--warning-muted)",
     color: "var(--warning)",
+    icon: "status-confirm-pending",
     label: "Awaiting confirmation",
   },
   Disputed: {
     bg: "var(--danger-muted)",
     color: "var(--danger)",
+    icon: "status-disputed",
     label: "Disputed",
   },
   Funded: {
     bg: "var(--accent-muted)",
     color: "var(--accent)",
+    icon: "status-funded-escrow-held",
     label: "Funded",
   },
   Refunded: {
     bg: "var(--muted-bg)",
     color: "var(--muted)",
+    icon: "status-refunded",
     label: "Refunded",
   },
   Released: {
     bg: "var(--success-muted)",
     color: "var(--success)",
+    icon: "status-released",
     label: "Released",
   },
 };
