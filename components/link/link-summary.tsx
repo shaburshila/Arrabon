@@ -3,6 +3,7 @@
 import type { PublicLink } from "@/lib/api/links";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
+import { formatUsdcPrice } from "@/lib/ui/format";
 import { Icon } from "@/components/icons";
 import { DetailRow } from "@/components/shared/detail-row";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -39,7 +40,7 @@ export function LinkSummary({ link }: LinkSummaryProps) {
           <p style={sellerStyle}>Seller {truncateAddress(link.seller_address)}</p>
         </div>
         <div className="deal-hero__amount">
-          <div className="deal-hero__amount-num">{link.price_usdc}</div>
+          <div className="deal-hero__amount-num">{formatUsdcPrice(link.price_usdc)}</div>
           <div className="deal-hero__amount-token">USDC</div>
         </div>
       </div>
@@ -96,7 +97,7 @@ const cardStyle = {
   flexDirection: "column" as const,
   gap: 24,
   overflow: "hidden",
-  padding: "24px 28px",
+  padding: 28,
 } as const;
 
 const headerStyle = {

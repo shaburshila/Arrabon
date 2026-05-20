@@ -53,7 +53,7 @@ export function StatusPill({
 }) {
   const colors = toneStyles[tone];
   const sizeStyle = size === "md" ? mdStyle : smStyle;
-  const iconSize = size === "md" ? 14 : 12;
+  const iconSize = size === "md" ? 16 : 14;
 
   return (
     <span

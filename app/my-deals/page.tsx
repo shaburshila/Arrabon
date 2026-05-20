@@ -8,8 +8,8 @@ import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyDeals, type MyDeal, type MyDealsFilter } from "@/lib/api/deals";
-import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
+import { formatUsdcPrice } from "@/lib/ui/format";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { dealTrailingLabel } from "@/lib/ui/deal-trailing-label";
 import { Icon } from "@/components/icons";
@@ -234,11 +234,11 @@ function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
       <div className="list-row__title">
         <span className="list-row__title-name">{deal.title}</span>
         <span className="list-row__title-sub">
-          {deal.id.slice(0, 8).toUpperCase()} · {formatDate(deal.scheduled_at, { timeZone: deal.timezone })} · Seller {truncateAddress(deal.seller_address)}
+          {deal.id.slice(0, 8).toUpperCase()} · {formatDate(deal.scheduled_at, { timeZone: deal.timezone })}
         </span>
       </div>
       <span className="list-row__price">
-        {deal.price_usdc}
+        {formatUsdcPrice(deal.price_usdc)}
         <span className="list-row__price-token">USDC</span>
       </span>
       <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />

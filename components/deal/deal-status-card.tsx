@@ -2,6 +2,7 @@
 
 import type { DealReadModel } from "@/lib/api/deals";
 import { getDealDisplayConfig, toneFromStatus } from "@/lib/ui/deal-status";
+import { formatUsdcPrice } from "@/lib/ui/format";
 import { Icon } from "@/components/icons";
 import { getGuidanceMessageAt } from "@/components/deal/deal-guidance-card";
 
@@ -51,7 +52,7 @@ export function DealStatusCard({ deal, isAdmin = false, isBuyer, isSeller, isPar
         <p style={heroSubtitleStyle}>{guidanceSubtitle}</p>
       </div>
       <div className="deal-hero__amount">
-        <div className="deal-hero__amount-num">{deal.price_usdc}</div>
+        <div className="deal-hero__amount-num">{formatUsdcPrice(deal.price_usdc)}</div>
         <div className="deal-hero__amount-token">USDC · {sc.label}</div>
       </div>
     </div>

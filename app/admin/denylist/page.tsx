@@ -383,7 +383,7 @@ const adminNavLinkStyle = {
 } as const;
 
 const sectionStyle = {
-  padding: 20,
+  padding: 28,
 } as const;
 
 const sectionHeaderStyle = {

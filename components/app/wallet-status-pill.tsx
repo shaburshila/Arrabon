@@ -72,7 +72,7 @@ export function WalletStatusPill() {
   // ─── Connected (dropdown-enabled) ────────────────────────────────
   const isAdmin = session.session?.is_admin === true;
   const isSigned = session.siweStatus === "authenticated";
-  const address = session.address ? truncateAddress(session.address) : "…";
+  const address = session.address ? truncatePill(session.address) : "…";
 
   return (
     <div ref={containerRef} style={wrapperStyle}>
@@ -88,6 +88,7 @@ export function WalletStatusPill() {
           <>
             <span style={networkDotStyle} />
             <span style={networkLabelStyle}>Base</span>
+            <span style={separatorStyle} aria-hidden>·</span>
           </>
         )}
         <span style={pillAddressStyle}>{address}</span>
@@ -291,11 +292,22 @@ const connectedPillStyle = {
   cursor: "pointer",
   display: "inline-flex",
   flexShrink: 0,
-  gap: 7,
+  gap: 10,
   height: 34,
-  padding: "0 6px 0 10px",
+  padding: "0 6px 0 14px",
   whiteSpace: "nowrap" as const,
 } as const;
+
+const separatorStyle = {
+  color: "var(--muted-2)",
+  fontSize: 12,
+  opacity: 0.6,
+} as const;
+
+function truncatePill(addr: string): string {
+  if (!addr || addr.length < 12) return addr ?? "";
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
 
 const networkDotStyle = {
   background: "var(--success)",

@@ -43,7 +43,7 @@ function HeroSection() {
           heroRef.current.style.opacity = String(opacity);
         }
         if (hintRef.current) {
-          const hintOp = Math.max(0, 1 - y / (vh * 0.06));
+          const hintOp = Math.max(0, 1 - y / 80);
           hintRef.current.style.opacity = String(hintOp);
           hintRef.current.style.pointerEvents = hintOp < 0.05 ? "none" : "auto";
         }

@@ -508,7 +508,7 @@ const formStackStyle = {
 };
 
 const cardPaddedStyle = {
-  padding: "24px 28px",
+  padding: 28,
 };
 
 const sectionStackStyle = {

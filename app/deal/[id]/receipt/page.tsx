@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchDeal, type DealReadModel } from "@/lib/api/deals";
 import { formatDate } from "@/lib/ui/date";
+import { formatUsdcPrice } from "@/lib/ui/format";
 import { truncateAddress } from "@/lib/ui/address";
 import { ArrabonSeal } from "@/components/shared/arrabon-seal";
 import { AppShell } from "@/components/app/app-shell";
@@ -25,10 +26,10 @@ function getReceiptTitle(status: DealReadModel["status"]): string {
 
 function getReceiptSub(deal: DealReadModel): string {
   if (deal.status === "Released") {
-    return `${deal.price_usdc} USDC was released to the seller after the consultation was completed.`;
+    return `${formatUsdcPrice(deal.price_usdc)} USDC was released to the seller after the consultation was completed.`;
   }
   if (deal.status === "Refunded") {
-    return `${deal.price_usdc} USDC was returned to the buyer after the dispute was resolved.`;
+    return `${formatUsdcPrice(deal.price_usdc)} USDC was returned to the buyer after the dispute was resolved.`;
   }
   return `Settlement record for deal ${deal.id.slice(0, 8).toUpperCase()}.`;
 }
@@ -93,7 +94,7 @@ export default function ReceiptPage() {
               <DetailRow
                 bordered={false}
                 label="Amount"
-                value={`${deal.price_usdc} USDC`}
+                value={`${formatUsdcPrice(deal.price_usdc)} USDC`}
                 accent
               />
               <DetailRow

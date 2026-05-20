@@ -716,7 +716,7 @@ const dealCardStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 20,
-  padding: "24px 28px",
+  padding: 28,
 };
 
 const dealHeaderStyle = {

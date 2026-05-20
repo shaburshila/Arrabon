@@ -3,6 +3,7 @@
 import type { DealReadModel } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
+import { formatUsdcPrice } from "@/lib/ui/format";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { DetailRow } from "@/components/shared/detail-row";
 
@@ -14,7 +15,7 @@ interface Props {
 export function DealDetailsCard({ deal, role }: Props) {
   return (
     <ActionPanel style={{ padding: "0 20px" }}>
-      <DetailRow label="Amount" value={`${deal.price_usdc} USDC`} accent />
+      <DetailRow label="Amount" value={`${formatUsdcPrice(deal.price_usdc)} USDC`} accent />
       <DetailRow label="Deal ID" mono value={deal.id.slice(0, 8).toUpperCase()} />
       <DetailRow
         label="Seller"

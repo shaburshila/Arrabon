@@ -104,3 +104,60 @@
 
 **Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
 
+## Plan-6 — completed
+
+### Phase Z — Landing scroll-hint viewport-fixed
+- app/globals.css — .landing-scroll-hint absolute→fixed, bottom 64→40
+- app/globals.css — .landing-hero-section padding-bottom 120→0
+- app/page.tsx — hint opacity formula vh-based → y/80
+
+### Phase AA — Wallet pill polish
+- components/app/wallet-status-pill.tsx — added `·` separator (separatorStyle), truncatePill() with U+2026 ellipsis, connectedPillStyle gap 7→10, padding-left 10→14
+
+### Phase II — Density baseline matches prototype
+- app/globals.css — --dens 1.18→1
+
+### Phase LL — Hero/Receipt gradients verified
+- app/globals.css — .deal-hero::before already matches prototype (linear-gradient 135deg gold-soft 0% → transparent 50%, opacity 0.6)
+- app/globals.css — .receipt::before adjusted to prototype: top -140→-120, size 600→400, removed z-index/opacity overrides
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-7 — completed
+
+### Phase JJ — maxWidth unified to 1180 (prototype standard)
+- app/create/page.tsx — maxWidth 1100→1180
+- (my-deals, my-links, deal/[id], admin pages already at 1180; receipt at 760 left untouched)
+
+### Phase CC — my-deals/my-links content
+- app/my-deals/page.tsx — removed "· Seller {addr}" from sub-meta; removed unused truncateAddress import
+- components/shared/status-pill.tsx — iconSize sm 12→14, md 14→16
+- app/globals.css — .list-row__price 14.5→16 mono with letter-spacing -0.01em; .list-row__price-token → sans, 11→10.5, weight 600, letter-spacing 0.04em uppercase, ml 4→6
+
+### Phase KK — Card paddings unified to 28
+- components/link/link-summary.tsx — padding "24px 28px"→28
+- components/link/link-preview-card.tsx — padding "24px 28px"→28
+- components/link/create-link-form.tsx — cardPaddedStyle padding "24px 28px"→28
+- app/admin/disputes/page.tsx — dealCardStyle padding "24px 28px"→28
+- app/admin/denylist/page.tsx — sectionStyle padding 20→28
+- .deal-hero kept at 32px 36px per prototype
+
+### Phase GG — Price format 0.00
+- lib/ui/format.ts — new formatUsdcPrice helper (2 fixed decimals, en-US thousands)
+- components/deal/deal-status-card.tsx — hero amount via formatUsdcPrice
+- components/deal/deal-details-card.tsx — Amount DetailRow via formatUsdcPrice
+- components/link/link-summary.tsx — amount-num via formatUsdcPrice
+- app/my-deals/page.tsx — DealRow price via formatUsdcPrice
+- app/my-links/page.tsx — LinkRow price via formatUsdcPrice
+- app/deal/[id]/receipt/page.tsx — getReceiptSub + Amount DetailRow via formatUsdcPrice
+
+### Phase PP — Cross-check findings
+- components/app/top-nav.tsx — headerInnerStyle padding 18px 32px → 14px 32px (matches prototype)
+- app/globals.css — .receipt padding 56px 48px → 56px 48px 40px (matches prototype)
+- app/globals.css — .receipt__title font-size 32→42 (matches prototype)
+- app/globals.css — .list-row padding 20px 24px → 18px 24px (matches prototype)
+- app/globals.css — .list-row grid-template-columns: minmax(0,1fr) 130px minmax(160px,auto) 160px 28px → minmax(0,1fr) 160px 140px 160px 28px (matches prototype)
+- All other table entries verified — already match prototype (deal-hero/amount-num/amount-token, deal-countdown, timeline/node, pill, status-icon, iconbtn, btn sizes, copy-field, toast, modal, landing-hero/cta/footer/admin grids and paddings)
+- Brand mark size 32 and brand word font-size 24 left at current values per plan's explicit "оставь" notes
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.

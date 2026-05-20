@@ -10,6 +10,7 @@ import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyLinks, type MyLink, type MyLinksFilter } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
+import { formatUsdcPrice } from "@/lib/ui/format";
 import { dealTrailingLabel } from "@/lib/ui/deal-trailing-label";
 import { Icon, type IconName } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
@@ -302,7 +303,7 @@ function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
         </span>
       </div>
       <span className="list-row__price">
-        {link.price_usdc}
+        {formatUsdcPrice(link.price_usdc)}
         <span className="list-row__price-token">USDC</span>
       </span>
       <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />

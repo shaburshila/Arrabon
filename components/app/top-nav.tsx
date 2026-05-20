@@ -106,7 +106,7 @@ const headerInnerStyle = {
   gap: 32,
   gridTemplateColumns: "auto 1fr auto",
   maxWidth: 1280,
-  padding: "18px 32px",
+  padding: "14px 32px",
   width: "100%",
 } as const;
 

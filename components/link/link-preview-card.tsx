@@ -66,7 +66,7 @@ const cardStyle = {
   borderRadius: "var(--r-3)",
   display: "flex",
   flexDirection: "column" as const,
-  padding: "24px 28px",
+  padding: 28,
 };
 
 const eyebrow = {
