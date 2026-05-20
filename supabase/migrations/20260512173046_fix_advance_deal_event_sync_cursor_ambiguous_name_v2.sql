@@ -1,3 +1,5 @@
+drop function if exists public.advance_deal_event_sync_cursor(text, bigint);
+
 create or replace function public.advance_deal_event_sync_cursor(
   p_name text,
   p_last_indexed_block bigint

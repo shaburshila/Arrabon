@@ -75,7 +75,7 @@ const footerLinks = [
   { href: "/privacy", label: "Privacy" },
   { href: "mailto:shaburshil@gmail.com", label: "Contact" },
   { href: "https://github.com/shaburshila/base-consult-link", label: "GitHub" },
-  { href: "#", label: "Contract on Basescan" },
+  { href: "https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD", label: "Contract on Basescan" },
 ] as const;
 
 export default function HomePage() {

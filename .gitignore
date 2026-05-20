@@ -15,7 +15,7 @@ pnpm-debug.log*
 artifacts/
 cache/
 design-reference
-design-assets/
+scripts/deploy.html
 TODO.md
 MANUAL-QA.md
 next-env.d.ts

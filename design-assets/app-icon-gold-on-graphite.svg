@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Arrabon app icon gold on graphite">
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="#161616"/>
+  <path fill="#C6A15B" fill-rule="evenodd" d="M128 43 47 216h41l11-27h58l11 27h41L128 43Zm0 49 32 76H96l32-76Z"/>
+  <path fill="#C6A15B" d="M86 154h84v17H86z"/>
+  <path fill="#C6A15B" d="M118 148h20v29h-20z"/>
+</svg>

@@ -1,7 +1,26 @@
 # Deployments — Arrabon
 
-> Version: 1.3 | Status: Актуален | Date: 2026-05-18
+> Version: 1.4 | Status: Актуален | Date: 2026-05-19
 > Составил: Arrabon Team | Проверил: — | Утвердил: —
+
+## Base Mainnet (production)
+
+### ConsultEscrow — 2026-05-19 (актуальный)
+
+| Field | Value |
+|---|---|
+| Contract | `0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD` |
+| Network | Base Mainnet (chainId 8453) |
+| Owner | `0x71ECD1a09380cA46CcA741Bc48d04C556674756F` |
+| Admin wallets | `0x3BA75b8A269974Deb5Ab621c21d02eAA70B0aD85`, `0x71ECD1a09380cA46CcA741Bc48d04C556674756F` |
+| FundingAuthorizer | `0x3BA75b8A269974Deb5Ab621c21d02eAA70B0aD85` |
+| Treasury | `0x7F4e87c76b7B6aA387E53A8d6e62C60458B914be` |
+| USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Block | 46201204 |
+| Tx hash | `0x4d0ed801e47f7dcde43139da2e9a11eb4c53b63ef27e32db1a9998a6d4ed68fa` |
+| Basescan | https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD |
+
+---
 
 ## Base Sepolia (testnet)
 
@@ -88,6 +107,7 @@
 
 | Версия | Дата | Изменения |
 |---|---|---|
+| 1.4 | 2026-05-19 | Первый деплой на Base Mainnet (0x2EB...5aD); production owner + admins + authorizer |
 | 1.3 | 2026-05-18 | Повторный передеплой ConsultEscrow (0xC97...A5B5); onchain dispute window возвращён на `48 hours`, обновлены env-указатели адреса и стартового блока |
 | 1.2 | 2026-05-18 | Передеплой ConsultEscrow (0xbDC...E382); новая fee-модель `price + fee`, clamp `3% / min $1.50 / max $30`, `MAX_PRICE = $100,000` |
 | 1.1 | 2026-05-11 | Передеплой ConsultEscrow (0x947...157); исправлен `InvalidSchedule` при `expires_at == scheduled_at` |

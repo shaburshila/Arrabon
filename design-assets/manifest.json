@@ -1,0 +1,58 @@
+{
+  "name": "Arrabon Icon Assets v2",
+  "brandColors": {
+    "graphite": "#161616",
+    "antiqueGold": "#C6A15B",
+    "ivory": "#F5F1E8",
+    "stoneGray": "#2A2A2E",
+    "muted": "#6C6C6C"
+  },
+  "statusColors": {
+    "open": "#6C6C6C",
+    "funded": "#C6A15B",
+    "released": "#22C55E",
+    "paymentPending": "#F59E0B",
+    "confirmPending": "#F59E0B",
+    "disputed": "#EF4444",
+    "error": "#EF4444",
+    "refunded": "#6C6C6C",
+    "expired": "#6C6C6C"
+  },
+  "pwaIcons": [
+    "pwa/icon-16.png",
+    "pwa/icon-32.png",
+    "pwa/icon-48.png",
+    "pwa/icon-64.png",
+    "pwa/icon-128.png",
+    "pwa/icon-192.png",
+    "pwa/icon-256.png",
+    "pwa/icon-512.png"
+  ],
+  "rules": [
+    "Alpha Lock is the only primary app icon.",
+    "Seal is only for secondary trust/legal contexts.",
+    "Seal must not be used as a small normal UI icon.",
+    "Simplified Alpha Lock is used for favicon.",
+    "Funded means escrow/lock/held funds and uses Antique Gold.",
+    "Released means check/success and uses green.",
+    "Status and utility icons use 2px stroke with rounded caps and joins.",
+    "Gold is brand/trust accent, not universal semantic status color."
+  ],
+  "version": "v3",
+  "cleanup": [
+    "open.svg standalone dot fixed to muted #6C6C6C",
+    "one-color black seal uses Graphite #161616",
+    "time icon distinguished from transaction pending",
+    "info/more-horizontal/more-vertical restored",
+    "wallet-connected dot radius synchronized",
+    "DEPLOYMENT.md added"
+  ],
+  "deployCanonical": [
+    "public/favicon.svg",
+    "public/favicon.ico",
+    "public/icons/icon-192.png",
+    "public/icons/icon-512.png",
+    "public/icons/icon-192-maskable.png",
+    "public/icons/icon-512-maskable.png"
+  ]
+}
