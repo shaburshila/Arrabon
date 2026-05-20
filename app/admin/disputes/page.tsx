@@ -355,8 +355,8 @@ export default function AdminDisputesPage() {
       </nav>
 
       <div style={headerStyle}>
-        <h1 style={h1Style}>Disputes</h1>
-        <p style={subtitleStyle}>
+        <h1 className="h1">Disputes</h1>
+        <p className="lede" style={{ marginTop: 8 }}>
           Review disputed and blocked payout-path deals and prepare the admin resolution transaction.
         </p>
       </div>
@@ -437,7 +437,7 @@ export default function AdminDisputesPage() {
                 <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
                   <div style={dealHeaderStyle}>
                     <div>
-                      <h2 style={dealTitleStyle}>{deal.title}</h2>
+                      <h2 className="h2" style={{ overflowWrap: "anywhere" as const }}>{deal.title}</h2>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                       <Link href={`/admin/disputes/${deal.id}`} style={detailLinkStyle}>
                         {adminDealLinkLabel(deal.status)}
@@ -531,7 +531,7 @@ export default function AdminDisputesPage() {
                 <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
                   <div style={dealHeaderStyle}>
                     <div>
-                      <h2 style={dealTitleStyle}>{deal.title}</h2>
+                      <h2 className="h2" style={{ overflowWrap: "anywhere" as const }}>{deal.title}</h2>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                     </div>
                     <div style={badgeStackStyle}>
@@ -665,22 +665,6 @@ const headerStyle = {
   gap: 8,
 };
 
-const h1Style = {
-  color: "var(--ink)",
-  fontFamily: "var(--font-serif)",
-  fontSize: 28,
-  fontWeight: 500,
-  letterSpacing: "-0.01em",
-  margin: "0 0 4px",
-};
-
-const subtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.5,
-  margin: 0,
-};
-
 const adminNavLinkStyle = {
   color: "var(--muted)",
   fontSize: 14,
@@ -731,8 +715,8 @@ const skeletonLineStyle = {
 const dealCardStyle = {
   display: "flex",
   flexDirection: "column" as const,
-  gap: 16,
-  padding: 20,
+  gap: 20,
+  padding: "24px 28px",
 };
 
 const dealHeaderStyle = {
@@ -747,13 +731,6 @@ const badgeStackStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
-};
-
-const dealTitleStyle = {
-  fontSize: 18,
-  lineHeight: 1.3,
-  margin: "0 0 4px",
-  overflowWrap: "anywhere" as const,
 };
 
 const metaStyle = {
@@ -778,20 +755,21 @@ const gridStyle = {
 };
 
 const infoStyle = {
-  background: "var(--panel-muted)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
+  background: "var(--surface-2)",
+  border: "1px solid var(--border-soft)",
+  borderRadius: "var(--r-2)",
   display: "flex",
   flexDirection: "column" as const,
   gap: 4,
   minWidth: 0,
-  padding: 12,
+  padding: "12px 14px",
 };
 
 const infoLabelStyle = {
   color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
+  fontSize: 10.5,
+  fontWeight: 600,
+  letterSpacing: "0.08em",
   textTransform: "uppercase" as const,
 };
 

@@ -157,8 +157,8 @@ export default function MyDealsPage() {
     <AppShell maxWidth={1180}>
       <div style={pageHeaderStyle}>
         <div>
-          <h1 style={h1Style}>My deals</h1>
-          <p style={subStyle}>Consultations you've paid for as a buyer.</p>
+          <h1 className="h1">My deals</h1>
+          <p className="lede" style={{ marginTop: 8 }}>Consultations you've paid for as a buyer.</p>
         </div>
       </div>
 
@@ -253,23 +253,8 @@ function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
 const pageHeaderStyle = {
   alignItems: "flex-start",
   display: "flex",
-  gap: 16,
   justifyContent: "space-between",
-} as const;
-
-const h1Style = {
-  color: "var(--ink)",
-  fontFamily: "var(--font-serif)",
-  fontSize: 28,
-  fontWeight: 500,
-  letterSpacing: "-0.01em",
-  margin: "0 0 4px",
-} as const;
-
-const subStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  margin: 0,
+  marginBottom: 32,
 } as const;
 
 const tabsRowStyle = {

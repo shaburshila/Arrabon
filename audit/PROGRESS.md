@@ -52,3 +52,55 @@
 - npm run build — clean
 - npm run test:unit — 12/12 passing
 
+## Plan-4 — completed
+
+### Phase M — Timeline vertical line restored
+- app/globals.css — removed `align-items: start` from .timeline__row
+
+### Phase N — Header breathing
+- components/app/app-shell.tsx — mainStyle padding 104→128 / bottom 48→64 (override too)
+- app/deal/[id]/page.tsx — backLinkStyle marginBottom 0→16
+
+### Phase O — Top-nav polish
+- components/app/top-nav.tsx — brand fontSize 22→24
+- components/app/wallet-status-pill.tsx — ChevronIcon → `<Icon name="utility-chevron-down" />`, pill avatar clean (no inner SVG); dropdown header still uses WalletSvg/AdminSvg at 16px
+
+### Phase Q — Scroll-hint accurate scroll
+- app/page.tsx — landing-scroll-hint onClick uses getBoundingClientRect on .landing-steps
+- app/globals.css — scroll-margin-top: 64px on landing-* sections
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-5 — completed
+
+### Phase S — Style guide reference (no code; targets documented)
+- app/globals.css — added `margin: 0` to .h-display, .h1, .h2, .h3, .lede, .body, .small, .tiny, .mono, .eyebrow
+
+### Phase T — Page headers unified
+- app/my-deals/page.tsx — h1 28→40 (className="h1"), sub 14→17 (className="lede"); removed h1Style/subStyle; pageHeaderStyle marginBottom 32
+- app/my-links/page.tsx — same
+- app/admin/disputes/page.tsx — h1 28→40 (className="h1"), sub className="lede"; removed h1Style/subtitleStyle
+- app/admin/denylist/page.tsx — same; removed h1Style/subtitleStyle
+- app/create/page.tsx — converted inline pageTitleStyle/pageSubStyle to className="h1"/"lede"; removed inline declarations
+
+### Phase U — Sub-headings unified
+- app/admin/disputes/page.tsx — dealTitle 18→28 serif (className="h2"); removed dealTitleStyle
+- app/admin/denylist/page.tsx — sectionTitle 18→28 serif (className="h2"), description className="lede"; removed sectionTitleStyle/sectionDescriptionStyle
+- (StepCard/BenefitCard cardTitleStyle and landing sectionH2Style left as-is per plan)
+
+### Phase V — Eyebrows unified
+- app/page.tsx — all 4 hero/section eyebrows + StepCard {n} + 3 footer heads now className="eyebrow"; removed inline eyebrowStyle/footerHeadStyle
+- app/admin/disputes/page.tsx — infoLabelStyle aligned (600 weight, 0.08em, 10.5px)
+
+### Phase W — Card padding standardized
+- components/link/link-summary.tsx — padding "28px 32px"→"24px 28px"
+- components/link/link-preview-card.tsx — padding 24→"24px 28px"
+- components/link/create-link-form.tsx — cardPaddedStyle already "24px 28px"
+- app/admin/disputes/page.tsx — dealCardStyle padding 20→"24px 28px", gap 16→20
+- app/admin/disputes/page.tsx — infoStyle uses surface-2 bg, border-soft, r-2 radius, padding "12px 14px"
+
+### Phase X — AppShell content gap 16→24
+- components/app/app-shell.tsx — contentStyle gap 16→24
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+

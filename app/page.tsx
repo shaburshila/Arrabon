@@ -61,7 +61,7 @@ function HeroSection() {
     <section className="landing-hero-section" style={heroSectionInner}>
       <div className="landing-hero" ref={heroRef}>
         <div>
-          <p style={eyebrowStyle}>Onchain Escrow · Base Network</p>
+          <p className="eyebrow">Onchain Escrow · Base Network</p>
           <h1>
             Trusted settlement <br />
             for a single <span className="accent">consultation</span>.
@@ -90,7 +90,12 @@ function HeroSection() {
       <button
         aria-label="Scroll to how it works"
         className="landing-scroll-hint"
-        onClick={() => window.scrollTo({ top: window.innerHeight - 64, behavior: "smooth" })}
+        onClick={() => {
+          const el = document.querySelector(".landing-steps");
+          if (!el) return;
+          const top = el.getBoundingClientRect().top + window.scrollY - 64;
+          window.scrollTo({ top, behavior: "smooth" });
+        }}
         ref={hintRef}
         type="button"
       >
@@ -108,7 +113,7 @@ function StepsSection() {
     <section className="landing-steps" style={fullBleedSection}>
       <div style={sectionInner}>
         <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
-          <p style={eyebrowStyle}>How it works</p>
+          <p className="eyebrow">How it works</p>
           <h2 style={sectionH2Style}>Three steps. One settlement.</h2>
         </div>
         <div style={threeColGrid}>
@@ -126,7 +131,7 @@ function BenefitsSection() {
     <section className="landing-benefits" style={fullBleedSection}>
       <div style={sectionInner}>
         <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
-          <p style={eyebrowStyle}>Built for both sides</p>
+          <p className="eyebrow">Built for both sides</p>
           <h2 style={sectionH2Style}>A safer workflow for paid consultations.</h2>
         </div>
         <div style={threeColGrid}>
@@ -144,7 +149,7 @@ function StatsSection() {
     <section className="landing-stats" style={fullBleedSection}>
       <div style={sectionInner}>
         <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
-          <p style={eyebrowStyle}>Results to date</p>
+          <p className="eyebrow">Results to date</p>
           <h2 style={sectionH2Style}>Numbers from the network.</h2>
         </div>
         <div className="landing-stats__grid">
@@ -203,7 +208,7 @@ function SiteFooter() {
             </p>
           </div>
           <div className="stack-12">
-            <p style={footerHeadStyle}>Product</p>
+            <p className="eyebrow">Product</p>
             <div className="stack-8">
               <Link href="/create" className="site-footer__link">Create link</Link>
               <Link href="/my-links" className="site-footer__link">My links</Link>
@@ -211,7 +216,7 @@ function SiteFooter() {
             </div>
           </div>
           <div className="stack-12">
-            <p style={footerHeadStyle}>Network</p>
+            <p className="eyebrow">Network</p>
             <div className="stack-8">
               <a
                 className="site-footer__link"
@@ -224,7 +229,7 @@ function SiteFooter() {
             </div>
           </div>
           <div className="stack-12">
-            <p style={footerHeadStyle}>Legal</p>
+            <p className="eyebrow">Legal</p>
             <div className="stack-8">
               <Link href="/terms" className="site-footer__link">Terms</Link>
               <Link href="/privacy" className="site-footer__link">Privacy</Link>
@@ -249,7 +254,7 @@ function StepCard({ n, title, desc }: { n: string; title: string; desc: string }
   return (
     <div style={cardStyle}>
       <div className="stack-12">
-        <span style={eyebrowStyle}>{n}</span>
+        <span className="eyebrow">{n}</span>
         <h3 style={cardTitleStyle}>{title}</h3>
         <p style={cardDescStyle}>{desc}</p>
       </div>
@@ -375,15 +380,6 @@ const sectionInner = {
   width: "100%",
 };
 
-const eyebrowStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.1em",
-  margin: 0,
-  textTransform: "uppercase" as const,
-};
-
 const sectionH2Style = {
   fontFamily: "var(--font-serif)",
   fontSize: "clamp(28px, 4vw, 44px)",
@@ -443,15 +439,6 @@ const footerTagStyle = {
   lineHeight: 1.6,
   margin: 0,
   maxWidth: "32ch",
-};
-
-const footerHeadStyle = {
-  color: "var(--muted-2)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.1em",
-  margin: 0,
-  textTransform: "uppercase" as const,
 };
 
 const footerCopyStyle = {

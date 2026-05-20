@@ -312,6 +312,7 @@ select {
   line-height: 1.04;
   letter-spacing: -0.012em;
   color: var(--ink);
+  margin: 0;
 }
 
 .h1 {
@@ -320,6 +321,7 @@ select {
   font-size: 40px;
   line-height: 1.08;
   letter-spacing: -0.008em;
+  margin: 0;
 }
 
 .h2 {
@@ -328,6 +330,7 @@ select {
   font-size: 28px;
   line-height: 1.18;
   letter-spacing: -0.005em;
+  margin: 0;
 }
 
 .h3 {
@@ -336,6 +339,7 @@ select {
   font-size: 16px;
   line-height: 1.3;
   letter-spacing: -0.003em;
+  margin: 0;
 }
 
 .lede {
@@ -344,10 +348,11 @@ select {
   line-height: 1.55;
   color: var(--muted);
   max-width: 56ch;
+  margin: 0;
 }
 
-.body  { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); }
-.small { font-size: 13px;   line-height: 1.5;  color: var(--muted); }
+.body  { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+.small { font-size: 13px;   line-height: 1.5;  color: var(--muted);    margin: 0; }
 
 .tiny {
   font-size: 11.5px;
@@ -356,6 +361,7 @@ select {
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
+  margin: 0;
 }
 
 .mono {
@@ -363,6 +369,7 @@ select {
   font-size: 13px;
   letter-spacing: -0.01em;
   color: var(--ink-soft);
+  margin: 0;
 }
 
 .eyebrow {
@@ -372,6 +379,7 @@ select {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted);
+  margin: 0;
 }
 
 /* Italic gold accent word used in hero headings */
@@ -578,7 +586,6 @@ select {
   display: grid;
   grid-template-columns: 20px 1fr;
   gap: 0 14px;
-  align-items: start;
 }
 
 .timeline__node {
@@ -1673,4 +1680,12 @@ select {
   .list-row__price { grid-area: price; }
   .list-row__trailing { grid-area: trailing; text-align: left; }
   .list-row__chevron { grid-area: chevron; }
+}
+
+/* Compensate fixed top-nav when programmatic scrolling to sections */
+.landing-steps,
+.landing-benefits,
+.landing-stats,
+.landing-cta {
+  scroll-margin-top: 64px;
 }

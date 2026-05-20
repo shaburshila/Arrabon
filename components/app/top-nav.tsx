@@ -129,7 +129,7 @@ const brandMarkStyle = {
 
 const brandWordStyle = {
   fontFamily: "var(--font-serif)",
-  fontSize: 22,
+  fontSize: 24,
   fontWeight: 500,
   letterSpacing: "0.005em",
   lineHeight: 1,

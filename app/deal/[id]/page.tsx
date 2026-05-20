@@ -270,4 +270,5 @@ const backLinkStyle = {
   fontWeight: 500,
   textDecoration: "none",
   gap: 4,
+  marginBottom: 16,
 } as const;

@@ -96,7 +96,7 @@ const cardStyle = {
   flexDirection: "column" as const,
   gap: 24,
   overflow: "hidden",
-  padding: "28px 32px",
+  padding: "24px 28px",
 } as const;
 
 const headerStyle = {

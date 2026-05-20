@@ -181,8 +181,8 @@ export default function AdminDenylistPage() {
       </nav>
 
       <div style={headerStyle}>
-        <h1 style={h1Style}>Compliance denylist</h1>
-        <p style={subtitleStyle}>
+        <h1 className="h1">Compliance denylist</h1>
+        <p className="lede" style={{ marginTop: 8 }}>
           Add or remove blocked wallets and keep an auditable compliance trail.
         </p>
       </div>
@@ -196,8 +196,8 @@ export default function AdminDenylistPage() {
           <ActionPanel as="section" style={sectionStyle}>
             <form onSubmit={handleSubmit} style={formStyle}>
               <div style={sectionHeaderStyle}>
-                <h2 style={sectionTitleStyle}>Add denylist entry</h2>
-                <p style={sectionDescriptionStyle}>
+                <h2 className="h2">Add denylist entry</h2>
+                <p className="lede" style={{ marginTop: 6 }}>
                   Use this for fraud, abuse, sanctions escalation, or manual legal decisions.
                 </p>
               </div>
@@ -251,8 +251,8 @@ export default function AdminDenylistPage() {
           <ActionPanel as="section" style={sectionStyle}>
             <div style={toolbarStyle}>
               <div>
-                <h2 style={sectionTitleStyle}>Current entries</h2>
-                <p style={sectionDescriptionStyle}>Page {page + 1} · {entries.length} shown</p>
+                <h2 className="h2">Current entries</h2>
+                <p className="lede" style={{ marginTop: 6 }}>Page {page + 1} · {entries.length} shown</p>
               </div>
               <button
                 disabled={loading}
@@ -375,22 +375,6 @@ const headerStyle = {
   gap: 8,
 } as const;
 
-const h1Style = {
-  color: "var(--ink)",
-  fontFamily: "var(--font-serif)",
-  fontSize: 28,
-  fontWeight: 500,
-  letterSpacing: "-0.01em",
-  margin: "0 0 4px",
-} as const;
-
-const subtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.5,
-  margin: 0,
-} as const;
-
 const adminNavLinkStyle = {
   color: "var(--muted)",
   fontSize: 14,
@@ -406,19 +390,6 @@ const sectionHeaderStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 6,
-} as const;
-
-const sectionTitleStyle = {
-  fontSize: 18,
-  lineHeight: 1.25,
-  margin: 0,
-} as const;
-
-const sectionDescriptionStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.5,
-  margin: 0,
 } as const;
 
 const formStyle = {

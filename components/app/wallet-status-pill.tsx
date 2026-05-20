@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { Icon } from "@/components/icons";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { truncateAddress } from "@/lib/ui/address";
 
@@ -90,9 +91,7 @@ export function WalletStatusPill() {
           </>
         )}
         <span style={pillAddressStyle}>{address}</span>
-        <span style={pillAvatarStyle}>
-          {isAdmin ? <AdminSvg size={11} /> : <WalletSvg size={11} />}
-        </span>
+        <span style={pillAvatarStyle} />
         <ChevronIcon open={isOpen} />
       </button>
 
@@ -225,20 +224,15 @@ function ChevronIcon({ open }: { open: boolean }) {
     <span
       aria-hidden
       style={{
-        borderBottom: "1.5px solid currentColor",
-        borderRight: "1.5px solid currentColor",
         color: "var(--muted)",
-        display: "inline-block",
-        height: 5,
-        marginRight: 2,
-        opacity: 0.6,
-        transform: open
-          ? "rotate(225deg) translate(-1px, -2px)"
-          : "rotate(45deg) translate(-1px, -1px)",
+        display: "inline-flex",
+        marginRight: 4,
         transition: "transform 0.15s ease",
-        width: 5,
+        transform: open ? "rotate(180deg)" : "rotate(0deg)",
       }}
-    />
+    >
+      <Icon name="utility-chevron-down" size={12} />
+    </span>
   );
 }
 

@@ -53,8 +53,8 @@ export default function CreatePage() {
   return (
     <AppShell maxWidth={1100}>
       <header style={pageHeaderStyle}>
-        <h1 style={pageTitleStyle}>Create consultation link</h1>
-        <p style={pageSubStyle}>
+        <h1 className="h1">Create consultation link</h1>
+        <p className="lede" style={{ marginTop: 8 }}>
           Define the consultation, set the price, and share a single link.
           Funds settle in USDC on Base.
         </p>
@@ -80,20 +80,3 @@ const pageHeaderStyle = {
   maxWidth: 720,
 };
 
-const pageTitleStyle = {
-  color: "var(--ink)",
-  fontFamily: "var(--font-serif)",
-  fontSize: 40,
-  fontWeight: 500,
-  letterSpacing: "-0.008em",
-  lineHeight: 1.08,
-  margin: 0,
-  textWrap: "balance" as const,
-};
-
-const pageSubStyle = {
-  color: "var(--muted)",
-  fontSize: 16,
-  lineHeight: 1.55,
-  margin: 0,
-};
