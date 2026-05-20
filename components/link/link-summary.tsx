@@ -1,11 +1,9 @@
 "use client";
 
-// Displays public consultation link metadata.
-
 import type { PublicLink } from "@/lib/api/links";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
-import { ActionPanel } from "@/components/shared/action-panel";
+import { Icon } from "@/components/icons";
 import { DetailRow } from "@/components/shared/detail-row";
 import { StatusPill } from "@/components/shared/status-pill";
 
@@ -20,20 +18,29 @@ function formatDuration(minutes: number) {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function getStatusPill(status: string): {
+  label: string;
+  tone: "accent" | "gold" | "muted" | "green";
+} {
+  if (status === "Open") return { label: "Open", tone: "green" };
+  if (status === "Consumed") return { label: "Funded", tone: "gold" };
+  return { label: status, tone: "muted" };
+}
+
 export function LinkSummary({ link }: LinkSummaryProps) {
   const status = getStatusPill(link.status);
 
   return (
-    <ActionPanel style={{ overflow: "hidden" }}>
+    <div style={cardStyle}>
       <div style={headerStyle}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <StatusPill label={status.label} tone={status.tone} />
           <h1 style={titleStyle}>{link.title}</h1>
           <p style={sellerStyle}>Seller {truncateAddress(link.seller_address)}</p>
         </div>
-        <div style={pricePillStyle}>
-          <span style={priceValueStyle}>{link.price_usdc}</span>
-          <span style={priceTokenStyle}>USDC</span>
+        <div className="deal-hero__amount">
+          <div className="deal-hero__amount-num">{link.price_usdc}</div>
+          <div className="deal-hero__amount-token">USDC</div>
         </div>
       </div>
 
@@ -61,120 +68,85 @@ export function LinkSummary({ link }: LinkSummaryProps) {
           })}
         />
         <DetailRow
-          bordered={false}
           label="Seller"
+          mono
           value={truncateAddress(link.seller_address)}
+        />
+        <DetailRow
+          bordered={false}
+          label="Link ID"
+          mono
+          value={link.id.slice(0, 8).toUpperCase()}
         />
       </div>
 
-      <div style={paymentDeadlineStyle}>
-        Payment must be made before{" "}
-        {formatDate(link.expires_at, {
-          showTimeZoneName: true,
-          timeZone: link.timezone,
-        })}
-        .
-      </div>
-
-      <div style={escrowLineStyle}>
+      <div style={trustStyle}>
+        <Icon name="utility-secure-subtle" size={14} />
         Funds are held in escrow on Base until the consultation is confirmed or disputed.
       </div>
-    </ActionPanel>
+    </div>
   );
 }
 
-function getStatusPill(status: string): {
-  label: string;
-  tone: "accent" | "muted" | "success";
-} {
-  if (status === "Open") {
-    return { label: "Open", tone: "success" };
-  }
-
-  if (status === "Consumed") {
-    return { label: "Funded", tone: "accent" };
-  }
-
-  return { label: status, tone: "muted" };
-}
+const cardStyle = {
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--r-4)",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 24,
+  overflow: "hidden",
+  padding: "28px 32px",
+} as const;
 
 const headerStyle = {
   alignItems: "flex-start",
-  borderBottom: "1px solid var(--border)",
   display: "flex",
-  gap: 14,
+  gap: 20,
   justifyContent: "space-between",
-  padding: 20,
 } as const;
 
 const titleStyle = {
-  color: "var(--foreground)",
-  fontSize: 22,
-  fontWeight: 800,
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
+  fontSize: 28,
+  fontWeight: 500,
+  letterSpacing: "-0.005em",
   lineHeight: 1.15,
-  margin: "12px 0 6px",
+  margin: "10px 0 6px",
   overflowWrap: "anywhere" as const,
-};
+  textWrap: "balance" as const,
+} as const;
 
 const sellerStyle = {
   color: "var(--muted)",
-  fontSize: 13,
+  fontFamily: "var(--font-mono)",
+  fontSize: 12.5,
+  letterSpacing: "-0.005em",
   margin: 0,
-};
-
-const pricePillStyle = {
-  background: "var(--accent-muted)",
-  borderRadius: "var(--radius)",
-  color: "var(--accent)",
-  flexShrink: 0,
-  padding: "10px 12px",
-  textAlign: "right" as const,
-};
-
-const priceValueStyle = {
-  display: "block",
-  fontSize: 17,
-  fontWeight: 850,
-  lineHeight: 1.1,
-};
-
-const priceTokenStyle = {
-  display: "block",
-  fontSize: 11,
-  fontWeight: 700,
-  lineHeight: 1.2,
-  marginTop: 2,
-  opacity: 0.75,
-};
+} as const;
 
 const descriptionStyle = {
-  borderBottom: "1px solid var(--border)",
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.5,
+  color: "var(--ink-soft)",
+  fontSize: 14.5,
+  lineHeight: 1.55,
   margin: 0,
-  padding: "0 20px 18px",
-};
+} as const;
 
 const detailsStyle = {
-  padding: "8px 20px",
-};
+  display: "flex",
+  flexDirection: "column" as const,
+} as const;
 
-const paymentDeadlineStyle = {
-  background: "var(--accent-muted)",
-  borderTop: "1px solid var(--border)",
-  color: "var(--foreground)",
+const trustStyle = {
+  alignItems: "center",
+  background: "var(--gold-soft)",
+  border: "1px solid color-mix(in srgb, var(--gold) 18%, transparent)",
+  borderRadius: "var(--r-2)",
+  color: "var(--gold-deep)",
+  display: "flex",
   fontSize: 13,
-  fontWeight: 700,
-  lineHeight: 1.45,
-  padding: "12px 20px",
-};
-
-const escrowLineStyle = {
-  background: "var(--panel-muted)",
-  borderTop: "1px solid var(--border)",
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.45,
-  padding: "14px 20px",
-};
+  gap: 10,
+  lineHeight: 1.5,
+  padding: "12px 16px",
+} as const;

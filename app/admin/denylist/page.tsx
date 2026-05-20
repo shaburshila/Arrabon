@@ -22,7 +22,7 @@ import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { TextArea } from "@/components/shared/text-area";
 import { TextInput } from "@/components/shared/text-input";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
+import { canSubmitDenylistRemoval } from "./helpers";
 
 const PAGE_SIZE = 20;
 
@@ -47,10 +47,6 @@ const emptyRemoveState: RemoveState = {
   comment: "",
   wallet: null,
 };
-
-function canSubmitDenylistRemoval(comment: string): boolean {
-  return comment.trim().length > 0;
-}
 
 export default function AdminDenylistPage() {
   const session = useWalletSessionContext();
@@ -177,7 +173,7 @@ export default function AdminDenylistPage() {
   }
 
   return (
-    <AppShell maxWidth={860}>
+    <AppShell maxWidth={1180}>
       <nav className="admin-subnav">
         <span className="admin-badge">Admin</span>
         <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
@@ -190,8 +186,6 @@ export default function AdminDenylistPage() {
           Add or remove blocked wallets and keep an auditable compliance trail.
         </p>
       </div>
-
-      <WalletSessionCard session={session} />
 
       {session.siweStatus === "authenticated" && session.session?.is_admin !== true && (
         <Notice message="This wallet does not have admin permissions." tone="danger" />

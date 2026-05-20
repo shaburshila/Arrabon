@@ -83,7 +83,7 @@ export default function ReceiptPage() {
 
           <div className="receipt">
             <div className="receipt__seal">
-              <ArrabonSeal size={64} tone="gold-line" />
+              <ArrabonSeal size={96} tone="auto" />
             </div>
 
             <h1 className="receipt__title">{getReceiptTitle(deal.status)}</h1>
@@ -140,7 +140,7 @@ export default function ReceiptPage() {
             </div>
 
             <div className="receipt__foot">
-              <ArrabonSeal size={18} tone="auto" />
+              <ArrabonSeal size={36} tone="gold-line" />
               <span className="receipt__foot-text">
                 Settled on <strong>Base Network</strong> via <strong>Arrabon</strong> escrow.{" "}
                 Powered by smart contract{" "}

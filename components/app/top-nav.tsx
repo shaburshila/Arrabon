@@ -52,7 +52,7 @@ export function TopNav() {
         </Link>
 
         {/* Desktop nav — hidden on mobile (BottomTabBar takes over) */}
-        <nav aria-label="Primary navigation" style={navStyle}>
+        <nav aria-label="Primary navigation" className="topnav-desktop-nav" style={navStyle}>
           {navItems.map((item) => (
             <Link
               key={item.key}

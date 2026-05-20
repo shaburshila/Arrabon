@@ -33,7 +33,6 @@ import { Btn } from "@/components/shared/btn";
 import { DetailRow } from "@/components/shared/detail-row";
 import { Notice } from "@/components/shared/notice";
 import { StatusPill } from "@/components/shared/status-pill";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 type ResolveStep =
   | "failed"
@@ -324,7 +323,7 @@ export default function AdminDisputeDetailPage() {
   const resolveAvailability = getAdminResolveAvailability(riskStatus, acknowledgedReviewRisk);
 
   return (
-    <AppShell maxWidth={860}>
+    <AppShell maxWidth={1180}>
       <nav className="admin-subnav">
         <span className="admin-badge">Admin</span>
         <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
@@ -341,8 +340,6 @@ export default function AdminDisputeDetailPage() {
           Review the full dispute record, conversation, and admin resolution options.
         </p>
       </div>
-
-      <WalletSessionCard session={session} />
 
       {isSessionLoading && (
         <Notice

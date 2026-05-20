@@ -4,6 +4,7 @@
 // Renders the right action based on wallet/session/role/link state.
 // Delegates to funding hook — does not contain funding logic itself.
 
+import { useState } from "react";
 import Link from "next/link";
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
@@ -21,6 +22,7 @@ import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-
 import { DetailRow } from "@/components/shared/detail-row";
 import { Notice } from "@/components/shared/notice";
 import { FundingProgress } from "@/components/link/funding-progress";
+import { SiweSignModal } from "@/components/shared/siwe-sign-modal";
 
 interface LinkActionCardProps {
   dealIdPollingTimedOut: boolean;
@@ -49,6 +51,21 @@ export function LinkActionCard({
     switchToCorrectChain,
   } = session;
   const { execute, reset, state: fundingState } = funding;
+
+  const [showSiwe, setShowSiwe] = useState(false);
+
+  async function handleSignInClick() {
+    setShowSiwe(true);
+  }
+
+  async function handleSiweApprove() {
+    setShowSiwe(false);
+    try {
+      await signIn();
+    } catch {
+      // signInError state will be set by the hook
+    }
+  }
   const priceAmount = parseUsdcAmount(link.price_usdc);
   const totalAmount = calculateTotalWithFee(priceAmount);
 
@@ -105,12 +122,7 @@ export function LinkActionCard({
       {isConnected && isCorrectChain && siweStatus === "unauthenticated" && (
         <div style={stackStyle}>
           <p style={hintStyle}>Sign in to confirm your wallet before paying.</p>
-          <Btn
-            fullWidth
-            loading={session.isSigningIn}
-            onClick={signIn}
-            variant="secondary"
-          >
+          <Btn fullWidth onClick={handleSignInClick} variant="secondary" loading={session.isSigningIn}>
             Sign in with Ethereum
           </Btn>
           {signInError && (
@@ -180,6 +192,11 @@ export function LinkActionCard({
           )}
         </div>
       )}
+      <SiweSignModal
+        open={showSiwe}
+        onApprove={handleSiweApprove}
+        onReject={() => setShowSiwe(false)}
+      />
     </ActionPanel>
   );
 }

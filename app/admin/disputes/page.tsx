@@ -38,7 +38,6 @@ import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { StatusPill } from "@/components/shared/status-pill";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 
 type ResolveStep =
   | "failed"
@@ -348,7 +347,7 @@ export default function AdminDisputesPage() {
   const visibleCount = view === "resolved" ? visibleResolvedDeals.length : visibleOpenDeals.length;
 
   return (
-    <AppShell maxWidth={860}>
+    <AppShell maxWidth={1180}>
       <nav className="admin-subnav">
         <span className="admin-badge">Admin</span>
         <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
@@ -361,8 +360,6 @@ export default function AdminDisputesPage() {
           Review disputed and blocked payout-path deals and prepare the admin resolution transaction.
         </p>
       </div>
-
-      <WalletSessionCard session={session} />
 
       {isSessionLoading && (
         <Notice

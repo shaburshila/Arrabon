@@ -13,11 +13,12 @@ import { useDealActions } from "@/hooks/use-deal-action";
 import { Icon } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { DealStatusCard } from "@/components/deal/deal-status-card";
+import { DealDetailsCard } from "@/components/deal/deal-details-card";
 import { MeetingUrlCard } from "@/components/deal/meeting-url-card";
 import { DealActionsCard } from "@/components/deal/deal-actions-card";
-import { DealGuidanceCard } from "@/components/deal/deal-guidance-card";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { KeyTimes } from "@/components/deal/key-times";
+import { ReceiptInset } from "@/components/deal/receipt-inset";
 import { Countdown } from "@/components/shared/countdown";
 import { Notice } from "@/components/shared/notice";
 import type { DealReadModel } from "@/lib/api/deals";
@@ -33,14 +34,14 @@ function shouldShowDisputeThread(status: string, resolvedFromStatus: string | nu
 
 function getBackLink(input: { isBuyer: boolean; isSeller: boolean }) {
   if (input.isBuyer) {
-    return { href: "/my-deals", label: "← My deals" };
+    return { href: "/my-deals", label: "My deals" };
   }
 
   if (input.isSeller) {
-    return { href: "/my-links", label: "← My links" };
+    return { href: "/my-links", label: "My links" };
   }
 
-  return { href: "/", label: "← Home" };
+  return { href: "/", label: "Home" };
 }
 
 function getRiskStatusNotice(deal: DealReadModel): { message: string; title: string } | null {
@@ -98,22 +99,16 @@ export default function DealPage() {
   return (
     <AppShell maxWidth={1180}>
       <Link href={backLink.href} style={backLinkStyle}>
+        <Icon name="utility-arrow-left" size={14} style={{ marginRight: 4 }} />
         {backLink.label}
       </Link>
 
-      {/* Loading */}
       {dealPage.status === "loading" && (
         <div style={centerStyle}>
           <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading deal…</p>
         </div>
       )}
-
-      {/* Not found */}
-      {dealPage.status === "not_found" && (
-        <Notice message="Deal not found." tone="muted" />
-      )}
-
-      {/* Auth required */}
+      {dealPage.status === "not_found" && <Notice message="Deal not found." tone="muted" />}
       {dealPage.status === "auth_required" && (
         <Notice
           message="Connect your wallet and sign in with Ethereum to view this deal."
@@ -121,42 +116,39 @@ export default function DealPage() {
           tone="muted"
         />
       )}
-
       {dealPage.status === "access_denied" && (
         <Notice
           message="Access denied. This deal is only visible to its participants."
           tone="muted"
         />
       )}
-
-      {/* Error */}
       {dealPage.status === "error" && (
         <Notice message={dealPage.error ?? "Failed to load deal."} tone="danger" />
       )}
 
-      {/* Main content */}
       {dealPage.status === "ready" && dealPage.deal && (
         <>
           {dealPage.isStale && (
             <Notice
-              message="Deal status may be outdated right now. We’re having trouble refreshing it."
+              message="Deal status may be outdated right now. We're having trouble refreshing it."
               title="Refresh delayed"
               tone="warning"
             />
           )}
-
           {riskStatusNotice && (
             <Notice
               message={riskStatusNotice.message}
               title={riskStatusNotice.title}
-              tone="warning"
+              tone={dealPage.deal.risk_status === "Blocked" ? "danger" : "warning"}
             />
           )}
 
           <DealStatusCard
             deal={dealPage.deal}
             isAdmin={session.session?.is_admin === true}
-            role={dealPage.role}
+            isBuyer={dealPage.isBuyer}
+            isSeller={dealPage.isSeller}
+            isParticipant={dealPage.isParticipant}
           />
 
           {(dealPage.deal.status === "Funded" || dealPage.deal.status === "ConfirmPending") && (
@@ -187,74 +179,75 @@ export default function DealPage() {
             </div>
           )}
 
-          <DealGuidanceCard
-            dealStatus={dealPage.deal.status}
-            isBuyer={dealPage.isBuyer}
-            isSeller={dealPage.isSeller}
-            isViewer={!dealPage.isParticipant}
-            priceUsdc={dealPage.deal.price_usdc}
-            riskStatus={dealPage.deal.risk_status}
-            releaseDeadlineAt={dealPage.deal.release_deadline_at}
-            scheduledAt={dealPage.deal.scheduled_at}
-          />
-          <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
+          <div className="deal-split">
+            <div className="deal-split__left">
+              <KeyTimes deal={dealPage.deal} isSeller={dealPage.isSeller} />
+              <MeetingUrlCard
+                dealId={dealId}
+                dealStatus={dealPage.deal.status}
+                isParticipant={dealPage.isParticipant}
+                session={session}
+              />
+              {shouldShowDisputeThread(
+                dealPage.deal.status,
+                dealPage.deal.resolved_from_status,
+              ) && (
+                <DisputeThread
+                  canPost={
+                    dealPage.deal.status === "Disputed" &&
+                    session.siweStatus === "authenticated" &&
+                    (dealPage.isParticipant || session.session?.is_admin === true)
+                  }
+                  canView={
+                    session.siweStatus === "authenticated" &&
+                    (dealPage.isParticipant || session.session?.is_admin === true)
+                  }
+                  currentWallet={session.address}
+                  dealId={dealId}
+                  dealStatus={dealPage.deal.status}
+                />
+              )}
+            </div>
 
-          <MeetingUrlCard
-            dealId={dealId}
-            dealStatus={dealPage.deal.status}
-            isParticipant={dealPage.isParticipant}
-            session={session}
-          />
-
-          <DealActionsCard
-            autoRelease={actions.autoRelease}
-            autoReleaseAvailable={isSellerAutoReleaseAvailable({
-              durationMinutes: dealPage.deal.duration_minutes,
-              isSeller: dealPage.isSeller,
-              scheduledAt: dealPage.deal.scheduled_at,
-              status: dealPage.deal.status,
-            })}
-            buyerDisputable={isBuyerDisputable({
-              durationMinutes: dealPage.deal.duration_minutes,
-              scheduledAt: dealPage.deal.scheduled_at,
-              status: dealPage.deal.status,
-            })}
-            buyerReleasable={isBuyerReleasable({
-              durationMinutes: dealPage.deal.duration_minutes,
-              scheduledAt: dealPage.deal.scheduled_at,
-              status: dealPage.deal.status,
-            })}
-            complete={actions.complete}
-            dealStatus={dealPage.deal.status}
-            dispute={actions.dispute}
-            isAnyActionInFlight={actions.isAnyActionInFlight}
-            isBuyer={dealPage.isBuyer}
-            isSeller={dealPage.isSeller}
-            onRefreshStatus={dealPage.refetch}
-            release={actions.release}
-            scheduledAt={dealPage.deal.scheduled_at}
-            session={session}
-          />
-
-          {shouldShowDisputeThread(
-            dealPage.deal.status,
-            dealPage.deal.resolved_from_status,
-          ) && (
-            <DisputeThread
-              canPost={
-                dealPage.deal.status === "Disputed" &&
-                session.siweStatus === "authenticated" &&
-                (dealPage.isParticipant || session.session?.is_admin === true)
-              }
-              canView={
-                session.siweStatus === "authenticated" &&
-                (dealPage.isParticipant || session.session?.is_admin === true)
-              }
-              currentWallet={session.address}
-              dealId={dealId}
-              dealStatus={dealPage.deal.status}
-            />
-          )}
+            <aside className="deal-split__right">
+              <DealDetailsCard deal={dealPage.deal} role={dealPage.role} />
+              <DealActionsCard
+                autoRelease={actions.autoRelease}
+                autoReleaseAvailable={isSellerAutoReleaseAvailable({
+                  durationMinutes: dealPage.deal.duration_minutes,
+                  isSeller: dealPage.isSeller,
+                  scheduledAt: dealPage.deal.scheduled_at,
+                  status: dealPage.deal.status,
+                })}
+                buyerDisputable={isBuyerDisputable({
+                  durationMinutes: dealPage.deal.duration_minutes,
+                  scheduledAt: dealPage.deal.scheduled_at,
+                  status: dealPage.deal.status,
+                })}
+                buyerReleasable={isBuyerReleasable({
+                  durationMinutes: dealPage.deal.duration_minutes,
+                  scheduledAt: dealPage.deal.scheduled_at,
+                  status: dealPage.deal.status,
+                })}
+                complete={actions.complete}
+                dealStatus={dealPage.deal.status}
+                dispute={actions.dispute}
+                isAnyActionInFlight={actions.isAnyActionInFlight}
+                isBuyer={dealPage.isBuyer}
+                isSeller={dealPage.isSeller}
+                onRefreshStatus={dealPage.refetch}
+                release={actions.release}
+                scheduledAt={dealPage.deal.scheduled_at}
+                session={session}
+              />
+              <ReceiptInset
+                dealId={dealId}
+                visible={
+                  dealPage.deal.status === "Released" || dealPage.deal.status === "Refunded"
+                }
+              />
+            </aside>
+          </div>
         </>
       )}
     </AppShell>
@@ -269,9 +262,12 @@ const centerStyle = {
 } as const;
 
 const backLinkStyle = {
+  alignItems: "center",
   alignSelf: "flex-start",
   color: "var(--muted)",
+  display: "inline-flex",
   fontSize: 13,
   fontWeight: 500,
   textDecoration: "none",
+  gap: 4,
 } as const;

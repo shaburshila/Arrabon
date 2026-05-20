@@ -4,7 +4,7 @@
 // POST /api/links is a private SIWE endpoint, so wallet connect + SIWE are required.
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import type { Address } from "viem";
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
@@ -106,8 +106,18 @@ export function getCreateLinkErrorState(err: unknown): {
   };
 }
 
-export function CreateLinkForm({ session }: { session: WalletSessionState }) {
+interface Props {
+  session: WalletSessionState;
+  onValuesChange?: (values: FormState) => void;
+}
+
+export function CreateLinkForm(props: Props) {
+  const { session } = props;
   const [form, setForm] = useState<FormState>(emptyForm);
+
+  useEffect(() => {
+    props.onValuesChange?.(form);
+  }, [form, props.onValuesChange]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [compliance, setCompliance] = useState<CreateLinkComplianceState>(createInitialCreateLinkComplianceState);

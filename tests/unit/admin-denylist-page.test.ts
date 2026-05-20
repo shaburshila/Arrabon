@@ -1,7 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { canSubmitDenylistRemoval } from "@/app/admin/denylist/page";
+import { canSubmitDenylistRemoval } from "@/app/admin/denylist/helpers";
 
 describe("admin denylist page helpers", () => {
   test("rejects empty removal comments", () => {

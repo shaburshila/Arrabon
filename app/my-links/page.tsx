@@ -3,13 +3,14 @@
 // /my-links — Seller's view of their consultation links.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyLinks, type MyLink, type MyLinksFilter } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
+import { dealTrailingLabel } from "@/lib/ui/deal-trailing-label";
 import { Icon } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -175,9 +176,8 @@ export default function MyLinksPage() {
       );
     }
 
-    return filtered.map((link, index) => (
+    return filtered.map((link) => (
       <LinkRow
-        isLast={index === filtered.length - 1}
         key={link.id}
         link={link}
       />
@@ -186,7 +186,7 @@ export default function MyLinksPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={960}>
+      <AppShell maxWidth={1180}>
         <WalletAuthStatePanel
           icon={<Icon name="utility-plus" size={32} />}
           messages={MY_LINKS_AUTH_MESSAGES}
@@ -197,7 +197,7 @@ export default function MyLinksPage() {
   }
 
   return (
-    <AppShell maxWidth={960}>
+    <AppShell maxWidth={1180}>
       <div style={pageHeaderStyle}>
         <div>
           <h1 style={h1Style}>My links</h1>
@@ -267,102 +267,50 @@ export default function MyLinksPage() {
   );
 }
 
-function LinkRow({
-  isLast,
-  link,
-}: {
-  isLast: boolean;
-  link: MyLink;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
+function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
   const [origin, setOrigin] = useState("");
-  const isOriginReady = origin !== "";
-  const shareUrl = `${origin}${link.share_url}`;
-  const badge = getMyLinkBadge(link);
 
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
 
-  return (
-    <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        ...rowStyle,
-        background: isHovered ? "var(--panel-hover)" : "transparent",
-        borderBottom: isLast ? "none" : "1px solid var(--subtle-border)",
-      }}
-    >
-      <div style={rowInfoStyle}>
-        <p style={rowTitleStyle}>{link.title}</p>
-        <div style={rowMetaStyle}>
-          <span style={monoMetaStyle}>{link.id.slice(0, 8).toUpperCase()}</span>
-          <span>·</span>
-          <span>{formatDate(link.scheduled_at, { timeZone: link.timezone })}</span>
-        </div>
-      </div>
+  const badge = getMyLinkBadge(link);
+  const trailing = link.deal_status
+    ? dealTrailingLabel(link.deal_status)
+    : link.status === "Open"
+      ? "Awaiting buyer"
+      : link.status === "Expired"
+        ? "Expired"
+        : link.status === "Cancelled"
+          ? "Cancelled"
+          : link.status === "Consumed"
+            ? "Funded"
+            : "";
 
-      <p style={priceStyle}>{link.price_usdc} USDC</p>
-
-      <StatusPill
-        bg={badge.bg}
-        color={badge.color}
-        label={badge.label}
-      />
-
-      <div style={actionsStyle}>
-        <CopyIconButton disabled={!isOriginReady} text={shareUrl} />
-
-        {link.status === "Open" && (
-          <a
-            aria-label="Open checkout"
-            aria-disabled={!isOriginReady}
-            href={isOriginReady ? shareUrl : undefined}
-            rel="noreferrer"
-            style={iconBtnStyle}
-            target="_blank"
-            title="Open checkout"
-          >
-            <Icon name="utility-arrow-right" size={13} />
-          </a>
-        )}
-
-        {link.deal_id && (
-          <Link href={`/deal/${link.deal_id}`} style={iconBtnStyle} title="View deal" aria-label="View deal">
-            <Icon name="utility-chevron-right" size={13} />
-          </Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CopyIconButton({ disabled = false, text }: { disabled?: boolean; text: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    if (disabled) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard unavailable
-    }
-  }
+  const href = link.deal_id
+    ? `/deal/${link.deal_id}`
+    : origin && link.share_url
+      ? link.share_url
+      : "#";
 
   return (
-    <button
-      aria-label="Copy link"
-      disabled={disabled}
-      onClick={handleCopy}
-      style={{ ...iconBtnStyle, opacity: disabled ? 0.4 : 1 }}
-      title="Copy link"
-      type="button"
-    >
-      <Icon name={copied ? "status-released" : "utility-copy-address"} size={13} />
-    </button>
+    <Link href={href} className="list-row">
+      <div className="list-row__title">
+        <span className="list-row__title-name">{link.title}</span>
+        <span className="list-row__title-sub">
+          {link.id.slice(0, 8).toUpperCase()} · {formatDate(link.scheduled_at, { timeZone: link.timezone })}
+        </span>
+      </div>
+      <span className="list-row__price">
+        {link.price_usdc}
+        <span className="list-row__price-token">USDC</span>
+      </span>
+      <StatusPill bg={badge.bg} color={badge.color} label={badge.label} />
+      <span className="list-row__trailing">{trailing}</span>
+      <span className="list-row__chevron">
+        <Icon name="utility-chevron-right" size={14} />
+      </span>
+    </Link>
   );
 }
 
@@ -432,76 +380,6 @@ const searchInputStyle = {
 const listPanelStyle = {
   overflow: "hidden",
 } as const;
-
-const rowStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: 12,
-  padding: "14px 20px",
-  transition: "background 0.12s",
-} as const;
-
-const rowInfoStyle = {
-  flex: "1 1 200px",
-  minWidth: 0,
-} as const;
-
-const rowTitleStyle = {
-  color: "var(--ink)",
-  fontSize: 14,
-  fontWeight: 500,
-  margin: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-} as const;
-
-const rowMetaStyle = {
-  alignItems: "center",
-  color: "var(--muted)",
-  display: "flex",
-  flexWrap: "wrap" as const,
-  fontSize: 12,
-  gap: 4,
-  marginTop: 3,
-} as const;
-
-const monoMetaStyle = {
-  fontFamily: "var(--font-mono)",
-  fontSize: 11,
-} as const;
-
-const priceStyle = {
-  color: "var(--ink)",
-  flexShrink: 0,
-  fontFamily: "var(--font-mono)",
-  fontSize: 13,
-  fontWeight: 500,
-  margin: 0,
-} as const;
-
-const actionsStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexShrink: 0,
-  gap: 2,
-} as const;
-
-const iconBtnStyle: CSSProperties = {
-  alignItems: "center",
-  background: "transparent",
-  border: "none",
-  borderRadius: "var(--r-2)",
-  color: "var(--muted)",
-  cursor: "pointer",
-  display: "inline-flex",
-  height: 32,
-  justifyContent: "center",
-  padding: 6,
-  textDecoration: "none",
-  width: 32,
-};
 
 const footerCountStyle = {
   color: "var(--muted)",

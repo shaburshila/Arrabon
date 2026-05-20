@@ -3,7 +3,7 @@
 // /my-deals — Buyer's view of their paid consultation deals.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -11,6 +11,7 @@ import { fetchMyDeals, type MyDeal, type MyDealsFilter } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
+import { dealTrailingLabel } from "@/lib/ui/deal-trailing-label";
 import { Icon } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
@@ -132,10 +133,9 @@ export default function MyDealsPage() {
       );
     }
 
-    return filtered.map((deal, index) => (
+    return filtered.map((deal) => (
       <DealRow
         deal={deal}
-        isLast={index === filtered.length - 1}
         key={deal.id}
       />
     ));
@@ -143,7 +143,7 @@ export default function MyDealsPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={960}>
+      <AppShell maxWidth={1180}>
         <WalletAuthStatePanel
           icon={<Icon name="utility-wallet-connected" size={32} />}
           messages={MY_DEALS_AUTH_MESSAGES}
@@ -154,7 +154,7 @@ export default function MyDealsPage() {
   }
 
   return (
-    <AppShell maxWidth={960}>
+    <AppShell maxWidth={1180}>
       <div style={pageHeaderStyle}>
         <div>
           <h1 style={h1Style}>My deals</h1>
@@ -223,60 +223,30 @@ export default function MyDealsPage() {
   );
 }
 
-function DealRow({
-  deal,
-  isLast,
-}: {
-  deal: MyDeal;
-  isLast: boolean;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
+function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
   const badge = getDealDisplayConfig({
     resolution_type: deal.resolution_type,
     status: deal.status,
   });
 
   return (
-    <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        ...rowStyle,
-        background: isHovered ? "var(--panel-hover)" : "transparent",
-        borderBottom: isLast ? "none" : "1px solid var(--subtle-border)",
-      }}
-    >
-      <div style={rowInfoStyle}>
-        <p style={rowTitleStyle}>{deal.title}</p>
-        <div style={rowMetaStyle}>
-          <span style={monoMetaStyle}>{deal.id.slice(0, 8).toUpperCase()}</span>
-          <span>·</span>
-          <span>{formatDate(deal.scheduled_at, { timeZone: deal.timezone })}</span>
-          <span>·</span>
-          <span>Seller</span>
-          <span style={monoMetaStyle}>{truncateAddress(deal.seller_address)}</span>
-        </div>
+    <Link href={`/deal/${deal.id}`} className="list-row">
+      <div className="list-row__title">
+        <span className="list-row__title-name">{deal.title}</span>
+        <span className="list-row__title-sub">
+          {deal.id.slice(0, 8).toUpperCase()} · {formatDate(deal.scheduled_at, { timeZone: deal.timezone })} · Seller {truncateAddress(deal.seller_address)}
+        </span>
       </div>
-
-      <p style={priceStyle}>{deal.price_usdc} USDC</p>
-
-      <StatusPill
-        bg={badge.bg}
-        color={badge.color}
-        label={badge.label}
-      />
-
-      <div style={actionsStyle}>
-        <Link
-          aria-label="View deal"
-          href={`/deal/${deal.id}`}
-          style={iconBtnStyle}
-          title="View deal"
-        >
-          <Icon name="utility-chevron-right" size={13} />
-        </Link>
-      </div>
-    </div>
+      <span className="list-row__price">
+        {deal.price_usdc}
+        <span className="list-row__price-token">USDC</span>
+      </span>
+      <StatusPill bg={badge.bg} color={badge.color} label={badge.label} />
+      <span className="list-row__trailing">{dealTrailingLabel(deal.status)}</span>
+      <span className="list-row__chevron">
+        <Icon name="utility-chevron-right" size={14} />
+      </span>
+    </Link>
   );
 }
 
@@ -335,76 +305,6 @@ const searchInputStyle = {
 const listPanelStyle = {
   overflow: "hidden",
 } as const;
-
-const rowStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: 12,
-  padding: "14px 20px",
-  transition: "background 0.12s",
-} as const;
-
-const rowInfoStyle = {
-  flex: "1 1 200px",
-  minWidth: 0,
-} as const;
-
-const rowTitleStyle = {
-  color: "var(--ink)",
-  fontSize: 14,
-  fontWeight: 500,
-  margin: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-} as const;
-
-const rowMetaStyle = {
-  alignItems: "center",
-  color: "var(--muted)",
-  display: "flex",
-  flexWrap: "wrap" as const,
-  fontSize: 12,
-  gap: 4,
-  marginTop: 3,
-} as const;
-
-const monoMetaStyle = {
-  fontFamily: "var(--font-mono)",
-  fontSize: 11,
-} as const;
-
-const priceStyle = {
-  color: "var(--ink)",
-  flexShrink: 0,
-  fontFamily: "var(--font-mono)",
-  fontSize: 13,
-  fontWeight: 500,
-  margin: 0,
-} as const;
-
-const actionsStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexShrink: 0,
-  gap: 2,
-} as const;
-
-const iconBtnStyle: CSSProperties = {
-  alignItems: "center",
-  background: "transparent",
-  border: "none",
-  borderRadius: "var(--r-2)",
-  color: "var(--muted)",
-  cursor: "pointer",
-  display: "inline-flex",
-  height: 32,
-  justifyContent: "center",
-  padding: 6,
-  textDecoration: "none",
-  width: 32,
-};
 
 const footerCountStyle = {
   color: "var(--muted)",

@@ -89,6 +89,7 @@ export function Btn({
 
   const button = (
     <button
+      className={`btn btn--${variant} btn--${size}${fullWidth ? " btn--block" : ""}`}
       disabled={isDisabled}
       onClick={onClick}
       style={{

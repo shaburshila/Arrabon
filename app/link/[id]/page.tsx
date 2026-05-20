@@ -14,6 +14,7 @@ import {
   shouldShowConsumedLinkPrivateNotice,
 } from "@/app/link/[id]/consumed-link-state";
 
+import { Icon } from "@/components/icons";
 import { LinkSummary } from "@/components/link/link-summary";
 import { LinkActionCard } from "@/components/link/link-action-card";
 import { StatusNotice } from "@/components/link/status-notice";
@@ -77,42 +78,36 @@ export default function LinkPage() {
   }, [funding.state.txHash, linkPage.link, linkPage.status, linkPage.stopPolling, router]);
 
   return (
-    <main style={mainStyle}>
-      <div style={pageStyle}>
-        <div style={pageHeaderStyle}>
+    <main className="link-page">
+      <div className="link-page__inner">
+        <div className="link-page__topbar">
           <Link href="/" style={brandStyle}>
-            Arrabon
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt="Arrabon" height={28} src="/alpha-lock-full-gold.svg" width={28} />
+            <span style={brandWordStyle}>Arrabon</span>
           </Link>
           <button onClick={handleBack} style={backButtonStyle} type="button">
-            ← Back
+            <Icon name="utility-arrow-left" size={14} />
+            Back
           </button>
         </div>
 
-        {/* Loading */}
         {linkPage.status === "loading" && (
           <div style={centerStyle}>
             <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading…</p>
           </div>
         )}
 
-        {/* Not found */}
-        {linkPage.status === "not_found" && (
-          <StatusNotice type="not_found" />
-        )}
-
-        {/* Error */}
+        {linkPage.status === "not_found" && <StatusNotice type="not_found" />}
         {linkPage.status === "error" && (
           <StatusNotice type="error" message={linkPage.error ?? undefined} />
         )}
-
-        {/* Unavailable (expired / cancelled) */}
         {linkPage.status === "unavailable" && (
           <StatusNotice
             type={linkPage.unavailableReason === "Expired" ? "expired" : "cancelled"}
           />
         )}
 
-        {/* Consumed but deal_id not yet available (indexing lag) */}
         {linkPage.status === "ready" &&
           linkPage.link?.status === "Consumed" &&
           !linkPage.link.deal_id &&
@@ -140,45 +135,56 @@ export default function LinkPage() {
             dealId: linkPage.link?.deal_id ?? null,
             status: linkPage.link?.status,
             txHash: funding.state.txHash,
-          }) && (
-            <StatusNotice type="consumed_private" />
-          )}
+          }) && <StatusNotice type="consumed_private" />}
 
-        {/* Main content */}
         {linkPage.status === "ready" && linkPage.link && linkPage.link.status === "Open" && (
-          <>
+          <div className="link-split">
             <LinkSummary link={linkPage.link} />
-
-            <LinkActionCard
-              dealIdPollingTimedOut={linkPage.dealIdPollingTimedOut}
-              link={linkPage.link}
-              onRetryPolling={handleRetryPolling}
-              role={linkPage.role}
-              session={session}
-              funding={funding}
-            />
-          </>
+            <aside className="link-split__right">
+              <LinkActionCard
+                dealIdPollingTimedOut={linkPage.dealIdPollingTimedOut}
+                link={linkPage.link}
+                onRetryPolling={handleRetryPolling}
+                role={linkPage.role}
+                session={session}
+                funding={funding}
+              />
+            </aside>
+          </div>
         )}
       </div>
     </main>
   );
 }
 
-const mainStyle = {
-  background: "var(--background)",
-  display: "flex",
-  justifyContent: "center",
-  minHeight: "100vh",
-  padding: "20px 16px 48px",
+const brandStyle = {
+  alignItems: "center",
+  color: "var(--ink)",
+  display: "inline-flex",
+  gap: 10,
+  textDecoration: "none",
 } as const;
 
-const pageStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 16,
-  maxWidth: 520,
-  width: "100%",
-};
+const brandWordStyle = {
+  fontFamily: "var(--font-serif)",
+  fontSize: 22,
+  fontWeight: 500,
+  letterSpacing: "0.005em",
+} as const;
+
+const backButtonStyle = {
+  alignItems: "center",
+  background: "transparent",
+  border: "none",
+  color: "var(--muted)",
+  cursor: "pointer",
+  display: "inline-flex",
+  fontFamily: "inherit",
+  fontSize: 13,
+  fontWeight: 500,
+  gap: 6,
+  padding: "8px 6px",
+} as const;
 
 const centerStyle = {
   alignItems: "center",
@@ -187,55 +193,19 @@ const centerStyle = {
   minHeight: 200,
 } as const;
 
-const pageHeaderStyle = {
-  alignItems: "center",
-  display: "flex",
-  justifyContent: "space-between",
-  minHeight: 36,
-} as const;
-
-const brandStyle = {
-  color: "var(--ink)",
-  fontFamily: "var(--font-serif)",
-  fontSize: 18,
-  fontWeight: 500,
-  letterSpacing: "0.005em",
-  textDecoration: "none",
-} as const;
-
-const backLinkStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  fontWeight: 500,
-  textDecoration: "none",
-} as const;
-
-const backButtonStyle = {
-  ...backLinkStyle,
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  padding: 0,
-} as const;
-
 const indexingRetryCardStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 10,
 } as const;
 
-const retryButtonStyle = {
+const indexingRetryButtonStyle = {
   alignSelf: "flex-start",
   background: "none",
   border: "none",
-  color: "var(--danger)",
+  color: "var(--gold-deep)",
   cursor: "pointer",
   fontSize: 13,
   padding: 0,
   textDecoration: "underline",
-} as const;
-
-const indexingRetryButtonStyle = {
-  ...retryButtonStyle,
-  color: "var(--accent)",
 } as const;

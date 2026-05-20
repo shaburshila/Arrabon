@@ -41,6 +41,25 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
   },
 };
 
+export type StatusTone = "blue" | "amber" | "green" | "red" | "purple" | "gray";
+
+export function toneFromStatus(status: DealStatus): StatusTone {
+  switch (status) {
+    case "Funded":
+      return "blue";
+    case "ConfirmPending":
+      return "amber";
+    case "Released":
+      return "green";
+    case "Disputed":
+      return "red";
+    case "Refunded":
+      return "purple";
+    default:
+      return "gray";
+  }
+}
+
 export const DEAL_RESOLUTION_LABELS: Record<DealResolutionType, string> = {
   admin_refund: "Refunded after dispute",
   admin_release: "Released after dispute",

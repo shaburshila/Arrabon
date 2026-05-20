@@ -1,5 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 
+import type { IconName } from "@/components/icons";
+import { Icon } from "@/components/icons";
+
 type NoticeTone = "danger" | "gold" | "info" | "muted" | "success" | "warning";
 
 const toneStyles: Record<NoticeTone, { background: string; border: string; color: string }> = {
@@ -12,11 +15,13 @@ const toneStyles: Record<NoticeTone, { background: string; border: string; color
 };
 
 export function Notice({
+  icon,
   message,
   style,
   title,
   tone = "info",
 }: {
+  icon?: IconName;
   message: ReactNode;
   style?: CSSProperties;
   title?: string;
@@ -35,11 +40,22 @@ export function Notice({
         ...style,
       }}
     >
-      {title && <p style={titleStyle}>{title}</p>}
-      <div style={messageStyle}>{message}</div>
+      <div style={{ display: "flex", gap: 12 }}>
+        {icon && <span style={iconWrapStyle}><Icon name={icon} size={16} /></span>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {title && <p style={titleStyle}>{title}</p>}
+          <div style={messageStyle}>{message}</div>
+        </div>
+      </div>
     </div>
   );
 }
+
+const iconWrapStyle = {
+  flex: "0 0 18px",
+  marginTop: 1,
+  color: "inherit",
+} as const;
 
 const titleStyle = {
   fontSize: 13,
