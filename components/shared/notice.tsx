@@ -1,33 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
 
-type NoticeTone = "danger" | "info" | "muted" | "success" | "warning";
+type NoticeTone = "danger" | "gold" | "info" | "muted" | "success" | "warning";
 
 const toneStyles: Record<NoticeTone, { background: string; border: string; color: string }> = {
-  danger: {
-    background: "var(--danger-muted)",
-    border: "var(--danger)",
-    color: "var(--danger)",
-  },
-  info: {
-    background: "var(--accent-muted)",
-    border: "var(--accent)",
-    color: "var(--accent)",
-  },
-  muted: {
-    background: "var(--muted-bg)",
-    border: "var(--subtle-border)",
-    color: "var(--muted)",
-  },
-  success: {
-    background: "var(--success-muted)",
-    border: "var(--success)",
-    color: "var(--success)",
-  },
-  warning: {
-    background: "var(--warning-muted)",
-    border: "var(--warning)",
-    color: "var(--warning)",
-  },
+  danger:  { background: "var(--red-bg)",   border: "color-mix(in srgb, var(--red) 22%, transparent)",   color: "var(--red)" },
+  gold:    { background: "var(--gold-soft)", border: "color-mix(in srgb, var(--gold) 26%, transparent)", color: "var(--gold-deep)" },
+  info:    { background: "var(--blue-bg)",  border: "color-mix(in srgb, var(--blue) 22%, transparent)",  color: "var(--blue)" },
+  muted:   { background: "var(--surface-2)", border: "var(--border)",                                    color: "var(--muted)" },
+  success: { background: "var(--green-bg)", border: "color-mix(in srgb, var(--green) 22%, transparent)", color: "var(--green)" },
+  warning: { background: "var(--amber-bg)", border: "color-mix(in srgb, var(--amber) 22%, transparent)", color: "var(--amber)" },
 };
 
 export function Notice({
@@ -48,7 +29,7 @@ export function Notice({
       style={{
         background: colors.background,
         border: `1px solid ${colors.border}`,
-        borderRadius: "var(--radius)",
+        borderRadius: "var(--r-2)",
         color: colors.color,
         padding: 14,
         ...style,
@@ -61,12 +42,13 @@ export function Notice({
 }
 
 const titleStyle = {
-  fontSize: 14,
-  fontWeight: 500,
+  fontSize: 13,
+  fontWeight: 600,
   margin: "0 0 4px",
 } as const;
 
 const messageStyle = {
-  fontSize: 14,
-  lineHeight: 1.45,
+  fontSize: 13.5,
+  lineHeight: 1.5,
+  color: "var(--ink-soft)",
 } as const;

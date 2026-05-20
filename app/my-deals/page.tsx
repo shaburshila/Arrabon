@@ -1,28 +1,25 @@
 "use client";
 
-// /my-deals — Buyer recovery surface for paid consultations.
+// /my-deals — Buyer's view of their paid consultation deals.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import {
-  Briefcase,
-  Clock,
-  Eye,
-  User,
-} from "lucide-react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyDeals, type MyDeal, type MyDealsFilter } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
+import { Icon } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
+import { Btn } from "@/components/shared/btn";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
+import { SkeletonRows } from "@/components/shared/skeleton-rows";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
@@ -56,6 +53,7 @@ export default function MyDealsPage() {
 
   const [deals, setDeals] = useState<MyDeal[] | null>(null);
   const [filter, setFilter] = useState<MyDealsFilter>("all");
+  const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -86,30 +84,58 @@ export default function MyDealsPage() {
   }, [filter, isAuthenticated, page]);
 
   function renderListContent() {
-    if (filter === "all" && (!deals || deals.length === 0)) {
+    if (deals === null) {
+      return null;
+    }
+
+    if (filter === "all" && deals.length === 0 && !query) {
       return (
         <EmptyState
           description="Pay for a consultation link to see it here."
-          icon={<Briefcase size={36} />}
+          icon={<Icon name="utility-wallet-connected" size={28} />}
           title="No paid consultations yet"
         />
       );
     }
 
-    if (!deals || deals.length === 0) {
+    if (deals.length === 0) {
       return (
         <EmptyState
-          description="Try another filter."
-          icon={<Briefcase size={36} />}
+          action={
+            query ? (
+              <Btn size="sm" variant="ghost" onClick={() => setQuery("")}>Clear search</Btn>
+            ) : (
+              <Btn size="sm" variant="ghost" onClick={() => { setFilter("all"); setPage(0); }}>Show all</Btn>
+            )
+          }
+          description={query ? `No deals match "${query}".` : "Try another filter."}
+          icon={<Icon name="utility-search" size={28} />}
           title="No matching deals"
         />
       );
     }
 
-    return deals.map((deal, index) => (
+    const filtered = query.trim()
+      ? deals.filter((d) =>
+          `${d.title} ${d.id}`.toLowerCase().includes(query.toLowerCase().trim()),
+        )
+      : deals;
+
+    if (filtered.length === 0) {
+      return (
+        <EmptyState
+          action={<Btn size="sm" variant="ghost" onClick={() => setQuery("")}>Clear search</Btn>}
+          description={`No deals match "${query}".`}
+          icon={<Icon name="utility-search" size={28} />}
+          title="No matching deals"
+        />
+      );
+    }
+
+    return filtered.map((deal, index) => (
       <DealRow
         deal={deal}
-        isLast={index === deals.length - 1}
+        isLast={index === filtered.length - 1}
         key={deal.id}
       />
     ));
@@ -117,9 +143,9 @@ export default function MyDealsPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={672}>
+      <AppShell maxWidth={960}>
         <WalletAuthStatePanel
-          icon={<Briefcase size={40} />}
+          icon={<Icon name="utility-wallet-connected" size={32} />}
           messages={MY_DEALS_AUTH_MESSAGES}
           session={session}
         />
@@ -128,23 +154,38 @@ export default function MyDealsPage() {
   }
 
   return (
-    <AppShell maxWidth={672}>
+    <AppShell maxWidth={960}>
       <div style={pageHeaderStyle}>
-        <h1 style={h1Style}>My deals</h1>
+        <div>
+          <h1 style={h1Style}>My deals</h1>
+          <p style={subStyle}>Consultations you've paid for as a buyer.</p>
+        </div>
       </div>
 
-      <SegmentedTabs
-        onChange={(value) => {
-          setFilter(value as MyDealsFilter);
-          setPage(0);
-        }}
-        options={FILTERS}
-        value={filter}
-      />
+      <div style={tabsRowStyle}>
+        <SegmentedTabs
+          onChange={(value) => {
+            setFilter(value as MyDealsFilter);
+            setPage(0);
+          }}
+          options={FILTERS}
+          value={filter}
+        />
+        <div style={searchBoxStyle}>
+          <Icon name="utility-search" size={14} />
+          <input
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by title or deal ID…"
+            style={searchInputStyle}
+            type="search"
+            value={query}
+          />
+        </div>
+      </div>
 
       {loading && (
         <ActionPanel style={listPanelStyle}>
-          <DealSkeletonRows />
+          <SkeletonRows count={3} />
         </ActionPanel>
       )}
 
@@ -156,13 +197,13 @@ export default function MyDealsPage() {
         />
       )}
 
-      {!loading && !error && (
+      {!loading && !error && deals !== null && (
         <>
           <ActionPanel style={listPanelStyle}>
             {renderListContent()}
           </ActionPanel>
 
-          {deals && deals.length > 0 && (
+          {deals.length > 0 && (
             <p style={footerCountStyle}>
               Page {page + 1} · {deals.length} shown
             </p>
@@ -179,31 +220,6 @@ export default function MyDealsPage() {
         </>
       )}
     </AppShell>
-  );
-}
-
-function DealSkeletonRows() {
-  return (
-    <>
-      {[0, 1, 2].map((item) => (
-        <div
-          key={item}
-          style={{
-            ...rowStyle,
-            borderBottom: item === 2 ? "none" : "1px solid var(--subtle-border)",
-          }}
-        >
-          <div style={{ ...rowIconStyle, color: "transparent" }} />
-          <div style={rowInfoStyle}>
-            <div style={{ ...skeletonLineStyle, width: "55%" }} />
-            <div style={{ ...skeletonLineStyle, marginTop: 8, width: "44%" }} />
-          </div>
-          <div style={{ ...skeletonLineStyle, width: 72 }} />
-          <div style={{ ...skeletonLineStyle, width: 68 }} />
-          <div style={{ ...skeletonLineStyle, width: 32 }} />
-        </div>
-      ))}
-    </>
   );
 }
 
@@ -230,21 +246,15 @@ function DealRow({
         borderBottom: isLast ? "none" : "1px solid var(--subtle-border)",
       }}
     >
-      <div style={rowIconStyle}>
-        <Briefcase size={15} />
-      </div>
-
       <div style={rowInfoStyle}>
         <p style={rowTitleStyle}>{deal.title}</p>
         <div style={rowMetaStyle}>
-          <span style={metaItemStyle}>
-            <User size={10} />
-            {truncateAddress(deal.seller_address)}
-          </span>
-          <span style={metaItemStyle}>
-            <Clock size={10} />
-            {formatDate(deal.scheduled_at, { timeZone: deal.timezone })}
-          </span>
+          <span style={monoMetaStyle}>{deal.id.slice(0, 8).toUpperCase()}</span>
+          <span>·</span>
+          <span>{formatDate(deal.scheduled_at, { timeZone: deal.timezone })}</span>
+          <span>·</span>
+          <span>Seller</span>
+          <span style={monoMetaStyle}>{truncateAddress(deal.seller_address)}</span>
         </div>
       </div>
 
@@ -256,83 +266,74 @@ function DealRow({
         label={badge.label}
       />
 
-      <IconNextLink
-        href={`/deal/${deal.id}`}
-        label="View deal"
-      >
-        <Eye size={13} />
-      </IconNextLink>
+      <div style={actionsStyle}>
+        <Link
+          aria-label="View deal"
+          href={`/deal/${deal.id}`}
+          style={iconBtnStyle}
+          title="View deal"
+        >
+          <Icon name="utility-chevron-right" size={13} />
+        </Link>
+      </div>
     </div>
   );
 }
 
-function IconNextLink({
-  children,
-  href,
-  label,
-}: {
-  children: ReactNode;
-  href: string;
-  label: string;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <Link
-      aria-label={label}
-      href={href}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={iconActionStyle(isHovered)}
-      title={label}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function iconActionStyle(isHovered: boolean): CSSProperties {
-  return {
-    alignItems: "center",
-    background: isHovered ? "var(--muted-bg)" : "transparent",
-    border: "none",
-    borderRadius: "var(--radius-sm)",
-    color: "var(--muted)",
-    cursor: "pointer",
-    display: "inline-flex",
-    flexShrink: 0,
-    height: 32,
-    justifyContent: "center",
-    padding: 6,
-    textDecoration: "none",
-    transition: "background 0.15s, color 0.15s",
-    width: 32,
-  };
-}
-
 const pageHeaderStyle = {
-  alignItems: "center",
+  alignItems: "flex-start",
   display: "flex",
   gap: 16,
   justifyContent: "space-between",
 } as const;
 
 const h1Style = {
-  color: "var(--foreground)",
-  fontSize: 24,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
+  fontSize: 28,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  margin: "0 0 4px",
+} as const;
+
+const subStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
   margin: 0,
+} as const;
+
+const tabsRowStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: 12,
+  justifyContent: "space-between",
+} as const;
+
+const searchBoxStyle = {
+  alignItems: "center",
+  background: "var(--surface-2)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--r-3)",
+  color: "var(--muted)",
+  display: "inline-flex",
+  gap: 8,
+  height: 36,
+  padding: "0 12px",
+} as const;
+
+const searchInputStyle = {
+  background: "transparent",
+  border: "none",
+  color: "var(--ink)",
+  font: "inherit",
+  fontSize: 13,
+  outline: "none",
+  width: 200,
 } as const;
 
 const listPanelStyle = {
   overflow: "hidden",
-} as const;
-
-const skeletonLineStyle = {
-  background: "var(--muted-bg)",
-  borderRadius: 999,
-  height: 12,
 } as const;
 
 const rowStyle = {
@@ -340,29 +341,17 @@ const rowStyle = {
   display: "flex",
   flexWrap: "wrap" as const,
   gap: 12,
-  padding: "16px 20px",
-  transition: "background 0.15s",
-} as const;
-
-const rowIconStyle = {
-  alignItems: "center",
-  background: "var(--muted-bg)",
-  borderRadius: "var(--radius)",
-  color: "var(--muted)",
-  display: "inline-flex",
-  flexShrink: 0,
-  height: 36,
-  justifyContent: "center",
-  width: 36,
+  padding: "14px 20px",
+  transition: "background 0.12s",
 } as const;
 
 const rowInfoStyle = {
-  flex: "1 1 220px",
+  flex: "1 1 200px",
   minWidth: 0,
 } as const;
 
 const rowTitleStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 14,
   fontWeight: 500,
   margin: 0,
@@ -377,23 +366,45 @@ const rowMetaStyle = {
   display: "flex",
   flexWrap: "wrap" as const,
   fontSize: 12,
-  gap: 12,
-  marginTop: 4,
+  gap: 4,
+  marginTop: 3,
 } as const;
 
-const metaItemStyle = {
-  alignItems: "center",
-  display: "inline-flex",
-  gap: 4,
+const monoMetaStyle = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 11,
 } as const;
 
 const priceStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   flexShrink: 0,
-  fontSize: 14,
-  fontWeight: 600,
+  fontFamily: "var(--font-mono)",
+  fontSize: 13,
+  fontWeight: 500,
   margin: 0,
 } as const;
+
+const actionsStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexShrink: 0,
+  gap: 2,
+} as const;
+
+const iconBtnStyle: CSSProperties = {
+  alignItems: "center",
+  background: "transparent",
+  border: "none",
+  borderRadius: "var(--r-2)",
+  color: "var(--muted)",
+  cursor: "pointer",
+  display: "inline-flex",
+  height: 32,
+  justifyContent: "center",
+  padding: 6,
+  textDecoration: "none",
+  width: 32,
+};
 
 const footerCountStyle = {
   color: "var(--muted)",

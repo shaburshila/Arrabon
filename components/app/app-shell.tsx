@@ -1,5 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+
+import { BottomTabBar } from "@/components/app/bottom-tab-bar";
 import { TopNav } from "@/components/app/top-nav";
 
 export function AppShell({
@@ -11,6 +15,12 @@ export function AppShell({
   flushBottom?: boolean;
   maxWidth?: number;
 }) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   return (
     <>
       <TopNav />
@@ -19,6 +29,7 @@ export function AppShell({
           {children}
         </div>
       </main>
+      <BottomTabBar />
     </>
   );
 }

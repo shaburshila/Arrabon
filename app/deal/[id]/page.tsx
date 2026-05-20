@@ -10,6 +10,7 @@ import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { useDealPage } from "@/hooks/use-deal-page";
 import { useDealActions } from "@/hooks/use-deal-action";
 
+import { Icon } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { DealStatusCard } from "@/components/deal/deal-status-card";
 import { MeetingUrlCard } from "@/components/deal/meeting-url-card";
@@ -17,10 +18,9 @@ import { DealActionsCard } from "@/components/deal/deal-actions-card";
 import { DealGuidanceCard } from "@/components/deal/deal-guidance-card";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { KeyTimes } from "@/components/deal/key-times";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
-import { LiveBadge } from "@/components/shared/live-badge";
+import { Countdown } from "@/components/shared/countdown";
 import { Notice } from "@/components/shared/notice";
-import { isDealStatusPollable, type DealReadModel } from "@/lib/api/deals";
+import type { DealReadModel } from "@/lib/api/deals";
 import {
   isBuyerDisputable,
   isBuyerReleasable,
@@ -96,13 +96,7 @@ export default function DealPage() {
       : null;
 
   return (
-    <AppShell maxWidth={480}>
-      {dealPage.status === "ready" && dealPage.deal && isDealStatusPollable(dealPage.deal.status) && (
-        <div style={pageHeaderStyle}>
-          <LiveBadge />
-        </div>
-      )}
-
+    <AppShell maxWidth={1180}>
       <Link href={backLink.href} style={backLinkStyle}>
         {backLink.label}
       </Link>
@@ -121,7 +115,11 @@ export default function DealPage() {
 
       {/* Auth required */}
       {dealPage.status === "auth_required" && (
-        <WalletSessionCard session={session} />
+        <Notice
+          message="Connect your wallet and sign in with Ethereum to view this deal."
+          title="Sign in required"
+          tone="muted"
+        />
       )}
 
       {dealPage.status === "access_denied" && (
@@ -160,6 +158,35 @@ export default function DealPage() {
             isAdmin={session.session?.is_admin === true}
             role={dealPage.role}
           />
+
+          {(dealPage.deal.status === "Funded" || dealPage.deal.status === "ConfirmPending") && (
+            <div className="deal-countdown">
+              <span className="deal-countdown__icon">
+                <Icon name="utility-time" size={14} />
+              </span>
+              {dealPage.deal.status === "Funded" && (
+                <>
+                  <span className="deal-countdown__label">Consultation starts</span>
+                  <span className="deal-countdown__value">
+                    <Countdown to={dealPage.deal.scheduled_at} prefix="in" expiredLabel="now — join the meeting" />
+                  </span>
+                </>
+              )}
+              {dealPage.deal.status === "ConfirmPending" && (
+                <>
+                  <span className="deal-countdown__label">
+                    {dealPage.isBuyer ? "Confirm or dispute" : "Auto-release"}
+                  </span>
+                  <span className="deal-countdown__value">
+                    <Countdown to={dealPage.deal.release_deadline_at ?? ""} prefix="in" expiredLabel="deadline passed" />
+                  </span>
+                </>
+              )}
+              <span className="live-dot" style={{ marginLeft: "auto" }} />
+              <span style={{ color: "var(--muted)", fontSize: 12 }}>Live</span>
+            </div>
+          )}
+
           <DealGuidanceCard
             dealStatus={dealPage.deal.status}
             isBuyer={dealPage.isBuyer}
@@ -178,8 +205,6 @@ export default function DealPage() {
             isParticipant={dealPage.isParticipant}
             session={session}
           />
-
-          <WalletSessionCard session={session} />
 
           <DealActionsCard
             autoRelease={actions.autoRelease}
@@ -243,16 +268,10 @@ const centerStyle = {
   minHeight: 200,
 } as const;
 
-const pageHeaderStyle = {
-  alignItems: "center",
-  display: "flex",
-  justifyContent: "flex-end",
-} as const;
-
 const backLinkStyle = {
   alignSelf: "flex-start",
-  color: "var(--accent)",
+  color: "var(--muted)",
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 500,
   textDecoration: "none",
 } as const;

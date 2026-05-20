@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter, Spectral } from "next/font/google";
+import { Cormorant_Garamond, IBM_Plex_Mono, Inter } from "next/font/google";
 
 import { Providers } from "@/components/providers";
+import { ToastProvider } from "@/components/shared/toast";
 
 import "./globals.css";
 
@@ -9,19 +10,22 @@ const inter = Inter({
   display: "swap",
   subsets: ["latin"],
   variable: "--font-sans",
+  weight: ["400", "500", "600", "700"],
 });
 
-const spectral = Spectral({
+const cormorant = Cormorant_Garamond({
   display: "swap",
   subsets: ["latin"],
-  variable: "--font-brand",
-  weight: ["600", "700"],
+  variable: "--font-serif",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
-const geistMono = Geist_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   display: "swap",
   subsets: ["latin"],
   variable: "--font-mono",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -44,7 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      className={`${inter.variable} ${spectral.variable} ${geistMono.variable}`}
+      className={`${inter.variable} ${cormorant.variable} ${ibmPlexMono.variable}`}
       lang="en"
       suppressHydrationWarning
       translate="no"
@@ -57,9 +61,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <Providers>
-          {children}
-        </Providers>
+        <ToastProvider>
+          <Providers>
+            {children}
+          </Providers>
+        </ToastProvider>
       </body>
     </html>
   );

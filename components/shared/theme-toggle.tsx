@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useState } from "react";
+import { Icon } from "@/components/icons";
 
 type Theme = "light" | "dark";
 
@@ -51,24 +52,22 @@ export function ThemeToggle() {
       style={btnStyle}
       type="button"
     >
-      {theme === "dark" ? "☀" : "☽"}
+      <Icon name={theme === "dark" ? "utility-theme-light" : "utility-theme-dark"} size={15} />
     </button>
   );
 }
 
 const btnStyle = {
+  alignItems: "center",
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: 10,
   color: "var(--muted)",
   cursor: "pointer",
   display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
   flexShrink: 0,
-  fontSize: 16,
-  height: 36,
-  lineHeight: 1,
+  height: 34,
+  justifyContent: "center",
   padding: 0,
-  width: 36,
+  width: 34,
 } as const;

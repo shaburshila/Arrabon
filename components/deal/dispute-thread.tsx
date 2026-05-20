@@ -15,7 +15,6 @@ import { formatDate } from "@/lib/ui/date";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { Notice } from "@/components/shared/notice";
-import { StatusPill } from "@/components/shared/status-pill";
 
 interface DisputeThreadProps {
   canPost: boolean;
@@ -190,14 +189,17 @@ export function DisputeThread({
             <Notice message={submitError} tone="danger" />
           )}
 
-          <Btn
-            disabled={body.trim().length === 0}
-            loading={submitting}
-            onClick={submit}
-            variant="primary"
-          >
-            Add message
-          </Btn>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Btn
+              disabled={body.trim().length === 0}
+              loading={submitting}
+              onClick={submit}
+              size="md"
+              variant="primary"
+            >
+              Post message
+            </Btn>
+          </div>
         </div>
       )}
     </>
@@ -223,30 +225,33 @@ function MessageCard({
   currentWallet: string | null;
   message: DisputeMessage;
 }) {
-  const isCurrentWallet =
-    currentWallet?.toLowerCase() === message.author_wallet.toLowerCase();
+  const isYou = currentWallet?.toLowerCase() === message.author_wallet.toLowerCase();
+  const monogram = ROLE_LABELS[message.author_role][0];
 
   return (
-    <article style={messageStyle(isCurrentWallet, compact)}>
-      <div style={messageMetaStyle}>
-        <StatusPill
-          label={ROLE_LABELS[message.author_role]}
-          tone={roleTone(message.author_role)}
-        />
-        <span>{truncateAddress(message.author_wallet)}</span>
-        <span>{formatDate(message.created_at)}</span>
+    <article style={messageRowStyle(compact)}>
+      <span style={avatarStyle(isYou)} aria-hidden>
+        {monogram}
+      </span>
+      <div style={messageContentStyle}>
+        <div style={messageMetaStyle}>
+          <span style={authorNameStyle}>
+            {ROLE_LABELS[message.author_role]}{isYou && " (you)"}
+          </span>
+          <span style={timestampStyle}>· {formatDate(message.created_at)}</span>
+        </div>
+        <p style={bodyStyle}>{message.body}</p>
+        {message.evidence_url && (
+          <a
+            href={message.evidence_url}
+            rel="noreferrer"
+            style={evidenceLinkStyle}
+            target="_blank"
+          >
+            Open evidence link
+          </a>
+        )}
       </div>
-      <p style={bodyStyle}>{message.body}</p>
-      {message.evidence_url && (
-        <a
-          href={message.evidence_url}
-          rel="noreferrer"
-          style={evidenceLinkStyle}
-          target="_blank"
-        >
-          Open evidence link
-        </a>
-      )}
     </article>
   );
 }
@@ -302,38 +307,61 @@ function messagesStyle(compact: boolean) {
   return {
     display: "flex",
     flexDirection: "column" as const,
-    gap: compact ? 8 : 10,
+    gap: compact ? 12 : 16,
   };
 }
 
-function messageStyle(isCurrentWallet: boolean, compact: boolean) {
+function messageRowStyle(compact: boolean) {
   return {
-    background: isCurrentWallet ? "var(--accent-muted)" : "var(--surface-raised)",
-    border: "1px solid var(--border)",
-    borderRadius: 8,
+    alignItems: "flex-start",
     display: "flex",
-    flexDirection: "column" as const,
-    gap: compact ? 6 : 8,
-    padding: compact ? 10 : 12,
+    gap: compact ? 10 : 12,
+  };
+}
+
+function avatarStyle(isYou: boolean) {
+  return {
+    alignItems: "center",
+    background: isYou ? "var(--gold-soft)" : "var(--surface-2)",
+    border: isYou ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "1px solid var(--border)",
+    borderRadius: "50%",
+    color: isYou ? "var(--gold-deep)" : "var(--muted)",
+    display: "inline-grid",
+    flexShrink: 0,
+    fontFamily: "var(--font-serif)",
+    fontSize: 14,
+    fontWeight: 600,
+    height: 32,
+    placeItems: "center",
+    width: 32,
   } as const;
 }
 
-const messageMetaStyle = {
-  alignItems: "center",
-  color: "var(--muted)",
-  display: "flex",
-  flexWrap: "wrap" as const,
-  fontSize: 12,
-  gap: 8,
+const messageContentStyle = {
+  flex: 1,
+  minWidth: 0,
 };
 
-function roleTone(role: DisputeMessageAuthorRole): "accent" | "danger" | "success" {
-  if (role === "admin") return "danger";
-  if (role === "buyer") return "accent";
-  return "success";
-}
+const messageMetaStyle = {
+  alignItems: "baseline",
+  display: "flex",
+  gap: 6,
+  marginBottom: 4,
+};
+
+const authorNameStyle = {
+  color: "var(--ink)",
+  fontSize: 13,
+  fontWeight: 600,
+};
+
+const timestampStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+};
 
 const bodyStyle = {
+  color: "var(--ink-soft)",
   fontSize: 14,
   lineHeight: 1.5,
   margin: 0,
@@ -342,10 +370,11 @@ const bodyStyle = {
 };
 
 const evidenceLinkStyle = {
-  alignSelf: "flex-start",
-  color: "var(--accent)",
+  color: "var(--gold)",
+  display: "inline-block",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 600,
+  marginTop: 4,
 };
 
 function formStyle(compact: boolean) {

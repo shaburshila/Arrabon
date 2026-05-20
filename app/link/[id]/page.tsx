@@ -195,17 +195,18 @@ const pageHeaderStyle = {
 } as const;
 
 const brandStyle = {
-  color: "var(--foreground)",
-  fontSize: 14,
-  fontWeight: 800,
-  letterSpacing: "-0.01em",
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
+  fontSize: 18,
+  fontWeight: 500,
+  letterSpacing: "0.005em",
   textDecoration: "none",
 } as const;
 
 const backLinkStyle = {
   color: "var(--muted)",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 500,
   textDecoration: "none",
 } as const;
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { AdminDisputeResolveControls } from "@/app/admin/disputes/page";
+import { AdminDisputeResolveControls } from "@/app/admin/disputes/resolve-controls";
 import type { AdminDealReview } from "@/lib/api/admin-deals";
 
 function makeDeal(overrides: Partial<AdminDealReview> = {}): AdminDealReview {
@@ -98,7 +98,7 @@ describe("AdminDisputeResolveControls", () => {
 
 describe("admin disputes list labels", () => {
   test("renders confirm-pending blocked deals with non-dispute lifecycle copy", async () => {
-    const module = await import("@/app/admin/disputes/page");
+    const module = await import("@/app/admin/disputes/ui");
     const html = renderToStaticMarkup(
       createElement("div", null, [
         createElement("span", { key: "status" }, module["adminDealStatusLabel"]("ConfirmPending")),

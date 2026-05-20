@@ -4,37 +4,30 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
-import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { truncateAddress } from "@/lib/ui/address";
 
 export function WalletStatusPill() {
   const session = useWalletSessionContext();
-  const state = getWalletStatus(session);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  async function handleClick() {
+  async function handlePillClick() {
     try {
       if (!session.isConnected) {
         await session.connect();
         return;
       }
-
       if (!session.isCorrectChain) {
         await session.switchToCorrectChain();
         return;
@@ -42,13 +35,11 @@ export function WalletStatusPill() {
     } catch {
       return;
     }
-
-    setIsOpen((value) => !value);
+    setIsOpen((v) => !v);
   }
 
   async function copyAddress() {
     if (!session.address) return;
-
     try {
       await navigator.clipboard.writeText(session.address);
       setCopied(true);
@@ -58,80 +49,116 @@ export function WalletStatusPill() {
     }
   }
 
+  // ─── Not connected ────────────────────────────────────────────────
+  if (!session.isConnected) {
+    return (
+      <button onClick={handlePillClick} style={connectPillStyle} type="button">
+        Connect
+      </button>
+    );
+  }
+
+  // ─── Wrong network ────────────────────────────────────────────────
+  if (!session.isCorrectChain) {
+    return (
+      <button onClick={handlePillClick} style={wrongNetPillStyle} type="button">
+        <span style={wrongNetDotStyle} />
+        Switch to Base
+      </button>
+    );
+  }
+
+  // ─── Connected (dropdown-enabled) ────────────────────────────────
+  const isAdmin = session.session?.is_admin === true;
+  const isSigned = session.siweStatus === "authenticated";
+  const address = session.address ? truncateAddress(session.address) : "…";
+
   return (
-    <div ref={containerRef} style={containerStyle}>
+    <div ref={containerRef} style={wrapperStyle}>
+      {/* Pill trigger */}
       <button
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        onClick={handleClick}
-        style={pillStyle(state.tone)}
+        onClick={handlePillClick}
+        style={connectedPillStyle}
         type="button"
       >
-        {state.avatar ? (
-          <WalletAvatar kind={state.avatar} tone={state.tone} />
-        ) : state.dot ? (
-          <span style={dotStyle(state.tone)} />
-        ) : null}
-        {state.label}
-        {session.isConnected && session.isCorrectChain && (
-          <span aria-hidden style={chevronStyle(isOpen)} />
+        {isSigned && (
+          <>
+            <span style={networkDotStyle} />
+            <span style={networkLabelStyle}>Base</span>
+          </>
         )}
+        <span style={pillAddressStyle}>{address}</span>
+        <span style={pillAvatarStyle}>
+          {isAdmin ? <AdminSvg size={11} /> : <WalletSvg size={11} />}
+        </span>
+        <ChevronIcon open={isOpen} />
       </button>
 
-      {isOpen && session.isConnected && (
+      {/* Dropdown */}
+      {isOpen && (
         <div role="menu" style={dropdownStyle}>
+          {/* Header */}
           <div style={dropdownHeaderStyle}>
-            <span style={headerAvatarStyle(state.tone)}>
-              <WalletAvatarIcon kind={session.session?.is_admin === true ? "admin" : "wallet"} />
+            <span style={dropdownAvatarStyle}>
+              {isAdmin ? <AdminSvg size={16} /> : <WalletSvg size={16} />}
             </span>
             <div style={{ minWidth: 0 }}>
-              <p style={dropdownLabelStyle}>
-                {session.session?.is_admin === true ? "Admin wallet" : "Connected wallet"}
+              <p style={connectedLabelStyle}>
+                {isAdmin ? "Admin wallet" : "Connected wallet"}
               </p>
-              <p style={addressStyle}>
-                {session.address ? truncateAddress(session.address) : "Unknown address"}
+              <p style={dropdownAddressStyle}>
+                {session.address ? truncateAddress(session.address) : ""}
               </p>
             </div>
           </div>
 
+          <div style={dividerStyle} />
+
+          {/* Copy address */}
           {session.address && (
             <button
               onClick={copyAddress}
               role="menuitem"
-              style={dropdownButtonStyle()}
+              style={menuItemStyle("muted")}
               type="button"
             >
-              <MenuIcon kind={copied ? "check" : "copy"} tone="muted" />
-              {copied ? "Copied" : "Copy address"}
+              <span style={menuIconWrap("muted")}>
+                {copied ? <CheckSvg /> : <CopySvg />}
+              </span>
+              {copied ? "Copied!" : "Copy address"}
             </button>
           )}
 
-          {session.session?.is_admin === true && (
+          {/* Admin disputes */}
+          {isAdmin && (
             <Link
               href="/admin/disputes"
               onClick={() => setIsOpen(false)}
               role="menuitem"
-              style={{
-                ...dropdownButtonStyle("warning"),
-                color: "var(--warning)",
-                textDecoration: "none",
-              }}
+              style={{ ...menuItemStyle("warning"), textDecoration: "none" }}
             >
-              <MenuIcon kind="shield" tone="warning" />
+              <span style={menuIconWrap("warning")}>
+                <ShieldSvg />
+              </span>
               Admin disputes
             </Link>
           )}
 
+          {/* Disconnect */}
           <button
             onClick={() => {
               setIsOpen(false);
               void session.disconnect();
             }}
             role="menuitem"
-            style={dropdownButtonStyle("danger")}
+            style={menuItemStyle("danger")}
             type="button"
           >
-            <MenuIcon kind="disconnect" tone="danger" />
+            <span style={menuIconWrap("danger")}>
+              <CloseSvg />
+            </span>
             Disconnect wallet
           </button>
         </div>
@@ -140,189 +167,189 @@ export function WalletStatusPill() {
   );
 }
 
-function getWalletStatus(session: WalletSessionState) {
-  if (!session.isConnected) {
-    return { avatar: null, dot: false, label: "Connect", tone: "accent" as const };
-  }
+// ─── Inline SVG icons ─────────────────────────────────────────────────────────
 
-  if (!session.isCorrectChain) {
-    return { avatar: null, dot: true, label: "Wrong network", tone: "danger" as const };
-  }
-
-  if (session.siweStatus !== "authenticated") {
-    return {
-      avatar: "wallet" as const,
-      dot: true,
-      label: session.address ? truncateAddress(session.address) : "Connected",
-      tone: "muted" as const,
-    };
-  }
-
-  if (session.session?.is_admin === true) {
-    return { avatar: "admin" as const, dot: true, label: "Admin", tone: "accent" as const };
-  }
-
-  if (session.address) {
-    return { avatar: "wallet" as const, dot: true, label: truncateAddress(session.address), tone: "success" as const };
-  }
-
-  return { avatar: "wallet" as const, dot: true, label: "Connected", tone: "success" as const };
-}
-
-function pillStyle(tone: "accent" | "danger" | "muted" | "success") {
-  const colors = {
-    accent: {
-      background: "var(--accent)",
-      color: "#161616",
-    },
-    danger: {
-      background: "var(--danger-muted)",
-      color: "var(--danger)",
-    },
-    muted: {
-      background: "var(--muted-bg)",
-      color: "var(--muted)",
-    },
-    success: {
-      background: "var(--success-muted)",
-      color: "var(--success)",
-    },
-  }[tone];
-
-  return {
-    ...colors,
-    alignItems: "center",
-    border: tone === "accent" ? "1px solid var(--accent)" : "1px solid var(--border)",
-    borderRadius: 16,
-    cursor: "pointer",
-    display: "inline-flex",
-    flexShrink: 0,
-    fontSize: 14,
-    fontWeight: 500,
-    gap: 8,
-    minHeight: 36,
-    lineHeight: 1,
-    padding: "0 10px",
-    whiteSpace: "nowrap" as const,
-  };
-}
-
-function WalletAvatar({
-  kind,
-  tone,
-}: {
-  kind: "admin" | "wallet";
-  tone: "accent" | "danger" | "muted" | "success";
-}) {
+function WalletSvg({ size = 13 }: { size?: number }) {
   return (
-    <span style={avatarStyle(tone)}>
-      <WalletAvatarIcon kind={kind} />
-    </span>
-  );
-}
-
-function WalletAvatarIcon({ kind }: { kind: "admin" | "wallet" }) {
-  return (
-    <svg
-      aria-hidden
-      fill="none"
-      height="13"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.8"
-      viewBox="0 0 24 24"
-      width="13"
-    >
-      {kind === "admin" ? (
-        <path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
-      ) : (
-        <>
-          <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 17.5v-10Z" />
-          <path d="M16 12h4v4h-4a2 2 0 0 1 0-4Z" />
-          <path d="M16 14h.01" />
-        </>
-      )}
+    <svg aria-hidden fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width={size}>
+      <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 17.5v-10Z" />
+      <path d="M16 12h4v4h-4a2 2 0 0 1 0-4Z" />
+      <path d="M16 14h.01" />
     </svg>
   );
 }
 
-function avatarStyle(tone: "accent" | "danger" | "muted" | "success") {
-  const colors = {
-    accent: {
-      background: "linear-gradient(135deg, var(--accent), var(--warning))",
-      color: "#161616",
-    },
-    danger: {
-      background: "var(--danger-muted)",
-      color: "var(--danger)",
-    },
-    muted: {
-      background: "linear-gradient(135deg, var(--accent-muted), var(--success-muted))",
-      color: "var(--foreground)",
-    },
-    success: {
-      background: "linear-gradient(135deg, var(--accent), var(--success))",
-      color: "#161616",
-    },
-  }[tone];
-
-  return {
-    ...colors,
-    alignItems: "center",
-    borderRadius: "50%",
-    display: "inline-flex",
-    flexShrink: 0,
-    height: 20,
-    justifyContent: "center",
-    width: 20,
-  };
+function AdminSvg({ size = 13 }: { size?: number }) {
+  return (
+    <svg aria-hidden fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width={size}>
+      <path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
+    </svg>
+  );
 }
 
-function dotStyle(tone: "accent" | "danger" | "muted" | "success") {
-  const colors = {
-    accent: "#161616",
-    danger: "var(--danger)",
-    muted: "var(--muted)",
-    success: "var(--success)",
-  };
-
-  return {
-    background: colors[tone],
-    borderRadius: "50%",
-    display: "inline-block",
-    height: 7,
-    width: 7,
-  };
+function CopySvg() {
+  return (
+    <svg aria-hidden fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="13">
+      <rect height="12" rx="2" width="12" x="8" y="8" />
+      <path d="M4 14V6a2 2 0 0 1 2-2h8" />
+    </svg>
+  );
 }
 
-function chevronStyle(open: boolean) {
-  return {
-    borderBottom: "1.5px solid currentColor",
-    borderRight: "1.5px solid currentColor",
-    display: "inline-block",
-    height: 6,
-    marginLeft: 2,
-    opacity: 0.7,
-    transform: open ? "rotate(225deg) translate(-1px, -1px)" : "rotate(45deg) translate(-1px, -1px)",
-    transition: "transform 0.15s ease",
-    width: 6,
-  };
+function CheckSvg() {
+  return (
+    <svg aria-hidden fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+      <path d="M5 12.5 9.5 17 19 7" />
+    </svg>
+  );
 }
 
-const containerStyle = {
+function ShieldSvg() {
+  return (
+    <svg aria-hidden fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="13">
+      <path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
+    </svg>
+  );
+}
+
+function CloseSvg() {
+  return (
+    <svg aria-hidden fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" viewBox="0 0 24 24" width="13">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        borderBottom: "1.5px solid currentColor",
+        borderRight: "1.5px solid currentColor",
+        color: "var(--muted)",
+        display: "inline-block",
+        height: 5,
+        marginRight: 2,
+        opacity: 0.6,
+        transform: open
+          ? "rotate(225deg) translate(-1px, -2px)"
+          : "rotate(45deg) translate(-1px, -1px)",
+        transition: "transform 0.15s ease",
+        width: 5,
+      }}
+    />
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const wrapperStyle = {
   position: "relative" as const,
 };
+
+const connectPillStyle = {
+  alignItems: "center",
+  background: "var(--gold)",
+  border: "1px solid var(--gold)",
+  borderRadius: 999,
+  color: "var(--gold-on)",
+  cursor: "pointer",
+  display: "inline-flex",
+  fontSize: 13,
+  fontWeight: 600,
+  height: 34,
+  padding: "0 18px",
+  whiteSpace: "nowrap" as const,
+} as const;
+
+const wrongNetPillStyle = {
+  alignItems: "center",
+  background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
+  border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)",
+  borderRadius: 999,
+  color: "var(--danger)",
+  cursor: "pointer",
+  display: "inline-flex",
+  fontSize: 13,
+  fontWeight: 500,
+  gap: 8,
+  height: 34,
+  padding: "0 14px",
+  whiteSpace: "nowrap" as const,
+} as const;
+
+const wrongNetDotStyle = {
+  background: "var(--danger)",
+  borderRadius: "50%",
+  display: "inline-block",
+  flexShrink: 0,
+  height: 7,
+  width: 7,
+} as const;
+
+const connectedPillStyle = {
+  alignItems: "center",
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
+  borderRadius: 999,
+  color: "var(--ink)",
+  cursor: "pointer",
+  display: "inline-flex",
+  flexShrink: 0,
+  gap: 7,
+  height: 34,
+  padding: "0 6px 0 10px",
+  whiteSpace: "nowrap" as const,
+} as const;
+
+const networkDotStyle = {
+  background: "var(--success)",
+  borderRadius: "50%",
+  display: "inline-block",
+  flexShrink: 0,
+  height: 7,
+  width: 7,
+} as const;
+
+const networkLabelStyle = {
+  color: "var(--muted)",
+  fontSize: 12,
+  fontWeight: 500,
+  letterSpacing: "0.01em",
+} as const;
+
+const pillAddressStyle = {
+  color: "var(--ink)",
+  fontFamily: "var(--font-mono)",
+  fontSize: 12,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+} as const;
+
+const pillAvatarStyle = {
+  alignItems: "center",
+  background: "linear-gradient(135deg, var(--gold), var(--gold-deep))",
+  borderRadius: "50%",
+  color: "var(--gold-on)",
+  display: "inline-flex",
+  flexShrink: 0,
+  height: 22,
+  justifyContent: "center",
+  marginLeft: 1,
+  width: 22,
+} as const;
+
+// Dropdown
 
 const dropdownStyle = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 18,
-  boxShadow: "0 18px 48px rgba(0, 0, 0, 0.18)",
+  borderRadius: 16,
+  boxShadow: "0 20px 60px rgba(0,0,0,0.24), 0 4px 16px rgba(0,0,0,0.10)",
   display: "flex",
   flexDirection: "column" as const,
-  gap: 4,
-  minWidth: 260,
+  minWidth: 256,
   padding: 6,
   position: "absolute" as const,
   right: 0,
@@ -332,122 +359,77 @@ const dropdownStyle = {
 
 const dropdownHeaderStyle = {
   alignItems: "center",
-  borderBottom: "1px solid var(--border)",
   display: "flex",
-  gap: 10,
-  marginBottom: 4,
-  padding: "10px 10px 12px",
+  gap: 12,
+  padding: "12px 14px 14px",
 };
 
-function headerAvatarStyle(tone: "accent" | "danger" | "muted" | "success") {
-  return {
-    ...avatarStyle(tone),
-    height: 32,
-    width: 32,
-  };
-}
+const dropdownAvatarStyle = {
+  alignItems: "center",
+  background: "linear-gradient(135deg, var(--gold), var(--gold-deep))",
+  borderRadius: "50%",
+  color: "var(--gold-on)",
+  display: "inline-flex",
+  flexShrink: 0,
+  height: 36,
+  justifyContent: "center",
+  width: 36,
+} as const;
 
-const dropdownLabelStyle = {
+const connectedLabelStyle = {
   color: "var(--muted)",
-  fontSize: 12,
-  margin: "0 0 4px",
-};
+  fontSize: 11,
+  fontWeight: 500,
+  letterSpacing: "0.04em",
+  margin: "0 0 3px",
+  textTransform: "uppercase" as const,
+} as const;
 
-const addressStyle = {
-  color: "var(--foreground)",
-  fontFamily: "var(--font-mono, monospace)",
+const dropdownAddressStyle = {
+  color: "var(--ink)",
+  fontFamily: "var(--font-mono)",
   fontSize: 14,
   fontWeight: 500,
+  letterSpacing: "-0.01em",
   margin: 0,
   overflowWrap: "anywhere" as const,
-};
+} as const;
 
-function dropdownButtonStyle(tone: "accent" | "danger" | "muted" | "warning" = "muted") {
-  const backgrounds = {
-    accent: "var(--accent-muted)",
-    danger: "var(--danger-muted)",
-    muted: "transparent",
-    warning: "var(--warning-muted)",
-  };
+const dividerStyle = {
+  borderTop: "1px solid var(--border-soft)",
+  margin: "0 2px 4px",
+} as const;
+
+function menuItemStyle(tone: "danger" | "muted" | "warning") {
+  const color = {
+    danger: "var(--danger)",
+    muted: "var(--ink)",
+    warning: "var(--warning)",
+  }[tone];
 
   return {
     alignItems: "center",
-    background: backgrounds[tone],
+    background: "transparent",
     border: "none",
-    borderRadius: 12,
-    color: tone === "danger" ? "var(--danger)" : "var(--foreground)",
+    borderRadius: 10,
+    color,
     cursor: "pointer",
     display: "flex",
     fontSize: 14,
     fontWeight: 500,
-    gap: 8,
-    minHeight: 38,
+    gap: 10,
+    minHeight: 40,
     padding: "0 10px",
     textAlign: "left" as const,
     width: "100%",
   };
 }
 
-function MenuIcon({
-  kind,
-  tone,
-}: {
-  kind: "check" | "copy" | "disconnect" | "shield";
-  tone: "accent" | "danger" | "muted" | "warning";
-}) {
-  return (
-    <span style={menuIconStyle(tone)}>
-      <svg
-        aria-hidden
-        fill="none"
-        height="14"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-        viewBox="0 0 24 24"
-        width="14"
-      >
-        {kind === "copy" && (
-          <>
-            <rect height="12" rx="2" width="12" x="8" y="8" />
-            <path d="M4 14V6a2 2 0 0 1 2-2h8" />
-          </>
-        )}
-        {kind === "check" && <path d="M5 12.5 9.5 17 19 7" />}
-        {kind === "shield" && (
-          <path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
-        )}
-        {kind === "disconnect" && (
-          <>
-            <path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" />
-            <path d="M15 8 19 12 15 16" />
-            <path d="M19 12H9" />
-          </>
-        )}
-      </svg>
-    </span>
-  );
-}
-
-function menuIconStyle(tone: "accent" | "danger" | "muted" | "warning") {
+function menuIconWrap(tone: "danger" | "muted" | "warning") {
   const colors = {
-    accent: {
-      background: "var(--accent-muted)",
-      color: "var(--accent)",
-    },
-    danger: {
-      background: "var(--danger-muted)",
-      color: "var(--danger)",
-    },
-    muted: {
-      background: "var(--muted-bg)",
-      color: "var(--muted)",
-    },
-    warning: {
-      background: "var(--warning-muted)",
-      color: "var(--warning)",
-    },
+    danger: { background: "var(--danger-muted)", color: "var(--danger)" },
+    muted: { background: "var(--muted-bg)", color: "var(--muted)" },
+    warning: { background: "var(--warning-muted)", color: "var(--warning)" },
   }[tone];
 
   return {
@@ -456,10 +438,8 @@ function menuIconStyle(tone: "accent" | "danger" | "muted" | "warning") {
     borderRadius: 8,
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: 9,
-    fontWeight: 800,
-    height: 22,
+    height: 24,
     justifyContent: "center",
-    width: 22,
+    width: 24,
   };
 }

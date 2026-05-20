@@ -7,9 +7,9 @@ import type { Hex } from "viem";
 import type { ReactNode } from "react";
 import Link from "next/link";
 
+import { Icon } from "@/components/icons";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Notice } from "@/components/shared/notice";
-import { ProgressSteps, type ProgressStepItem } from "@/components/shared/progress-steps";
 
 interface FundingProgressProps {
   embedded?: boolean;
@@ -81,7 +81,7 @@ export function FundingProgress({
     <>
       <p style={sectionLabelStyle}>Payment progress</p>
 
-      <ProgressSteps steps={getProgressSteps(step)} />
+      <FundingStepList steps={getProgressSteps(step)} />
 
       {activeStepLabels[step] && (
         <p style={activeHelperStyle}>{activeStepLabels[step]}</p>
@@ -127,7 +127,94 @@ function renderProgressContent(embedded: boolean, content: ReactNode) {
   return <ActionPanel style={{ padding: 20 }}>{content}</ActionPanel>;
 }
 
-function getProgressSteps(step: FundingStep): ProgressStepItem[] {
+type StepState = "active" | "done" | "error" | "pending";
+
+interface FundStep {
+  key: string;
+  label: string;
+  state: StepState;
+}
+
+function FundingStepList({ steps }: { steps: FundStep[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {steps.map((s) => (
+        <div key={s.key} style={{ alignItems: "center", display: "flex", gap: 10 }}>
+          <span style={stepMarkerStyle(s.state)}>
+            {s.state === "done" ? (
+              <Icon name="status-released" size={11} />
+            ) : s.state === "active" ? (
+              <span className="spin" style={spinnerDotStyle} />
+            ) : s.state === "error" ? (
+              "×"
+            ) : (
+              <span style={pendingDotStyle} />
+            )}
+          </span>
+          <span style={stepLabelStyle(s.state)}>{s.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function stepMarkerStyle(state: StepState) {
+  const bg =
+    state === "done" ? "var(--gold)" :
+    state === "active" ? "transparent" :
+    state === "error" ? "var(--red-bg)" :
+    "var(--surface-2)";
+  const border =
+    state === "done" ? "1px solid var(--gold)" :
+    state === "active" ? "1.5px solid var(--gold)" :
+    state === "error" ? "1px solid var(--red)" :
+    "1px solid var(--border)";
+  const color =
+    state === "done" ? "var(--gold-on)" :
+    state === "error" ? "var(--red)" :
+    "var(--muted)";
+  return {
+    alignItems: "center",
+    background: bg,
+    border,
+    borderRadius: 999,
+    color,
+    display: "inline-grid",
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: 700,
+    height: 18,
+    placeItems: "center",
+    width: 18,
+  } as const;
+}
+
+function stepLabelStyle(state: StepState) {
+  return {
+    color: state === "pending" ? "var(--muted)" : "var(--ink)",
+    fontSize: 13,
+    fontWeight: state === "active" ? 600 : 400,
+  };
+}
+
+const spinnerDotStyle = {
+  border: "1.5px solid var(--gold)",
+  borderRadius: 999,
+  borderTopColor: "transparent",
+  display: "inline-block",
+  height: 9,
+  width: 9,
+} as const;
+
+const pendingDotStyle = {
+  background: "var(--muted)",
+  borderRadius: 999,
+  display: "inline-block",
+  height: 4,
+  width: 4,
+} as const;
+
+function getProgressSteps(step: FundingStep): FundStep[] {
   const activeKey = getActiveProgressKey(step);
   const activeIndex = progressOrder.findIndex((item) => item.key === activeKey);
 
@@ -196,7 +283,7 @@ const recoveryHintStyle = {
 };
 
 const recoveryLinkStyle = {
-  color: "var(--accent)",
+  color: "var(--gold)",
   fontWeight: 700,
 };
 

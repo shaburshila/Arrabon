@@ -48,7 +48,7 @@ const emptyRemoveState: RemoveState = {
   wallet: null,
 };
 
-export function canSubmitDenylistRemoval(comment: string): boolean {
+function canSubmitDenylistRemoval(comment: string): boolean {
   return comment.trim().length > 0;
 }
 
@@ -178,14 +178,17 @@ export default function AdminDenylistPage() {
 
   return (
     <AppShell maxWidth={860}>
+      <nav className="admin-subnav">
+        <span className="admin-badge">Admin</span>
+        <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
+        <Link href="/admin/denylist" style={adminNavLinkStyle}>Denylist</Link>
+      </nav>
+
       <div style={headerStyle}>
         <h1 style={h1Style}>Compliance denylist</h1>
         <p style={subtitleStyle}>
           Add or remove blocked wallets and keep an auditable compliance trail.
         </p>
-        <Link href="/admin/disputes" style={adminLinkStyle}>
-          ← Back to disputes
-        </Link>
       </div>
 
       <WalletSessionCard session={session} />
@@ -379,23 +382,25 @@ const headerStyle = {
 } as const;
 
 const h1Style = {
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
   fontSize: 28,
-  lineHeight: 1.15,
-  margin: 0,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  margin: "0 0 4px",
 } as const;
 
 const subtitleStyle = {
   color: "var(--muted)",
-  fontSize: 15,
+  fontSize: 14,
   lineHeight: 1.5,
   margin: 0,
 } as const;
 
-const adminLinkStyle = {
-  alignSelf: "flex-start",
-  color: "var(--accent)",
-  fontSize: 13,
-  fontWeight: 600,
+const adminNavLinkStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
+  fontWeight: 500,
   textDecoration: "none",
 } as const;
 

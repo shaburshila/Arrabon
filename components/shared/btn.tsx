@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-type BtnVariant = "danger" | "ghost" | "primary" | "secondary";
+type BtnVariant = "danger" | "ghost" | "ink" | "primary" | "quiet" | "secondary";
 type BtnSize = "lg" | "md" | "sm";
 
 interface BtnProps {
@@ -19,54 +19,57 @@ interface BtnProps {
 
 const baseStyle: CSSProperties = {
   alignItems: "center",
-  border: "none",
-  borderRadius: "var(--radius)",
+  border: "1px solid transparent",
+  borderRadius: "var(--r-3)",
   display: "inline-flex",
+  fontFamily: "inherit",
   fontWeight: 500,
   gap: 8,
   justifyContent: "center",
-  minHeight: 48, // touch target ≥ 44px per product spec
+  letterSpacing: "0.005em",
   outline: "none",
-  transition: "opacity 0.15s, background 0.15s",
+  transition: "background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s",
   userSelect: "none",
+  whiteSpace: "nowrap",
 };
 
 const sizeStyles: Record<BtnSize, CSSProperties> = {
-  lg: {
-    fontSize: 15,
-    minHeight: 48,
-    padding: "0 24px",
-  },
-  md: {
-    fontSize: 14,
-    minHeight: 42,
-    padding: "0 20px",
-  },
-  sm: {
-    fontSize: 14,
-    minHeight: 36,
-    padding: "0 16px",
-  },
+  lg: { fontSize: 15, minHeight: 48, padding: "0 24px" },
+  md: { fontSize: 14, minHeight: 42, padding: "0 20px" },
+  sm: { fontSize: 13, minHeight: 36, padding: "0 14px" },
 };
 
 const variantStyles: Record<BtnVariant, CSSProperties> = {
+  primary: {
+    background: "var(--gold)",
+    borderColor: "var(--gold)",
+    color: "var(--gold-on)",
+  },
   danger: {
-    background: "var(--danger)",
-    color: "#fff",
+    background: "transparent",
+    borderColor: "var(--border)",
+    color: "var(--red)",
   },
   ghost: {
     background: "transparent",
-    border: "1px solid var(--border)",
-    color: "var(--muted)",
+    borderColor: "var(--border)",
+    color: "var(--ink)",
   },
-  primary: {
-    background: "var(--accent)",
-    color: "#fff",
+  ink: {
+    background: "var(--ink)",
+    borderColor: "var(--ink)",
+    color: "var(--bg)",
+  },
+  quiet: {
+    background: "transparent",
+    borderColor: "transparent",
+    color: "var(--muted)",
+    padding: "0 6px",
   },
   secondary: {
-    background: "var(--muted-bg)",
-    color: "var(--foreground)",
-    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+    borderColor: "var(--border)",
+    color: "var(--ink)",
   },
 };
 
@@ -83,6 +86,7 @@ export function Btn({
 }: BtnProps) {
   const isDisabled = disabled || loading;
   const needsWrapper = fullWidth || Boolean(isDisabled && disabledReason);
+
   const button = (
     <button
       disabled={isDisabled}

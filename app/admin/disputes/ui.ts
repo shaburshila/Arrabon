@@ -1,4 +1,17 @@
 import type { DealRiskStatus } from "@/lib/db/types";
+import type { AdminDealReview } from "@/lib/api/admin-deals";
+
+export function adminDealStatusLabel(status: AdminDealReview["status"]): string {
+  return status === "ConfirmPending" ? "Awaiting confirmation" : "Disputed";
+}
+
+export function adminDealStatusTone(status: AdminDealReview["status"]): "danger" | "warning" {
+  return status === "ConfirmPending" ? "warning" : "danger";
+}
+
+export function adminDealLinkLabel(status: AdminDealReview["status"]): string {
+  return status === "ConfirmPending" ? "View blocked deal" : "View dispute";
+}
 
 export function getAdminResolveAvailability(
   riskStatus: DealRiskStatus,

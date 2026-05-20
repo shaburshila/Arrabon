@@ -1,31 +1,37 @@
 import type { CSSProperties } from "react";
-import type { IconName } from "@/components/icons";
-import { Icon } from "@/components/icons";
 
-type StatusPillTone = "accent" | "danger" | "muted" | "success" | "warning";
+import { Icon } from "@/components/icons";
+import type { IconName } from "@/components/icons";
+
+export type StatusPillTone =
+  | "accent"
+  | "amber"
+  | "blue"
+  | "danger"
+  | "gold"
+  | "gray"
+  | "green"
+  | "muted"
+  | "purple"
+  | "red"
+  | "success"
+  | "warning";
+
 type StatusPillSize = "md" | "sm";
 
 const toneStyles: Record<StatusPillTone, { background: string; color: string }> = {
-  accent: {
-    background: "var(--accent-muted)",
-    color: "var(--accent)",
-  },
-  danger: {
-    background: "var(--danger-muted)",
-    color: "var(--danger)",
-  },
-  muted: {
-    background: "var(--muted-bg)",
-    color: "var(--muted)",
-  },
-  success: {
-    background: "var(--success-muted)",
-    color: "var(--success)",
-  },
-  warning: {
-    background: "var(--warning-muted)",
-    color: "var(--warning)",
-  },
+  accent:  { background: "var(--gold-soft)",   color: "var(--gold-deep)" },
+  amber:   { background: "var(--amber-bg)",    color: "var(--amber)" },
+  blue:    { background: "var(--blue-bg)",     color: "var(--blue)" },
+  danger:  { background: "var(--red-bg)",      color: "var(--red)" },
+  gold:    { background: "var(--gold-soft)",   color: "var(--gold-deep)" },
+  gray:    { background: "var(--gray-bg)",     color: "var(--muted)" },
+  green:   { background: "var(--green-bg)",    color: "var(--green)" },
+  muted:   { background: "var(--muted-bg)",    color: "var(--muted)" },
+  purple:  { background: "var(--purple-bg)",   color: "var(--purple)" },
+  red:     { background: "var(--red-bg)",      color: "var(--red)" },
+  success: { background: "var(--green-bg)",    color: "var(--green)" },
+  warning: { background: "var(--amber-bg)",    color: "var(--amber)" },
 };
 
 export function StatusPill({
@@ -53,6 +59,7 @@ export function StatusPill({
     <span
       style={{
         alignItems: "center",
+        alignSelf: "flex-start",
         background: bg ?? colors.background,
         border: "1px solid transparent",
         borderRadius: 999,
@@ -61,7 +68,9 @@ export function StatusPill({
         fontWeight: 500,
         gap: icon ? 5 : 0,
         lineHeight: 1,
+        maxWidth: "100%",
         whiteSpace: "nowrap",
+        width: "max-content",
         ...sizeStyle,
         ...style,
       }}

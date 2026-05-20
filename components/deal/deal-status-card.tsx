@@ -4,9 +4,18 @@ import type { DealReadModel } from "@/lib/api/deals";
 import { truncateAddress } from "@/lib/ui/address";
 import { formatDate } from "@/lib/ui/date";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
+import { Icon } from "@/components/icons";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { DetailRow } from "@/components/shared/detail-row";
 import { StatusPill } from "@/components/shared/status-pill";
+
+const STATUS_TITLES: Record<string, string> = {
+  ConfirmPending: "Confirm payment release",
+  Disputed: "Under dispute review",
+  Funded: "Escrow funded",
+  Refunded: "Funds refunded",
+  Released: "Payment released",
+};
 
 interface DealStatusCardProps {
   deal: DealReadModel;
@@ -19,65 +28,65 @@ export function DealStatusCard({ deal, isAdmin = false, role }: DealStatusCardPr
     resolution_type: deal.resolution_type,
     status: deal.status,
   });
+  const title = STATUS_TITLES[deal.status] ?? "Consultation escrow";
 
   return (
-    <ActionPanel style={cardStyle}>
-      <div style={headerStyle}>
-        <div>
-          <p style={eyebrowStyle}>Deal status</p>
-          <h1 style={titleStyle}>Consultation escrow</h1>
-        </div>
-        <div style={badgeGroupStyle}>
-          <StatusPill bg={sc.bg} color={sc.color} icon={sc.icon} label={sc.label} size="md" />
+    <>
+      <div className="deal-hero">
+        <span style={statusIconStyle(sc.bg, sc.color)}>
+          <Icon name={sc.icon} size={28} />
+        </span>
+        <div style={heroBodyStyle}>
+          <p style={eyebrowStyle}>Deal · {deal.id.slice(0, 8).toUpperCase()}</p>
+          <h1 style={heroTitleStyle}>{title}</h1>
           <StatusPill label={getRoleLabel(role, isAdmin)} tone={getRoleTone(role, isAdmin)} />
+        </div>
+        <div className="deal-hero__amount">
+          <div className="deal-hero__amount-num">{deal.price_usdc}</div>
+          <div className="deal-hero__amount-token">USDC · {sc.label}</div>
         </div>
       </div>
 
-      <DetailRow
-        label="Amount"
-        value={`${deal.price_usdc} USDC`}
-      />
-      <DetailRow
-        label="Seller"
-        value={<span style={monoValueStyle}>{formatPartyAddress(deal.seller_address, role === "seller")}</span>}
-      />
-      <DetailRow
-        label="Buyer"
-        value={<span style={monoValueStyle}>{formatPartyAddress(deal.buyer_address, role === "buyer")}</span>}
-      />
-      <DetailRow
-        label="Scheduled"
-        value={formatDate(deal.scheduled_at, { fallback: "—", showTimeZoneName: true })}
-      />
-      {deal.completed_at && (
+      <ActionPanel style={{ padding: "0 20px" }}>
         <DetailRow
-          label="Completed"
-          value={formatDate(deal.completed_at, { fallback: "—", showTimeZoneName: true })}
+          label="Seller"
+          value={<span style={monoValueStyle}>{formatPartyAddress(deal.seller_address, role === "seller")}</span>}
         />
-      )}
-      {deal.resolved_at && (
         <DetailRow
-          label="Resolved"
-          value={formatDate(deal.resolved_at, { fallback: "—", showTimeZoneName: true })}
+          label="Buyer"
+          value={<span style={monoValueStyle}>{formatPartyAddress(deal.buyer_address, role === "buyer")}</span>}
         />
-      )}
-      {deal.release_deadline_at && (
         <DetailRow
-          label={role === "seller" ? "Auto-release available after" : "Release / dispute deadline"}
-          value={formatDate(deal.release_deadline_at, {
-            fallback: "—",
-            showTimeZoneName: true,
-          })}
+          label="Scheduled"
+          value={formatDate(deal.scheduled_at, { fallback: "—", showTimeZoneName: true })}
         />
-      )}
-      {deal.tx_hash && (
-        <DetailRow
-          bordered={false}
-          label="Funding tx"
-          value={<span style={monoValueStyle}>{`${deal.tx_hash.slice(0, 10)}…${deal.tx_hash.slice(-6)}`}</span>}
-        />
-      )}
-    </ActionPanel>
+        {deal.completed_at && (
+          <DetailRow
+            label="Completed"
+            value={formatDate(deal.completed_at, { fallback: "—", showTimeZoneName: true })}
+          />
+        )}
+        {deal.resolved_at && (
+          <DetailRow
+            label="Resolved"
+            value={formatDate(deal.resolved_at, { fallback: "—", showTimeZoneName: true })}
+          />
+        )}
+        {deal.release_deadline_at && (
+          <DetailRow
+            label={role === "seller" ? "Auto-release available after" : "Release / dispute deadline"}
+            value={formatDate(deal.release_deadline_at, { fallback: "—", showTimeZoneName: true })}
+          />
+        )}
+        {deal.tx_hash && (
+          <DetailRow
+            bordered={false}
+            label="Funding tx"
+            value={<span style={monoValueStyle}>{`${deal.tx_hash.slice(0, 10)}…${deal.tx_hash.slice(-6)}`}</span>}
+          />
+        )}
+      </ActionPanel>
+    </>
   );
 }
 
@@ -102,38 +111,43 @@ function getRoleTone(
   return "muted";
 }
 
-const cardStyle = {
-  padding: 20,
-} as const;
+function statusIconStyle(bg: string, color: string) {
+  return {
+    alignItems: "center",
+    background: bg,
+    borderRadius: "50%",
+    color,
+    display: "inline-grid",
+    flexShrink: 0,
+    height: 56,
+    placeItems: "center",
+    width: 56,
+  } as const;
+}
 
-const headerStyle = {
-  alignItems: "flex-start",
-  display: "flex",
-  gap: 14,
-  justifyContent: "space-between",
-  marginBottom: 10,
-} as const;
-
-const badgeGroupStyle = {
-  alignItems: "flex-end",
+const heroBodyStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
+  minWidth: 0,
 };
 
 const eyebrowStyle = {
   color: "var(--muted)",
   fontSize: 11,
   fontWeight: 700,
-  letterSpacing: "0.08em",
-  margin: "0 0 6px",
+  letterSpacing: "0.1em",
+  margin: 0,
   textTransform: "uppercase" as const,
 };
 
-const titleStyle = {
-  color: "var(--foreground)",
-  fontSize: 20,
-  lineHeight: 1.2,
+const heroTitleStyle = {
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
+  fontSize: 28,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  lineHeight: 1.1,
   margin: 0,
 };
 

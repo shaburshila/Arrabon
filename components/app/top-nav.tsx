@@ -1,58 +1,82 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
+import { Icon } from "@/components/icons";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { WalletStatusPill } from "@/components/app/wallet-status-pill";
 
 const navItems = [
-  { href: "/create", key: "create", label: "Create" },
+  { href: "/create",   key: "create",   label: "Create" },
   { href: "/my-links", key: "my-links", label: "My links" },
   { href: "/my-deals", key: "my-deals", label: "My deals" },
 ] as const;
 
 export function TopNav() {
   const pathname = usePathname();
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    function handleScroll() {
-      setIsScrolled(window.scrollY > 24);
-    }
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    const update = () =>
+      setIsDark(document.documentElement.dataset.theme === "dark");
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => obs.disconnect();
   }, []);
 
-  const isAtTop = !isScrolled;
-
   return (
-    <header style={headerStyle(isAtTop)}>
+    <header style={headerStyle}>
       <div style={headerInnerStyle}>
-        <Link href="/" style={brandStyle}>
+        {/* Brand */}
+        <Link
+          href="/"
+          style={brandStyle}
+          onClick={() => window.scrollTo({ behavior: "smooth", top: 0 })}
+        >
           <span style={brandMarkStyle}>
-            <svg aria-hidden fill="none" height={22} viewBox="0 0 64 64" width={22}>
-              <path d="M32 6 8 58h13l3-8h16l3 8h13L32 6Zm0 17 10 23H22l10-23Z" fill="var(--accent)" fillRule="evenodd" />
-              <path d="M19 40h26v7H19z" fill="var(--accent)" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Arrabon"
+              height={28}
+              src={isDark ? "/alpha-lock-full-gold.svg" : "/alpha-lock-full-graphite.svg"}
+              width={28}
+            />
           </span>
-          <span style={brandTextStyle}>Arrabon</span>
+          <span style={brandWordStyle}>Arrabon</span>
         </Link>
+
+        {/* Desktop nav — hidden on mobile (BottomTabBar takes over) */}
         <nav aria-label="Primary navigation" style={navStyle}>
           {navItems.map((item) => (
             <Link
-              href={item.href}
               key={item.key}
-              style={navLinkStyle(isActive(pathname, item.href))}
+              href={item.href}
+              style={navItemStyle(
+                pathname === item.href || pathname.startsWith(`${item.href}/`),
+              )}
             >
               {item.label}
             </Link>
           ))}
         </nav>
-        <div style={rightSideStyle}>
+
+        {/* Toolbar */}
+        <div style={toolbarStyle}>
+          <button
+            aria-label="Notifications"
+            className="iconbtn iconbtn--tooltip"
+            data-tooltip="Soon"
+            style={{ border: "1px solid var(--border)" }}
+            type="button"
+          >
+            <Icon name="utility-bell" size={16} />
+          </button>
           <ThemeToggle />
           <WalletStatusPill />
         </div>
@@ -61,101 +85,84 @@ export function TopNav() {
   );
 }
 
-function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function headerStyle(borderless: boolean) {
-  return {
-    backdropFilter: "blur(16px)",
-    background: borderless
-      ? "color-mix(in srgb, var(--background) 88%, transparent)"
-      : "var(--background)",
-    borderBottom: borderless ? "1px solid transparent" : "1px solid var(--border)",
-    display: "flex",
-    justifyContent: "center",
-    left: 0,
-    position: "fixed" as const,
-    right: 0,
-    top: 0,
-    transition: "background 0.18s, border-color 0.18s",
-    width: "100%",
-    zIndex: 40,
-  };
-}
+const headerStyle = {
+  backdropFilter: "blur(24px) saturate(180%)",
+  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+  background: "color-mix(in srgb, var(--bg) 94%, transparent)",
+  borderBottom: "1px solid var(--border)",
+  display: "flex",
+  justifyContent: "center",
+  left: 0,
+  position: "fixed" as const,
+  right: 0,
+  top: 0,
+  width: "100%",
+  zIndex: 40,
+} as const;
 
 const headerInnerStyle = {
   alignItems: "center",
   display: "grid",
-  gap: 16,
-  gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
-  height: 64,
-  margin: "0 auto",
+  gap: 32,
+  gridTemplateColumns: "auto 1fr auto",
   maxWidth: 1280,
-  minWidth: 0,
-  padding: "0 16px",
+  padding: "14px 32px",
   width: "100%",
-};
+} as const;
 
 const brandStyle = {
   alignItems: "center",
-  color: "var(--foreground)",
+  color: "var(--ink)",
   display: "inline-flex",
   flexShrink: 0,
-  gap: 8,
+  gap: 10,
   textDecoration: "none",
-};
+} as const;
 
 const brandMarkStyle = {
   alignItems: "center",
-  display: "inline-flex",
-  flexShrink: 0,
-  height: 32,
-  justifyContent: "center",
-  width: 32,
+  display: "inline-grid",
+  height: 28,
+  placeItems: "center",
+  width: 28,
 } as const;
 
-const brandTextStyle = {
-  fontFamily: "var(--font-brand), Georgia, serif",
-  fontSize: 15,
-  fontWeight: 600,
-  letterSpacing: "0.01em",
+const brandWordStyle = {
+  fontFamily: "var(--font-serif)",
+  fontSize: 22,
+  fontWeight: 500,
+  letterSpacing: "0.005em",
+  lineHeight: 1,
+  color: "var(--ink)",
   whiteSpace: "nowrap" as const,
-};
+} as const;
 
 const navStyle = {
+  display: "flex",
+  gap: 4,
   justifySelf: "center",
-  background: "var(--panel-muted)",
-  border: "1px solid var(--border)",
-  borderRadius: 16,
-  display: "flex",
-  flexShrink: 1,
-  gap: 2,
-  minWidth: 0,
-  overflowX: "auto" as const,
-  padding: 4,
-};
+} as const;
 
-const rightSideStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexShrink: 0,
-  gap: 8,
-  justifySelf: "end",
-  minWidth: 0,
-};
-
-function navLinkStyle(active: boolean) {
+function navItemStyle(active: boolean) {
   return {
-    background: active ? "var(--panel)" : "transparent",
-    border: "1px solid transparent",
-    borderRadius: 12,
-    boxShadow: active ? "0 1px 6px rgba(0, 0, 0, 0.08)" : "none",
-    color: active ? "var(--foreground)" : "var(--muted)",
-    fontSize: 14,
+    background: active ? "var(--surface-2)" : "transparent",
+    border: 0,
+    borderRadius: "var(--r-2)",
+    color: active ? "var(--ink)" : "var(--muted)",
+    cursor: "pointer",
+    fontSize: 13,
     fontWeight: 500,
-    padding: "6px 14px",
+    letterSpacing: "0.01em",
+    padding: "8px 16px",
     textDecoration: "none",
+    transition: "color 0.15s, background 0.15s",
     whiteSpace: "nowrap" as const,
   };
 }
+
+const toolbarStyle = {
+  alignItems: "center",
+  display: "inline-flex",
+  gap: 8,
+  justifySelf: "end",
+} as const;

@@ -10,32 +10,32 @@ export interface DealStatusConfig {
 
 export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
   ConfirmPending: {
-    bg: "var(--warning-muted)",
-    color: "var(--warning)",
+    bg: "var(--amber-bg)",
+    color: "var(--amber)",
     icon: "status-confirm-pending",
     label: "Awaiting confirmation",
   },
   Disputed: {
-    bg: "var(--danger-muted)",
-    color: "var(--danger)",
+    bg: "var(--red-bg)",
+    color: "var(--red)",
     icon: "status-disputed",
     label: "Disputed",
   },
   Funded: {
-    bg: "var(--accent-muted)",
-    color: "var(--accent)",
+    bg: "var(--blue-bg)",
+    color: "var(--blue)",
     icon: "status-funded-escrow-held",
     label: "Funded",
   },
   Refunded: {
-    bg: "var(--muted-bg)",
-    color: "var(--muted)",
+    bg: "var(--purple-bg)",
+    color: "var(--purple)",
     icon: "status-refunded",
     label: "Refunded",
   },
   Released: {
-    bg: "var(--success-muted)",
-    color: "var(--success)",
+    bg: "var(--green-bg)",
+    color: "var(--green)",
     icon: "status-released",
     label: "Released",
   },

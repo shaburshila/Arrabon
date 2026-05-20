@@ -14,16 +14,25 @@ export type IconName =
   | "status-refunded"
   | "status-released"
   | "status-reveal-meeting-url-available"
+  | "utility-arrow-left"
+  | "utility-arrow-right"
+  | "utility-bell"
   | "utility-calendar"
+  | "utility-chevron-down"
+  | "utility-chevron-right"
   | "utility-close"
   | "utility-copy-address"
   | "utility-info"
   | "utility-more-horizontal"
   | "utility-more-vertical"
+  | "utility-plus"
   | "utility-receipt"
+  | "utility-search"
   | "utility-secure-subtle"
   | "utility-settings"
   | "utility-sync-indexing"
+  | "utility-theme-dark"
+  | "utility-theme-light"
   | "utility-time"
   | "utility-transaction-confirmed"
   | "utility-transaction-failed"
@@ -119,6 +128,24 @@ const icons: Record<IconName, ReactNode> = {
       <circle cx="12" cy="12" r="3" />
     </>
   ),
+  "utility-arrow-left": (
+    <>
+      <path d="M19 12H5" />
+      <path d="m11 6-6 6 6 6" />
+    </>
+  ),
+  "utility-arrow-right": (
+    <>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </>
+  ),
+  "utility-bell": (
+    <>
+      <path d="M6 17h12l-1-2v-5a5 5 0 1 0-10 0v5l-1 2Z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </>
+  ),
   "utility-calendar": (
     <>
       <rect x="4" y="5" width="16" height="15" rx="2" />
@@ -127,6 +154,8 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M4 10h16" />
     </>
   ),
+  "utility-chevron-down": <path d="m6 9 6 6 6-6" />,
+  "utility-chevron-right": <path d="m9 6 6 6-6 6" />,
   "utility-close": (
     <>
       <path d="m6 6 12 12" />
@@ -146,6 +175,12 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M12 8h.01" />
     </>
   ),
+  "utility-plus": (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </>
+  ),
   "utility-more-horizontal": (
     <>
       <circle cx="5" cy="12" r="1" />
@@ -158,6 +193,12 @@ const icons: Record<IconName, ReactNode> = {
       <circle cx="12" cy="5" r="1" />
       <circle cx="12" cy="12" r="1" />
       <circle cx="12" cy="19" r="1" />
+    </>
+  ),
+  "utility-search": (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-4.3-4.3" />
     </>
   ),
   "utility-receipt": (
@@ -175,6 +216,22 @@ const icons: Record<IconName, ReactNode> = {
     <>
       <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V22a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1H22a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z" />
+    </>
+  ),
+  "utility-theme-dark": (
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+  ),
+  "utility-theme-light": (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="M4.93 4.93l1.41 1.41" />
+      <path d="M17.66 17.66l1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="M4.93 19.07l1.41-1.41" />
+      <path d="M17.66 6.34l1.41-1.41" />
     </>
   ),
   "utility-sync-indexing": (

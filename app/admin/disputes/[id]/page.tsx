@@ -325,6 +325,12 @@ export default function AdminDisputeDetailPage() {
 
   return (
     <AppShell maxWidth={860}>
+      <nav className="admin-subnav">
+        <span className="admin-badge">Admin</span>
+        <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
+        <Link href="/admin/denylist" style={adminNavLinkStyle}>Denylist</Link>
+      </nav>
+
       <Link href="/admin/disputes" style={backLinkStyle}>
         ← Back to disputes
       </Link>
@@ -334,9 +340,6 @@ export default function AdminDisputeDetailPage() {
         <p style={subtitleStyle}>
           Review the full dispute record, conversation, and admin resolution options.
         </p>
-        <Link href="/admin/denylist" style={adminLinkStyle}>
-          Open compliance denylist →
-        </Link>
       </div>
 
       <WalletSessionCard session={session} />
@@ -664,23 +667,25 @@ const headerStyle = {
 } as const;
 
 const h1Style = {
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
   fontSize: 28,
-  lineHeight: 1.15,
-  margin: 0,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  margin: "0 0 4px",
 } as const;
 
 const subtitleStyle = {
   color: "var(--muted)",
-  fontSize: 15,
+  fontSize: 14,
   lineHeight: 1.5,
   margin: 0,
 } as const;
 
-const adminLinkStyle = {
-  alignSelf: "flex-start",
-  color: "var(--accent)",
-  fontSize: 13,
-  fontWeight: 600,
+const adminNavLinkStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
+  fontWeight: 500,
   textDecoration: "none",
 } as const;
 

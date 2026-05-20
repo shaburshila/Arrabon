@@ -1,0 +1,200 @@
+"use client";
+
+// /deal/[id]/receipt — settlement receipt for a completed deal.
+// Accessible to deal participants after release or refund.
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+
+import { useWalletSessionContext } from "@/contexts/wallet-session-context";
+import { fetchDeal, type DealReadModel } from "@/lib/api/deals";
+import { formatDate } from "@/lib/ui/date";
+import { truncateAddress } from "@/lib/ui/address";
+import { ArrabonSeal } from "@/components/shared/arrabon-seal";
+import { AppShell } from "@/components/app/app-shell";
+import { Btn } from "@/components/shared/btn";
+import { DetailRow } from "@/components/shared/detail-row";
+import { Notice } from "@/components/shared/notice";
+
+function getReceiptTitle(status: DealReadModel["status"]): string {
+  if (status === "Released") return "Payment released";
+  if (status === "Refunded") return "Funds refunded";
+  return "Settlement receipt";
+}
+
+function getReceiptSub(deal: DealReadModel): string {
+  if (deal.status === "Released") {
+    return `${deal.price_usdc} USDC was released to the seller after the consultation was completed.`;
+  }
+  if (deal.status === "Refunded") {
+    return `${deal.price_usdc} USDC was returned to the buyer after the dispute was resolved.`;
+  }
+  return `Settlement record for deal ${deal.id.slice(0, 8).toUpperCase()}.`;
+}
+
+function getSettledAt(deal: DealReadModel): string | null {
+  return deal.resolved_at ?? deal.completed_at ?? null;
+}
+
+export default function ReceiptPage() {
+  const params = useParams();
+  const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
+
+  const session = useWalletSessionContext();
+  const [deal, setDeal] = useState<DealReadModel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dealId) return;
+    setLoading(true);
+    setError(null);
+    fetchDeal(dealId)
+      .then(setDeal)
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load receipt."))
+      .finally(() => setLoading(false));
+  }, [dealId]);
+
+  const settledAt = deal ? getSettledAt(deal) : null;
+
+  return (
+    <AppShell maxWidth={760}>
+      <Link href={`/deal/${dealId}`} style={backLinkStyle}>
+        ← Back to deal
+      </Link>
+
+      {loading && (
+        <p style={loadingStyle}>Loading receipt…</p>
+      )}
+
+      {error && (
+        <Notice message={error} title="Could not load receipt" tone="danger" />
+      )}
+
+      {!loading && !error && deal && (
+        <>
+          {deal.status !== "Released" && deal.status !== "Refunded" && (
+            <Notice
+              message="This deal hasn't settled yet. The receipt will be available once the deal is released or refunded."
+              tone="warning"
+            />
+          )}
+
+          <div className="receipt">
+            <div className="receipt__seal">
+              <ArrabonSeal size={64} tone="gold-line" />
+            </div>
+
+            <h1 className="receipt__title">{getReceiptTitle(deal.status)}</h1>
+            <p className="receipt__sub">{getReceiptSub(deal)}</p>
+
+            <div className="receipt__details">
+              <DetailRow
+                bordered={false}
+                label="Amount"
+                value={`${deal.price_usdc} USDC`}
+                accent
+              />
+              <DetailRow
+                label="Deal"
+                mono
+                value={deal.id.slice(0, 8).toUpperCase()}
+              />
+              <DetailRow
+                label="Seller"
+                mono
+                value={truncateAddress(deal.seller_address)}
+              />
+              <DetailRow
+                label="Buyer"
+                mono
+                value={truncateAddress(deal.buyer_address)}
+              />
+              <DetailRow
+                label="Scheduled"
+                value={formatDate(deal.scheduled_at)}
+              />
+              {settledAt && (
+                <DetailRow
+                  label="Settled"
+                  value={formatDate(settledAt)}
+                />
+              )}
+              {deal.tx_hash && (
+                <DetailRow
+                  label="Tx hash"
+                  mono
+                  value={
+                    <a
+                      href={`https://basescan.org/tx/${deal.tx_hash}`}
+                      rel="noreferrer"
+                      style={txLinkStyle}
+                      target="_blank"
+                    >
+                      {deal.tx_hash.slice(0, 10)}…
+                    </a>
+                  }
+                />
+              )}
+            </div>
+
+            <div className="receipt__foot">
+              <ArrabonSeal size={18} tone="auto" />
+              <span className="receipt__foot-text">
+                Settled on <strong>Base Network</strong> via <strong>Arrabon</strong> escrow.{" "}
+                Powered by smart contract{" "}
+                <a
+                  href="https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD"
+                  rel="noreferrer"
+                  style={txLinkStyle}
+                  target="_blank"
+                >
+                  0x2EB0…1C5aD
+                </a>.
+              </span>
+            </div>
+          </div>
+
+          <div style={actionsStyle}>
+            <Link href={`/deal/${dealId}`} style={{ textDecoration: "none" }}>
+              <Btn size="md" variant="ghost">View deal</Btn>
+            </Link>
+            <Btn
+              size="md"
+              variant="ghost"
+              onClick={() => window.print()}
+            >
+              Print receipt
+            </Btn>
+          </div>
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+const backLinkStyle = {
+  alignSelf: "flex-start",
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 500,
+  textDecoration: "none",
+} as const;
+
+const loadingStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
+  textAlign: "center" as const,
+} as const;
+
+const txLinkStyle = {
+  color: "var(--accent)",
+  textDecoration: "none",
+} as const;
+
+const actionsStyle = {
+  display: "flex",
+  gap: 10,
+  justifyContent: "center",
+} as const;

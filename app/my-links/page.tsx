@@ -3,22 +3,14 @@
 // /my-links — Seller's view of their consultation links.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import {
-  Check,
-  Clock,
-  Copy,
-  ExternalLink,
-  Eye,
-  Link2,
-  Plus,
-} from "lucide-react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { fetchMyLinks, type MyLink, type MyLinksFilter } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
+import { Icon } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
@@ -26,6 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListPagination } from "@/components/shared/list-pagination";
 import { Notice } from "@/components/shared/notice";
 import { SegmentedTabs } from "@/components/shared/segmented-tabs";
+import { SkeletonRows } from "@/components/shared/skeleton-rows";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
 
@@ -94,6 +87,7 @@ export default function MyLinksPage() {
     session.siweStatus === "authenticated";
 
   const [filter, setFilter] = useState<MyLinksFilter>("all");
+  const [query, setQuery] = useState("");
   const [links, setLinks] = useState<MyLink[] | null>(null);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -102,9 +96,9 @@ export default function MyLinksPage() {
 
   const createLinkAction = (
     <Link href="/create" style={{ textDecoration: "none" }}>
-      <Btn size="sm">
-        <Plus size={14} />
-        Create link
+      <Btn size="md" variant="primary">
+        <Icon name="utility-plus" size={14} />
+        New link
       </Btn>
     </Link>
   );
@@ -138,13 +132,13 @@ export default function MyLinksPage() {
       return null;
     }
 
-    if (filter === "all" && links.length === 0) {
+    if (filter === "all" && links.length === 0 && !query) {
       return (
         <EmptyState
           action={createLinkAction}
           description="Create a consultation link to get started."
-          icon={<Link2 size={36} />}
-          title="No links"
+          icon={<Icon name="utility-plus" size={28} />}
+          title="No links yet"
         />
       );
     }
@@ -152,16 +146,38 @@ export default function MyLinksPage() {
     if (links.length === 0) {
       return (
         <EmptyState
-          description="Try another filter."
-          icon={<Link2 size={36} />}
+          action={query ? (
+            <Btn size="sm" variant="ghost" onClick={() => setQuery("")}>Clear search</Btn>
+          ) : (
+            <Btn size="sm" variant="ghost" onClick={() => { setFilter("all"); setPage(0); }}>Show all</Btn>
+          )}
+          description={query ? `No links match "${query}".` : "Try another filter."}
+          icon={<Icon name="utility-search" size={28} />}
           title="No matching links"
         />
       );
     }
 
-    return links.map((link, index) => (
+    const filtered = query.trim()
+      ? links.filter((l) =>
+          `${l.title} ${l.id}`.toLowerCase().includes(query.toLowerCase().trim()),
+        )
+      : links;
+
+    if (filtered.length === 0) {
+      return (
+        <EmptyState
+          action={<Btn size="sm" variant="ghost" onClick={() => setQuery("")}>Clear search</Btn>}
+          description={`No links match "${query}".`}
+          icon={<Icon name="utility-search" size={28} />}
+          title="No matching links"
+        />
+      );
+    }
+
+    return filtered.map((link, index) => (
       <LinkRow
-        isLast={index === links.length - 1}
+        isLast={index === filtered.length - 1}
         key={link.id}
         link={link}
       />
@@ -170,9 +186,9 @@ export default function MyLinksPage() {
 
   if (!isAuthenticated) {
     return (
-      <AppShell maxWidth={672}>
+      <AppShell maxWidth={960}>
         <WalletAuthStatePanel
-          icon={<Link2 size={40} />}
+          icon={<Icon name="utility-plus" size={32} />}
           messages={MY_LINKS_AUTH_MESSAGES}
           session={session}
         />
@@ -181,24 +197,39 @@ export default function MyLinksPage() {
   }
 
   return (
-    <AppShell maxWidth={672}>
+    <AppShell maxWidth={960}>
       <div style={pageHeaderStyle}>
-        <h1 style={h1Style}>My links</h1>
+        <div>
+          <h1 style={h1Style}>My links</h1>
+          <p style={subStyle}>Consultation links you've created. Each link can be funded once.</p>
+        </div>
         {createLinkAction}
       </div>
 
-      <SegmentedTabs
-        onChange={(value) => {
-          setFilter(value as MyLinksFilter);
-          setPage(0);
-        }}
-        options={FILTERS}
-        value={filter}
-      />
+      <div style={tabsRowStyle}>
+        <SegmentedTabs
+          onChange={(value) => {
+            setFilter(value as MyLinksFilter);
+            setPage(0);
+          }}
+          options={FILTERS}
+          value={filter}
+        />
+        <div style={searchBoxStyle}>
+          <Icon name="utility-search" size={14} />
+          <input
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by title or link ID…"
+            style={searchInputStyle}
+            type="search"
+            value={query}
+          />
+        </div>
+      </div>
 
       {loading && (
         <ActionPanel style={listPanelStyle}>
-          <LinkSkeletonRows />
+          <SkeletonRows count={3} />
         </ActionPanel>
       )}
 
@@ -236,31 +267,6 @@ export default function MyLinksPage() {
   );
 }
 
-function LinkSkeletonRows() {
-  return (
-    <>
-      {[0, 1, 2].map((item) => (
-        <div
-          key={item}
-          style={{
-            ...rowStyle,
-            borderBottom: item === 2 ? "none" : "1px solid var(--subtle-border)",
-          }}
-        >
-          <div style={{ ...rowIconStyle, color: "transparent" }} />
-          <div style={rowInfoStyle}>
-            <div style={{ ...skeletonLineStyle, width: "55%" }} />
-            <div style={{ ...skeletonLineStyle, marginTop: 8, width: "38%" }} />
-          </div>
-          <div style={{ ...skeletonLineStyle, width: 72 }} />
-          <div style={{ ...skeletonLineStyle, width: 68 }} />
-          <div style={{ ...skeletonLineStyle, width: 72 }} />
-        </div>
-      ))}
-    </>
-  );
-}
-
 function LinkRow({
   isLast,
   link,
@@ -288,14 +294,11 @@ function LinkRow({
         borderBottom: isLast ? "none" : "1px solid var(--subtle-border)",
       }}
     >
-      <div style={rowIconStyle}>
-        <Link2 size={15} />
-      </div>
-
       <div style={rowInfoStyle}>
         <p style={rowTitleStyle}>{link.title}</p>
         <div style={rowMetaStyle}>
-          <Clock size={11} />
+          <span style={monoMetaStyle}>{link.id.slice(0, 8).toUpperCase()}</span>
+          <span>·</span>
           <span>{formatDate(link.scheduled_at, { timeZone: link.timezone })}</span>
         </div>
       </div>
@@ -309,28 +312,26 @@ function LinkRow({
       />
 
       <div style={actionsStyle}>
-        <CopyIconButton
-          disabled={!isOriginReady}
-          text={shareUrl}
-        />
+        <CopyIconButton disabled={!isOriginReady} text={shareUrl} />
 
         {link.status === "Open" && (
-          <IconAnchor
-            disabled={!isOriginReady}
-            href={shareUrl}
-            label="Open checkout"
+          <a
+            aria-label="Open checkout"
+            aria-disabled={!isOriginReady}
+            href={isOriginReady ? shareUrl : undefined}
+            rel="noreferrer"
+            style={iconBtnStyle}
+            target="_blank"
+            title="Open checkout"
           >
-            <ExternalLink size={13} />
-          </IconAnchor>
+            <Icon name="utility-arrow-right" size={13} />
+          </a>
         )}
 
         {link.deal_id && (
-          <IconNextLink
-            href={`/deal/${link.deal_id}`}
-            label="View deal"
-          >
-            <Eye size={13} />
-          </IconNextLink>
+          <Link href={`/deal/${link.deal_id}`} style={iconBtnStyle} title="View deal" aria-label="View deal">
+            <Icon name="utility-chevron-right" size={13} />
+          </Link>
         )}
       </div>
     </div>
@@ -341,117 +342,27 @@ function CopyIconButton({ disabled = false, text }: { disabled?: boolean; text: 
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    if (disabled) {
-      return;
-    }
-
+    if (disabled) return;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // The browser can deny clipboard access. The action is non-critical.
+      // clipboard unavailable
     }
   }
 
   return (
-    <IconButton
-      disabled={disabled}
-      label="Copy link"
-      onClick={handleCopy}
-    >
-      {copied ? <Check size={13} style={{ color: "var(--success)" }} /> : <Copy size={13} />}
-    </IconButton>
-  );
-}
-
-function IconButton({
-  children,
-  disabled = false,
-  label,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
     <button
-      aria-label={label}
+      aria-label="Copy link"
       disabled={disabled}
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(!disabled)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={iconActionStyle(isHovered, disabled)}
-      title={label}
+      onClick={handleCopy}
+      style={{ ...iconBtnStyle, opacity: disabled ? 0.4 : 1 }}
+      title="Copy link"
       type="button"
     >
-      {children}
+      <Icon name={copied ? "status-released" : "utility-copy-address"} size={13} />
     </button>
-  );
-}
-
-function IconAnchor({
-  children,
-  disabled = false,
-  href,
-  label,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  href: string;
-  label: string;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <a
-      aria-label={label}
-      aria-disabled={disabled}
-      href={disabled ? undefined : href}
-      onClick={(event) => {
-        if (disabled) {
-          event.preventDefault();
-        }
-      }}
-      onMouseEnter={() => setIsHovered(!disabled)}
-      onMouseLeave={() => setIsHovered(false)}
-      rel="noreferrer"
-      style={iconActionStyle(isHovered, disabled)}
-      tabIndex={disabled ? -1 : undefined}
-      target="_blank"
-      title={label}
-    >
-      {children}
-    </a>
-  );
-}
-
-function IconNextLink({
-  children,
-  href,
-  label,
-}: {
-  children: ReactNode;
-  href: string;
-  label: string;
-}) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <Link
-      aria-label={label}
-      href={href}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={iconActionStyle(isHovered)}
-      title={label}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -466,48 +377,60 @@ function getMyLinkBadge(link: MyLink): MyLinkBadge {
   return LINK_STATUS_CONFIG[link.status];
 }
 
-function iconActionStyle(isHovered: boolean, isDisabled = false): CSSProperties {
-  return {
-    alignItems: "center",
-    background: isDisabled ? "transparent" : (isHovered ? "var(--muted-bg)" : "transparent"),
-    border: "none",
-    borderRadius: "var(--radius-sm)",
-    color: "var(--muted)",
-    cursor: isDisabled ? "default" : "pointer",
-    display: "inline-flex",
-    height: 32,
-    justifyContent: "center",
-    opacity: isDisabled ? 0.5 : 1,
-    padding: 6,
-    textDecoration: "none",
-    transition: "background 0.15s, color 0.15s",
-    width: 32,
-  };
-}
-
 const pageHeaderStyle = {
-  alignItems: "center",
+  alignItems: "flex-start",
   display: "flex",
   gap: 16,
   justifyContent: "space-between",
 } as const;
 
 const h1Style = {
-  color: "var(--foreground)",
-  fontSize: 24,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
+  fontSize: 28,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  margin: "0 0 4px",
+} as const;
+
+const subStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
   margin: 0,
+} as const;
+
+const tabsRowStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: 12,
+  justifyContent: "space-between",
+} as const;
+
+const searchBoxStyle = {
+  alignItems: "center",
+  background: "var(--surface-2)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--r-3)",
+  color: "var(--muted)",
+  display: "inline-flex",
+  gap: 8,
+  height: 36,
+  padding: "0 12px",
+} as const;
+
+const searchInputStyle = {
+  background: "transparent",
+  border: "none",
+  color: "var(--ink)",
+  font: "inherit",
+  fontSize: 13,
+  outline: "none",
+  width: 200,
 } as const;
 
 const listPanelStyle = {
   overflow: "hidden",
-} as const;
-
-const skeletonLineStyle = {
-  background: "var(--muted-bg)",
-  borderRadius: 999,
-  height: 12,
 } as const;
 
 const rowStyle = {
@@ -515,29 +438,17 @@ const rowStyle = {
   display: "flex",
   flexWrap: "wrap" as const,
   gap: 12,
-  padding: "16px 20px",
-  transition: "background 0.15s",
-} as const;
-
-const rowIconStyle = {
-  alignItems: "center",
-  background: "var(--muted-bg)",
-  borderRadius: "var(--radius)",
-  color: "var(--muted)",
-  display: "inline-flex",
-  flexShrink: 0,
-  height: 36,
-  justifyContent: "center",
-  width: 36,
+  padding: "14px 20px",
+  transition: "background 0.12s",
 } as const;
 
 const rowInfoStyle = {
-  flex: "1 1 220px",
+  flex: "1 1 200px",
   minWidth: 0,
 } as const;
 
 const rowTitleStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 14,
   fontWeight: 500,
   margin: 0,
@@ -550,16 +461,23 @@ const rowMetaStyle = {
   alignItems: "center",
   color: "var(--muted)",
   display: "flex",
+  flexWrap: "wrap" as const,
   fontSize: 12,
-  gap: 6,
-  marginTop: 4,
+  gap: 4,
+  marginTop: 3,
+} as const;
+
+const monoMetaStyle = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 11,
 } as const;
 
 const priceStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   flexShrink: 0,
-  fontSize: 14,
-  fontWeight: 600,
+  fontFamily: "var(--font-mono)",
+  fontSize: 13,
+  fontWeight: 500,
   margin: 0,
 } as const;
 
@@ -569,6 +487,21 @@ const actionsStyle = {
   flexShrink: 0,
   gap: 2,
 } as const;
+
+const iconBtnStyle: CSSProperties = {
+  alignItems: "center",
+  background: "transparent",
+  border: "none",
+  borderRadius: "var(--r-2)",
+  color: "var(--muted)",
+  cursor: "pointer",
+  display: "inline-flex",
+  height: 32,
+  justifyContent: "center",
+  padding: 6,
+  textDecoration: "none",
+  width: 32,
+};
 
 const footerCountStyle = {
   color: "var(--muted)",

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+import { Icon } from "@/components/icons";
+
 interface CopyBtnProps {
   fullWidth?: boolean;
-  text: string;
   label?: string;
+  text: string;
 }
 
 export function CopyBtn({ fullWidth = false, text, label = "Copy" }: CopyBtnProps) {
@@ -17,32 +19,27 @@ export function CopyBtn({ fullWidth = false, text, label = "Copy" }: CopyBtnProp
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback: select text
+      // clipboard API unavailable
     }
   };
 
   return (
-    <button
-      onClick={handleCopy}
-      style={{
-        alignItems: "center",
-        background: copied ? "var(--success-muted)" : "var(--muted-bg)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-sm)",
-        color: copied ? "var(--success)" : "var(--muted)",
-        cursor: "pointer",
-        display: "inline-flex",
-        fontSize: 14,
-        fontWeight: 500,
-        gap: 4,
-        minHeight: 44,
-        padding: "0 12px",
-        transition: "background 0.2s, color 0.2s",
-        width: fullWidth ? "100%" : undefined,
-      }}
-      type="button"
+    <div
+      className="copy-field"
+      style={fullWidth ? { width: "100%" } : undefined}
     >
-      {copied ? "✓ Copied" : label}
-    </button>
+      <span className="copy-field__value">{text}</span>
+      <button
+        className="copy-field__btn"
+        type="button"
+        onClick={handleCopy}
+      >
+        <Icon
+          name={copied ? "status-released" : "utility-copy-address"}
+          size={13}
+        />
+        {copied ? "Copied" : label}
+      </button>
+    </div>
   );
 }

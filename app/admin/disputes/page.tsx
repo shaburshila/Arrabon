@@ -6,9 +6,12 @@ import type { Hex } from "viem";
 import { useConfig } from "wagmi";
 
 import {
-  getAdminResolveAvailability,
+  adminDealLinkLabel,
+  adminDealStatusLabel,
+  adminDealStatusTone,
   shouldShowFlaggedDeal,
 } from "@/app/admin/disputes/ui";
+import { AdminDisputeResolveControls } from "@/app/admin/disputes/resolve-controls";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { ApiError } from "@/lib/api/auth";
 import {
@@ -63,18 +66,6 @@ const emptyResolveState: ResolveState = {
   txHash: null,
 };
 
-interface AdminDisputeResolveControlsProps {
-  acknowledgedReviewRisk: boolean;
-  confirmForDeal: { dealId: string; resolution: AdminResolution } | null;
-  deal: AdminDealReview;
-  isResolving: boolean;
-  onAcknowledgeReviewRiskChange: (checked: boolean) => void;
-  onConfirmingChange: (
-    next: { dealId: string; resolution: AdminResolution } | null,
-  ) => void;
-  onResolve: (deal: AdminDealReview, resolution: AdminResolution) => void;
-}
-
 const PAGE_SIZE = 20;
 const VIEW_OPTIONS = [
   { label: "Open disputes", value: "open" },
@@ -84,24 +75,6 @@ type AdminDisputesView = (typeof VIEW_OPTIONS)[number]["value"];
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
-}
-
-function actionLabel(resolution: AdminResolution) {
-  return resolution === "release" ? "Release to seller" : "Refund to buyer";
-}
-
-export function adminDealStatusLabel(status: AdminDealReview["status"]) {
-  return status === "ConfirmPending" ? "Awaiting confirmation" : "Disputed";
-}
-
-export function adminDealStatusTone(
-  status: AdminDealReview["status"],
-): "danger" | "warning" {
-  return status === "ConfirmPending" ? "warning" : "danger";
-}
-
-export function adminDealLinkLabel(status: AdminDealReview["status"]) {
-  return status === "ConfirmPending" ? "View blocked deal" : "View dispute";
 }
 
 function statusText(state: ResolveState) {
@@ -137,99 +110,6 @@ function resolveNoticeTone(
   }
 
   return "info";
-}
-
-export function AdminDisputeResolveControls({
-  acknowledgedReviewRisk,
-  confirmForDeal,
-  deal,
-  isResolving,
-  onAcknowledgeReviewRiskChange,
-  onConfirmingChange,
-  onResolve,
-}: AdminDisputeResolveControlsProps) {
-  const resolveAvailability = getAdminResolveAvailability(
-    deal.risk_status,
-    acknowledgedReviewRisk,
-  );
-  const actionDisabled = isResolving || resolveAvailability.disabled;
-
-  return (
-    <>
-      {deal.risk_status === "Blocked" && (
-        <Notice
-          message="Funds in legal hold. Do not resolve this dispute until cleared by counsel. Both release and refund may constitute an OFAC violation."
-          title="Legal hold"
-          tone="danger"
-        />
-      )}
-
-      {deal.risk_status === "Review" && (
-        <Notice
-          message="This deal is flagged for review. Acknowledge the risk before resolving the dispute."
-          title="Manual review required"
-          tone="warning"
-        />
-      )}
-
-      {deal.risk_status === "Review" && (
-        <label style={acknowledgeLabelStyle}>
-          <input
-            checked={acknowledgedReviewRisk}
-            onChange={(event) => onAcknowledgeReviewRiskChange(event.target.checked)}
-            type="checkbox"
-          />
-          <span>I understand the compliance review risk and want to continue.</span>
-        </label>
-      )}
-
-      {confirmForDeal ? (
-        <div style={confirmStyle}>
-          <p style={confirmTextStyle}>
-            {confirmForDeal.resolution === "release"
-              ? `Release ${deal.price_usdc} USDC to seller?`
-              : `Refund ${deal.price_usdc} USDC to buyer?`}
-          </p>
-          <div style={actionsStyle}>
-            <Btn
-              disabled={actionDisabled}
-              disabledReason={resolveAvailability.disabledReason ?? undefined}
-              onClick={() => onResolve(deal, confirmForDeal.resolution)}
-              variant={confirmForDeal.resolution === "release" ? "primary" : "danger"}
-            >
-              {actionLabel(confirmForDeal.resolution)}
-            </Btn>
-            <Btn
-              disabled={isResolving}
-              onClick={() => onConfirmingChange(null)}
-              variant="ghost"
-            >
-              Cancel
-            </Btn>
-          </div>
-        </div>
-      ) : (
-        <div style={actionsStyle}>
-          <Btn
-            disabled={actionDisabled}
-            disabledReason={resolveAvailability.disabledReason ?? undefined}
-            onClick={() => onConfirmingChange({ dealId: deal.id, resolution: "release" })}
-            variant="primary"
-          >
-            Release to seller
-          </Btn>
-          <Btn
-            disabled={actionDisabled}
-            disabledReason={resolveAvailability.disabledReason ?? undefined}
-            onClick={() => onConfirmingChange({ dealId: deal.id, resolution: "refund" })}
-            variant="danger"
-          >
-            Refund to buyer
-          </Btn>
-        </div>
-      )}
-    </>
-  );
 }
 
 export default function AdminDisputesPage() {
@@ -469,14 +349,17 @@ export default function AdminDisputesPage() {
 
   return (
     <AppShell maxWidth={860}>
+      <nav className="admin-subnav">
+        <span className="admin-badge">Admin</span>
+        <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
+        <Link href="/admin/denylist" style={adminNavLinkStyle}>Denylist</Link>
+      </nav>
+
       <div style={headerStyle}>
         <h1 style={h1Style}>Disputes</h1>
         <p style={subtitleStyle}>
           Review disputed and blocked payout-path deals and prepare the admin resolution transaction.
         </p>
-        <Link href="/admin/denylist" style={adminLinkStyle}>
-          Open compliance denylist →
-        </Link>
       </div>
 
       <WalletSessionCard session={session} />
@@ -786,23 +669,25 @@ const headerStyle = {
 };
 
 const h1Style = {
-  fontSize: 32,
-  lineHeight: 1.1,
-  margin: 0,
+  color: "var(--ink)",
+  fontFamily: "var(--font-serif)",
+  fontSize: 28,
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
+  margin: "0 0 4px",
 };
 
 const subtitleStyle = {
   color: "var(--muted)",
-  fontSize: 15,
+  fontSize: 14,
   lineHeight: 1.5,
   margin: 0,
 };
 
-const adminLinkStyle = {
-  alignSelf: "flex-start",
-  color: "var(--accent)",
-  fontSize: 13,
-  fontWeight: 600,
+const adminNavLinkStyle = {
+  color: "var(--muted)",
+  fontSize: 14,
+  fontWeight: 500,
   textDecoration: "none",
 };
 
