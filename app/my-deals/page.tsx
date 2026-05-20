@@ -241,7 +241,7 @@ function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
         {deal.price_usdc}
         <span className="list-row__price-token">USDC</span>
       </span>
-      <StatusPill bg={badge.bg} color={badge.color} label={badge.label} />
+      <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />
       <span className="list-row__trailing">{dealTrailingLabel(deal.status)}</span>
       <span className="list-row__chevron">
         <Icon name="utility-chevron-right" size={14} />

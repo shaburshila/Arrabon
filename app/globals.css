@@ -937,7 +937,7 @@ select {
   min-height: calc(100vh - 64px);
   display: flex;
   align-items: center;
-  padding: 32px 0;
+  padding: 32px 0 120px;
   z-index: 0;
 }
 
@@ -983,7 +983,7 @@ select {
 
 .landing-scroll-hint {
   position: absolute;
-  bottom: 24px;
+  bottom: 64px;
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -1157,7 +1157,7 @@ select {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 48px;
-  padding-bottom: 36px;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -1175,7 +1175,7 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 24px;
+  padding-top: 18px;
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -1545,6 +1545,7 @@ select {
 }
 
 .create-split__preview {
+  align-self: start;
   position: sticky;
   top: 88px;
 }
@@ -1562,7 +1563,7 @@ select {
   cursor: pointer;
   display: grid;
   gap: 20px;
-  grid-template-columns: minmax(0, 1fr) 130px 110px 150px 28px;
+  grid-template-columns: minmax(0, 1fr) 130px minmax(160px, auto) 160px 28px;
   padding: 18px 24px;
   text-decoration: none;
   transition: background 0.12s;

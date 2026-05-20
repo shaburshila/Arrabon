@@ -23,7 +23,6 @@ import { SectionLabel } from "@/components/shared/section-label";
 import { TextArea } from "@/components/shared/text-area";
 import { TextInput } from "@/components/shared/text-input";
 import { TokenAmountRow } from "@/components/shared/token-amount-row";
-import { WalletSessionCard } from "@/components/shared/wallet-session-card";
 import { truncateAddress } from "@/lib/ui/address";
 
 const DEFAULT_EXPIRATION_OFFSET_MS = 5 * 60 * 1000;
@@ -303,7 +302,6 @@ export function CreateLinkForm(props: Props) {
   if (shareUrl) {
     return (
       <>
-        <PageHeader />
         <ActionPanel style={successPanelStyle}>
           <div style={successIconStyle} aria-hidden>
             ✓
@@ -346,237 +344,190 @@ export function CreateLinkForm(props: Props) {
   const primaryAction = getPrimaryAction();
 
   return (
-    <>
-      <PageHeader />
-
-      <WalletSessionCard session={session} hideActions />
-
-      <form onSubmit={handleSubmit}>
-        <ActionPanel style={formPanelStyle}>
-          <div style={panelHeaderStyle}>
-            <h2 style={panelTitleStyle}>Create link</h2>
-            <p style={panelSubtitleStyle}>
-              Define the consultation, payment, and access details for this booking.
-            </p>
-          </div>
-
+    <form onSubmit={handleSubmit} style={formStackStyle}>
+      <ActionPanel style={cardPaddedStyle}>
+        <div style={sectionStackStyle}>
           <SectionLabel>Consultation</SectionLabel>
-          <InnerSection style={sectionStackStyle}>
-            <FormField label="Title">
-              <TextInput
-                id="title"
-                onChange={(e) => setField("title", e.target.value)}
-                placeholder="e.g. 30-min Strategy Call"
-                required
-                type="text"
-                value={form.title}
-              />
-            </FormField>
-            <Divider />
-            <FormField label="Description">
-              <TextArea
-                id="description"
-                onChange={(e) => setField("description", e.target.value)}
-                placeholder="What will you cover in this consultation?"
-                rows={4}
-                value={form.description}
-              />
-            </FormField>
-          </InnerSection>
-
-          <SectionLabel>Payment</SectionLabel>
-          <InnerSection style={sectionStackStyle}>
-            <TokenAmountRow
-              amount={form.price_usdc}
-              label="Price"
-              onChange={(value) => setField("price_usdc", value)}
+          <FormField label="Title">
+            <TextInput
+              id="title"
+              onChange={(e) => setField("title", e.target.value)}
+              placeholder="e.g. 30-min Strategy Call"
               required
-              sublabel="You will receive this amount in full. Buyer pays an additional platform fee (3%, min $1.50, max $30)."
-              token="USDC"
+              type="text"
+              value={form.title}
             />
-            <Divider />
-            <DetailRow
-              bordered={false}
-              label="Seller"
-              value={sellerAddress}
+          </FormField>
+          <FormField label="Description" helper="A short note for the buyer.">
+            <TextArea
+              id="description"
+              onChange={(e) => setField("description", e.target.value)}
+              placeholder="What will you cover in this consultation?"
+              rows={4}
+              value={form.description}
             />
-          </InnerSection>
+          </FormField>
+        </div>
+      </ActionPanel>
 
-          <SectionLabel>Schedule</SectionLabel>
-          <InnerSection style={sectionStackStyle}>
-            <div style={twoColumnRowStyle}>
-              <FormField label="Date">
-                <TextInput
-                  id="scheduled_date"
-                  onChange={(e) => setField("scheduled_date", e.target.value)}
-                  required
-                  type="date"
-                  value={form.scheduled_date}
-                />
-              </FormField>
-              <FormField label="Time">
-                <TextInput
-                  id="scheduled_time"
-                  onChange={(e) => setField("scheduled_time", e.target.value)}
-                  required
-                  type="time"
-                  value={form.scheduled_time}
-                />
-              </FormField>
-            </div>
-            <Divider />
-
-            <FormField label="Duration (min)">
-              <TextInput
-                id="duration_minutes"
-                max="1440"
-                min="1"
-                onChange={(e) => setField("duration_minutes", e.target.value)}
-                required
-                type="number"
-                value={form.duration_minutes}
-              />
-            </FormField>
-
-            <div>
-              <DetailRow
-                bordered={false}
-                label="Timezone"
-                value={form.timezone}
-              />
-              <p style={helperTextStyle}>
-                Times are saved from your current browser timezone.
-              </p>
-            </div>
-          </InnerSection>
-
-          <SectionLabel>Link expiration</SectionLabel>
-          <InnerSection style={sectionStackStyle}>
-            <div style={twoColumnRowStyle}>
-              <FormField label="Expiration date">
-                <TextInput
-                  id="expires_date"
-                  onChange={(e) => setExpirationField("expires_date", e.target.value)}
-                  required
-                  type="date"
-                  value={form.expires_date}
-                />
-              </FormField>
-              <FormField label="Expiration time">
-                <TextInput
-                  id="expires_time"
-                  onChange={(e) => setExpirationField("expires_time", e.target.value)}
-                  required
-                  type="time"
-                  value={form.expires_time}
-                />
-              </FormField>
-            </div>
-            <p style={helperTextStyle}>
-              Can be at or before the scheduled time.
-            </p>
-          </InnerSection>
-
-          <SectionLabel>Private meeting</SectionLabel>
-          <InnerSection style={sectionStackStyle}>
-            <FormField
-              helper="Revealed only after funding."
-              label="Meeting URL"
-            >
-              <TextInput
-                id="meeting_url"
-                onChange={(e) => setField("meeting_url", e.target.value)}
-                placeholder="https://meet.example.com/your-room"
-                required
-                type="url"
-                value={form.meeting_url}
-              />
-            </FormField>
-          </InnerSection>
-
-          {compliance.isBlocked ? (
-            <ComplianceBlockedNotice
-              reasonCode={compliance.complianceReasonCode}
-              walletAddress={compliance.complianceWallet}
-            />
-          ) : null}
-
-          <div aria-live="polite" role="status">
-            {!compliance.isBlocked && error ? (
-              <Notice
-                message={error}
-                title="Could not create link"
-                tone="danger"
-              />
-            ) : null}
-          </div>
-
-          <Notice
-            message="Funds are held in escrow on Base until the consultation is confirmed or disputed."
-            tone="info"
+      <ActionPanel style={cardPaddedStyle}>
+        <div style={sectionStackStyle}>
+          <SectionLabel>Payment</SectionLabel>
+          <TokenAmountRow
+            amount={form.price_usdc}
+            label="Price"
+            onChange={(value) => setField("price_usdc", value)}
+            required
+            sublabel="You will receive this amount in full. Buyer pays an additional 3% platform fee (min $1.50, max $30)."
+            token="USDC"
           />
+          <DetailRow bordered={false} label="Seller wallet" mono value={sellerAddress} />
+        </div>
+      </ActionPanel>
 
-          <Btn
-            disabled={primaryAction.disabled}
-            fullWidth
-            loading={primaryAction.loading}
-            onClick={primaryAction.onClick}
-            type={primaryAction.type}
-          >
-            {primaryAction.label}
-          </Btn>
-        </ActionPanel>
-      </form>
-    </>
+      <ActionPanel style={cardPaddedStyle}>
+        <div style={sectionStackStyle}>
+          <SectionLabel>Schedule</SectionLabel>
+          <div style={twoColumnRowStyle}>
+            <FormField label="Date">
+              <TextInput
+                id="scheduled_date"
+                onChange={(e) => setField("scheduled_date", e.target.value)}
+                required
+                type="date"
+                value={form.scheduled_date}
+              />
+            </FormField>
+            <FormField label="Time">
+              <TextInput
+                id="scheduled_time"
+                onChange={(e) => setField("scheduled_time", e.target.value)}
+                required
+                type="time"
+                value={form.scheduled_time}
+              />
+            </FormField>
+          </div>
+          <FormField label="Duration (minutes)">
+            <TextInput
+              id="duration_minutes"
+              max="1440"
+              min="1"
+              onChange={(e) => setField("duration_minutes", e.target.value)}
+              required
+              type="number"
+              value={form.duration_minutes}
+            />
+          </FormField>
+          <FormField helper="Locked to your browser's timezone." label="Timezone">
+            <TextInput disabled id="timezone" type="text" value={form.timezone} />
+          </FormField>
+        </div>
+      </ActionPanel>
+
+      <ActionPanel style={cardPaddedStyle}>
+        <div style={sectionStackStyle}>
+          <SectionLabel>Link expiration</SectionLabel>
+          <div style={twoColumnRowStyle}>
+            <FormField label="Expiration date">
+              <TextInput
+                id="expires_date"
+                onChange={(e) => setExpirationField("expires_date", e.target.value)}
+                required
+                type="date"
+                value={form.expires_date}
+              />
+            </FormField>
+            <FormField label="Expiration time">
+              <TextInput
+                id="expires_time"
+                onChange={(e) => setExpirationField("expires_time", e.target.value)}
+                required
+                type="time"
+                value={form.expires_time}
+              />
+            </FormField>
+          </div>
+          <p style={helperTextStyle}>
+            The link cannot be funded after this time. Defaults to 5 minutes before the consultation.
+          </p>
+        </div>
+      </ActionPanel>
+
+      <ActionPanel style={cardPaddedStyle}>
+        <div style={sectionStackStyle}>
+          <SectionLabel>Private meeting</SectionLabel>
+          <FormField helper="Revealed only after the buyer funds escrow." label="Meeting URL">
+            <TextInput
+              id="meeting_url"
+              onChange={(e) => setField("meeting_url", e.target.value)}
+              placeholder="https://meet.example.com/your-room"
+              required
+              type="url"
+              value={form.meeting_url}
+            />
+          </FormField>
+        </div>
+      </ActionPanel>
+
+      {compliance.isBlocked && (
+        <ComplianceBlockedNotice
+          reasonCode={compliance.complianceReasonCode}
+          walletAddress={compliance.complianceWallet}
+        />
+      )}
+      {!compliance.isBlocked && error && (
+        <Notice message={error} title="Could not create link" tone="danger" />
+      )}
+
+      <Notice
+        icon="utility-secure-subtle"
+        message="USDC is locked in the Arrabon contract on Base until the consultation is confirmed or disputed."
+        title="Funds held in escrow"
+        tone="gold"
+      />
+
+      <Btn
+        disabled={primaryAction.disabled}
+        fullWidth
+        loading={primaryAction.loading}
+        onClick={primaryAction.onClick}
+        size="lg"
+        type={primaryAction.type}
+      >
+        {primaryAction.label}
+      </Btn>
+    </form>
   );
 }
 
-function PageHeader() {
-  return (
-    <div style={headerStyle}>
-      <h1 style={h1Style}>Create consultation link</h1>
-      <p style={subtitleStyle}>
-        Set the terms, share the link, and let the buyer fund escrow on Base.
-      </p>
-    </div>
-  );
-}
-
-function Divider() {
-  return <div style={dividerStyle} />;
-}
-
-const headerStyle = {
-  paddingBottom: 4,
+const formStackStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 24,
 };
 
-const h1Style = {
-  fontSize: 24,
-  fontWeight: 800,
-  letterSpacing: "0",
-  margin: "0 0 8px",
+const cardPaddedStyle = {
+  padding: "24px 28px",
 };
 
-const subtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 15,
-  lineHeight: 1.5,
+const sectionStackStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 18,
+};
+
+const twoColumnRowStyle = {
+  display: "grid",
+  gap: 12,
+  gridTemplateColumns: "1fr 1fr",
+};
+
+const helperTextStyle = {
+  color: "var(--muted-2)",
+  fontSize: 12,
+  lineHeight: 1.45,
   margin: 0,
-};
-
-const formPanelStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 14,
-  padding: 18,
-};
-
-const panelHeaderStyle = {
-  borderBottom: "1px solid var(--subtle-border)",
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 6,
-  padding: "2px 4px 14px",
 };
 
 const panelTitleStyle = {
@@ -591,30 +542,6 @@ const panelSubtitleStyle = {
   fontSize: 14,
   lineHeight: 1.45,
   margin: 0,
-};
-
-const sectionStackStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 14,
-};
-
-const twoColumnRowStyle = {
-  display: "grid",
-  gap: 10,
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-};
-
-const helperTextStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  lineHeight: 1.45,
-  margin: "4px 0 0",
-};
-
-const dividerStyle = {
-  borderTop: "1px solid var(--subtle-border)",
-  height: 0,
 };
 
 const successPanelStyle = {

@@ -13,7 +13,7 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
     bg: "var(--amber-bg)",
     color: "var(--amber)",
     icon: "status-confirm-pending",
-    label: "Awaiting confirmation",
+    label: "Confirm Pending",
   },
   Disputed: {
     bg: "var(--red-bg)",

@@ -11,7 +11,7 @@ import { fetchMyLinks, type MyLink, type MyLinksFilter } from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
 import { dealTrailingLabel } from "@/lib/ui/deal-trailing-label";
-import { Icon } from "@/components/icons";
+import { Icon, type IconName } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
@@ -305,7 +305,7 @@ function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
         {link.price_usdc}
         <span className="list-row__price-token">USDC</span>
       </span>
-      <StatusPill bg={badge.bg} color={badge.color} label={badge.label} />
+      <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />
       <span className="list-row__trailing">{trailing}</span>
       <span className="list-row__chevron">
         <Icon name="utility-chevron-right" size={14} />
@@ -314,7 +314,7 @@ function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
   );
 }
 
-function getMyLinkBadge(link: MyLink): MyLinkBadge {
+function getMyLinkBadge(link: MyLink): MyLinkBadge & { icon?: IconName } {
   if (link.deal_status) {
     return getDealDisplayConfig({
       resolution_type: link.deal_resolution_type,
@@ -322,7 +322,17 @@ function getMyLinkBadge(link: MyLink): MyLinkBadge {
     });
   }
 
-  return LINK_STATUS_CONFIG[link.status];
+  const linkIconByStatus: Record<MyLink["status"], IconName> = {
+    Open: "status-open",
+    Consumed: "status-funded-escrow-held",
+    Cancelled: "utility-close",
+    Draft: "status-payment-pending",
+    Expired: "status-expired",
+  };
+  return {
+    ...LINK_STATUS_CONFIG[link.status],
+    icon: linkIconByStatus[link.status],
+  };
 }
 
 const pageHeaderStyle = {

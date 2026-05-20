@@ -191,8 +191,8 @@ function FinalCtaSection() {
 
 function SiteFooter() {
   return (
-    <footer className="site-footer" style={fullBleedSection}>
-      <div style={{ ...sectionInner, paddingTop: 48, paddingBottom: 48 }}>
+    <footer className="site-footer" style={footerSectionStyle}>
+      <div style={{ ...sectionInner, paddingTop: 32, paddingBottom: 24 }}>
         <div className="site-footer__grid">
           <div className="stack-12">
             <span style={brandStyle}>
@@ -356,6 +356,14 @@ const fullBleedSection = {
   marginLeft: "calc(50% - 50vw)",
   marginRight: "calc(50% - 50vw)",
   padding: "64px calc(50vw - 50% + 16px)",
+  width: "auto",
+};
+
+const footerSectionStyle = {
+  boxSizing: "border-box" as const,
+  marginLeft: "calc(50% - 50vw)",
+  marginRight: "calc(50% - 50vw)",
+  padding: "32px calc(50vw - 50% + 16px) 16px",
   width: "auto",
 };
 
