@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
 import { AppShell } from "@/components/app/app-shell";
@@ -22,6 +22,33 @@ const emptyPreview: LinkPreviewValues = {
 export default function CreatePage() {
   const session = useWalletSessionContext();
   const [preview, setPreview] = useState<LinkPreviewValues>(emptyPreview);
+  const sellerAddress = session.address ?? "";
+
+  const handleValuesChange = useCallback(
+    (values: {
+      description: string;
+      duration_minutes: string;
+      expires_date: string;
+      expires_time: string;
+      price_usdc: string;
+      scheduled_date: string;
+      scheduled_time: string;
+      title: string;
+    }) => {
+      setPreview({
+        description: values.description,
+        duration_minutes: values.duration_minutes,
+        expires_date: values.expires_date,
+        expires_time: values.expires_time,
+        price_usdc: values.price_usdc,
+        scheduled_date: values.scheduled_date,
+        scheduled_time: values.scheduled_time,
+        seller_address: sellerAddress,
+        title: values.title,
+      });
+    },
+    [sellerAddress],
+  );
 
   return (
     <AppShell maxWidth={1100}>
@@ -35,22 +62,7 @@ export default function CreatePage() {
 
       <div className="create-split">
         <div>
-          <CreateLinkForm
-            session={session}
-            onValuesChange={(values) =>
-              setPreview({
-                description: values.description,
-                duration_minutes: values.duration_minutes,
-                expires_date: values.expires_date,
-                expires_time: values.expires_time,
-                price_usdc: values.price_usdc,
-                scheduled_date: values.scheduled_date,
-                scheduled_time: values.scheduled_time,
-                seller_address: session.address ?? "",
-                title: values.title,
-              })
-            }
-          />
+          <CreateLinkForm session={session} onValuesChange={handleValuesChange} />
         </div>
         <aside className="create-split__preview">
           <LinkPreviewCard values={preview} />
@@ -63,8 +75,8 @@ export default function CreatePage() {
 const pageHeaderStyle = {
   display: "flex",
   flexDirection: "column" as const,
-  gap: 10,
-  marginBottom: 32,
+  gap: 12,
+  marginBottom: 48,
   maxWidth: 720,
 };
 

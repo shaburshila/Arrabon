@@ -27,3 +27,28 @@
 - WalletSessionCard полностью удалён из CreateLinkForm (включая импорт и success branch ничего не теряет — top-pill в shell справляется).
 - `panelTitleStyle` и `panelSubtitleStyle` сохранены — используются в success branch (Link created card).
 - В app/my-deals "Awaiting confirmation" в admin/disputes/ui.ts оставлен как есть (вне scope плана-2).
+
+## Plan-3 — completed
+
+### Phase G — LifecycleTimeline grid fix
+- app/globals.css — .timeline → flex column, .timeline__row → grid 20px/1fr
+
+### Phase H — Infinite loop fix on /create
+- app/create/page.tsx — handleValuesChange wrapped in useCallback
+
+### Phase I — Landing CTA accent + top-nav height
+- app/globals.css — .landing-cta__title .accent added to italic-gold selectors
+- components/app/top-nav.tsx — header padding 14→18, brand-mark 28→32
+
+### Phase J — List rows typography
+- app/globals.css — .list-row* font-sizes bumped for premium feel
+
+### Phase K — Create page breathing
+- app/create/page.tsx — pageHeaderStyle marginBottom 32→48, gap 10→12
+- components/app/app-shell.tsx — mainStyle padding-top 88→104
+
+**Final checks:**
+- npm run typecheck — clean
+- npm run build — clean
+- npm run test:unit — 12/12 passing
+

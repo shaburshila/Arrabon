@@ -43,9 +43,9 @@ export function TopNav() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               alt="Arrabon"
-              height={28}
+              height={32}
               src={isDark ? "/alpha-lock-full-gold.svg" : "/alpha-lock-full-graphite.svg"}
-              width={28}
+              width={32}
             />
           </span>
           <span style={brandWordStyle}>Arrabon</span>
@@ -106,7 +106,7 @@ const headerInnerStyle = {
   gap: 32,
   gridTemplateColumns: "auto 1fr auto",
   maxWidth: 1280,
-  padding: "14px 32px",
+  padding: "18px 32px",
   width: "100%",
 } as const;
 
@@ -122,9 +122,9 @@ const brandStyle = {
 const brandMarkStyle = {
   alignItems: "center",
   display: "inline-grid",
-  height: 28,
+  height: 32,
   placeItems: "center",
-  width: 28,
+  width: 32,
 } as const;
 
 const brandWordStyle = {
