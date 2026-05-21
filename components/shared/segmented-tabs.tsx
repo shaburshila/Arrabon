@@ -19,10 +19,11 @@ export function SegmentedTabs({
   return (
     <div
       style={{
-        background: "var(--muted-bg)",
-        borderRadius: "var(--radius)",
+        background: "var(--surface-2)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--r-3)",
         display: "flex",
-        gap: 4,
+        gap: 2,
         overflowX: "auto",
         padding: 4,
         ...style,
@@ -36,15 +37,15 @@ export function SegmentedTabs({
             key={option.value}
             onClick={() => onChange(option.value)}
             style={{
-              background: active ? "var(--panel)" : "transparent",
+              background: active ? "var(--surface)" : "transparent",
               border: "none",
-              borderRadius: "var(--radius-sm)",
-              boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
-              color: active ? "var(--foreground)" : "var(--muted)",
+              borderRadius: "var(--r-2)",
+              boxShadow: active ? "var(--shadow-1)" : "none",
+              color: active ? "var(--ink)" : "var(--muted)",
               flexShrink: 0,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 500,
-              padding: "7px 14px",
+              padding: "8px 16px",
               whiteSpace: "nowrap",
             }}
             type="button"

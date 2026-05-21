@@ -98,9 +98,13 @@ export default function DealPage() {
 
   return (
     <AppShell maxWidth={1180}>
-      <Link href={backLink.href} style={backLinkStyle}>
-        <Icon name="utility-arrow-left" size={14} style={{ marginRight: 4 }} />
-        {backLink.label}
+      <Link
+        href={backLink.href}
+        className="btn btn--quiet btn--sm"
+        style={{ alignSelf: "flex-start", marginBottom: 16 }}
+      >
+        <Icon name="utility-arrow-left" size={14} />
+        Back to {backLink.label.toLowerCase()}
       </Link>
 
       {dealPage.status === "loading" && (
@@ -175,7 +179,7 @@ export default function DealPage() {
                 </>
               )}
               <span className="live-dot" style={{ marginLeft: "auto" }} />
-              <span style={{ color: "var(--muted)", fontSize: 12 }}>Live</span>
+              <span style={{ color: "var(--muted)", fontSize: 13 }}>Live</span>
             </div>
           )}
 
@@ -261,14 +265,3 @@ const centerStyle = {
   minHeight: 200,
 } as const;
 
-const backLinkStyle = {
-  alignItems: "center",
-  alignSelf: "flex-start",
-  color: "var(--muted)",
-  display: "inline-flex",
-  fontSize: 13,
-  fontWeight: 500,
-  textDecoration: "none",
-  gap: 4,
-  marginBottom: 16,
-} as const;

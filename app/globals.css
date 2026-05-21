@@ -1136,7 +1136,7 @@ select {
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 4px;
+  margin-top: 12px;
 }
 
 .landing-cta__trust {
@@ -1144,6 +1144,7 @@ select {
   gap: 28px;
   flex-wrap: wrap;
   justify-content: center;
+  margin-top: 16px;
   padding-top: 20px;
   border-top: 1px solid var(--rule);
   width: 100%;
@@ -1498,7 +1499,7 @@ select {
 .deal-split__right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   min-width: 0;
 }
 
@@ -1530,7 +1531,7 @@ select {
   align-items: center;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .link-split {
@@ -1545,7 +1546,7 @@ select {
   flex-direction: column;
   gap: 16px;
   position: sticky;
-  top: 32px;
+  top: 88px;
 }
 
 @media (max-width: 900px) {
@@ -1559,7 +1560,7 @@ select {
 .create-split {
   align-items: start;
   display: grid;
-  gap: 32px;
+  gap: 28px;
   grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
 }
 
@@ -1705,4 +1706,147 @@ select {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
+}
+
+/* ─── Not-found title ───────────────────────────────────────────────── */
+
+.not-found__title {
+  font-size: 96px;
+  line-height: 0.95;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.not-found__sub {
+  text-align: center;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .not-found__title { font-size: 56px; }
+}
+
+@media (max-width: 480px) {
+  .not-found__title { font-size: 44px; }
+}
+
+/* ─── Landing per-section paddings (Plan-9 2.A.4) ───────────────────── */
+
+.landing-steps    { padding-top: 32px; padding-bottom: 64px; }
+.landing-benefits { padding-top: 64px; padding-bottom: 64px; }
+.landing-stats    { padding-top: 56px; padding-bottom: 56px; }
+.landing-cta      { padding-top: 56px; padding-bottom: 56px; }
+
+/* ─── Search input ──────────────────────────────────────────────────── */
+
+.search-input {
+  position: relative;
+  flex: 0 1 320px;
+}
+
+.search-input input {
+  width: 100%;
+  height: 36px;
+  padding: 0 14px 0 36px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+.search-input input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+  background: var(--surface);
+}
+
+.search-input input::placeholder { color: var(--muted-2); }
+
+.search-input__icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .search-input { flex: 1 1 100%; max-width: 100%; }
+}
+
+/* ─── Admin subnav tabs ─────────────────────────────────────────────── */
+
+.admin-subnav__brand {
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-subnav__tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: var(--r-3);
+  border: 1px solid var(--border);
+}
+
+.admin-subnav__tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-2);
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  white-space: nowrap;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-subnav__tab:hover { color: var(--ink); }
+
+.admin-subnav__tab.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+/* ─── Section label (with divider line) ─────────────────────────────── */
+
+.section-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.section-label::after {
+  content: "";
+  flex: 1 1 0%;
+  min-width: 0;
+  height: 1px;
+  background: var(--rule);
+}
+
+@media (max-width: 768px) {
+  .section-label::after { display: none; }
 }

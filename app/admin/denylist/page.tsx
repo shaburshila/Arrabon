@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -50,6 +51,9 @@ const emptyRemoveState: RemoveState = {
 
 export default function AdminDenylistPage() {
   const session = useWalletSessionContext();
+  const pathname = usePathname();
+  const isDisputes = pathname.startsWith("/admin/disputes");
+  const isDenylist = pathname.startsWith("/admin/denylist");
   const [entries, setEntries] = useState<AdminDenylistEntry[]>([]);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -175,9 +179,23 @@ export default function AdminDenylistPage() {
   return (
     <AppShell maxWidth={1180}>
       <nav className="admin-subnav">
-        <span className="admin-badge">Admin</span>
-        <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
-        <Link href="/admin/denylist" style={adminNavLinkStyle}>Denylist</Link>
+        <div className="admin-subnav__brand">
+          <span className="admin-badge">Admin</span>
+        </div>
+        <div className="admin-subnav__tabs">
+          <Link
+            href="/admin/disputes"
+            className={`admin-subnav__tab${isDisputes ? " is-active" : ""}`}
+          >
+            Disputes
+          </Link>
+          <Link
+            href="/admin/denylist"
+            className={`admin-subnav__tab${isDenylist ? " is-active" : ""}`}
+          >
+            Denylist
+          </Link>
+        </div>
       </nav>
 
       <div style={headerStyle}>
@@ -373,13 +391,6 @@ const headerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
-} as const;
-
-const adminNavLinkStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  fontWeight: 500,
-  textDecoration: "none",
 } as const;
 
 const sectionStyle = {

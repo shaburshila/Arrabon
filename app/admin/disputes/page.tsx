@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
@@ -66,11 +67,7 @@ const emptyResolveState: ResolveState = {
 };
 
 const PAGE_SIZE = 20;
-const VIEW_OPTIONS = [
-  { label: "Open disputes", value: "open" },
-  { label: "Resolved history", value: "resolved" },
-] as const;
-type AdminDisputesView = (typeof VIEW_OPTIONS)[number]["value"];
+type AdminDisputesView = "open" | "resolved";
 
 function expectedStatusForResolution(resolution: AdminResolution): DealStatus {
   return resolution === "release" ? "Released" : "Refunded";
@@ -114,6 +111,9 @@ function resolveNoticeTone(
 export default function AdminDisputesPage() {
   const config = useConfig();
   const session = useWalletSessionContext();
+  const pathname = usePathname();
+  const isDisputes = pathname.startsWith("/admin/disputes");
+  const isDenylist = pathname.startsWith("/admin/denylist");
   const [view, setView] = useState<AdminDisputesView>("open");
   const [deals, setDeals] = useState<AdminDealReview[]>([]);
   const [resolvedDeals, setResolvedDeals] = useState<AdminResolvedDealReview[]>([]);
@@ -346,12 +346,37 @@ export default function AdminDisputesPage() {
   );
   const visibleCount = view === "resolved" ? visibleResolvedDeals.length : visibleOpenDeals.length;
 
+  const viewOptions = useMemo(
+    () => [
+      { label: `Open${deals.length ? ` · ${deals.length}` : ""}`, value: "open" as const },
+      {
+        label: `Resolved${resolvedDeals.length ? ` · ${resolvedDeals.length}` : ""}`,
+        value: "resolved" as const,
+      },
+    ],
+    [deals.length, resolvedDeals.length],
+  );
+
   return (
     <AppShell maxWidth={1180}>
       <nav className="admin-subnav">
-        <span className="admin-badge">Admin</span>
-        <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
-        <Link href="/admin/denylist" style={adminNavLinkStyle}>Denylist</Link>
+        <div className="admin-subnav__brand">
+          <span className="admin-badge">Admin</span>
+        </div>
+        <div className="admin-subnav__tabs">
+          <Link
+            href="/admin/disputes"
+            className={`admin-subnav__tab${isDisputes ? " is-active" : ""}`}
+          >
+            Disputes
+          </Link>
+          <Link
+            href="/admin/denylist"
+            className={`admin-subnav__tab${isDenylist ? " is-active" : ""}`}
+          >
+            Denylist
+          </Link>
+        </div>
       </nav>
 
       <div style={headerStyle}>
@@ -382,7 +407,7 @@ export default function AdminDisputesPage() {
 
               setView(nextValue as AdminDisputesView);
             }}
-            options={VIEW_OPTIONS.map((option) => ({ ...option }))}
+            options={viewOptions}
             value={view}
           />
 
@@ -437,7 +462,7 @@ export default function AdminDisputesPage() {
                 <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
                   <div style={dealHeaderStyle}>
                     <div>
-                      <h2 className="h2" style={{ overflowWrap: "anywhere" as const }}>{deal.title}</h2>
+                      <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 500, letterSpacing: "-0.005em", margin: 0, overflowWrap: "anywhere" as const }}>{deal.title}</h3>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                       <Link href={`/admin/disputes/${deal.id}`} style={detailLinkStyle}>
                         {adminDealLinkLabel(deal.status)}
@@ -531,7 +556,7 @@ export default function AdminDisputesPage() {
                 <ActionPanel as="section" key={deal.id} style={dealCardStyle}>
                   <div style={dealHeaderStyle}>
                     <div>
-                      <h2 className="h2" style={{ overflowWrap: "anywhere" as const }}>{deal.title}</h2>
+                      <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 500, letterSpacing: "-0.005em", margin: 0, overflowWrap: "anywhere" as const }}>{deal.title}</h3>
                       <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
                     </div>
                     <div style={badgeStackStyle}>
@@ -663,13 +688,6 @@ const headerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
-};
-
-const adminNavLinkStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  fontWeight: 500,
-  textDecoration: "none",
 };
 
 const toolbarStyle = {

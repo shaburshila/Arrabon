@@ -3,7 +3,7 @@
 // /my-links — Seller's view of their consultation links.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -29,16 +29,6 @@ type MyLinkBadge = {
   color: string;
   label: string;
 };
-
-const FILTERS: { value: MyLinksFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "available", label: "Available" },
-  { value: "upcoming", label: "Upcoming" },
-  { value: "awaiting_buyer", label: "Awaiting buyer" },
-  { value: "disputed", label: "Disputed" },
-  { value: "closed", label: "Closed" },
-  { value: "inactive", label: "Inactive" },
-];
 
 const PAGE_SIZE = 20;
 
@@ -95,6 +85,19 @@ export default function MyLinksPage() {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const FILTERS = useMemo(
+    () => [
+      { value: "all" as const, label: `All${links !== null ? ` · ${links.length}` : ""}` },
+      { value: "available" as const, label: "Available" },
+      { value: "upcoming" as const, label: "Upcoming" },
+      { value: "awaiting_buyer" as const, label: "Awaiting buyer" },
+      { value: "disputed" as const, label: "Disputed" },
+      { value: "closed" as const, label: "Closed" },
+      { value: "inactive" as const, label: "Inactive" },
+    ],
+    [links],
+  );
 
   const createLinkAction = (
     <Link href="/create" style={{ textDecoration: "none" }}>
@@ -216,12 +219,13 @@ export default function MyLinksPage() {
           options={FILTERS}
           value={filter}
         />
-        <div style={searchBoxStyle}>
-          <Icon name="utility-search" size={14} />
+        <div className="search-input">
+          <span className="search-input__icon">
+            <Icon name="utility-search" size={14} />
+          </span>
           <input
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by title or link ID…"
-            style={searchInputStyle}
             type="search"
             value={query}
           />
@@ -309,7 +313,7 @@ function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
       <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />
       <span className="list-row__trailing">{trailing}</span>
       <span className="list-row__chevron">
-        <Icon name="utility-chevron-right" size={14} />
+        <Icon name="utility-chevron-right" size={16} />
       </span>
     </Link>
   );
@@ -349,28 +353,6 @@ const tabsRowStyle = {
   flexWrap: "wrap" as const,
   gap: 12,
   justifyContent: "space-between",
-} as const;
-
-const searchBoxStyle = {
-  alignItems: "center",
-  background: "var(--surface-2)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--r-3)",
-  color: "var(--muted)",
-  display: "inline-flex",
-  gap: 8,
-  height: 36,
-  padding: "0 12px",
-} as const;
-
-const searchInputStyle = {
-  background: "transparent",
-  border: "none",
-  color: "var(--ink)",
-  font: "inherit",
-  fontSize: 13,
-  outline: "none",
-  width: 200,
 } as const;
 
 const listPanelStyle = {

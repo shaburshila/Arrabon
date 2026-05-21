@@ -36,7 +36,19 @@ export function LinkPreviewCard({ values }: Props) {
         <h3 style={titleStyle}>{values.title || "Consultation title"}</h3>
         {values.description && <p style={descStyle}>{values.description}</p>}
         <div style={divider} />
-        <DetailRow label="Price" value={values.price_usdc ? `${values.price_usdc} USDC` : "—"} accent />
+        <DetailRow
+          label="Price"
+          value={
+            values.price_usdc ? (
+              <span>
+                <span style={{ fontFamily: "var(--font-mono)" }}>{values.price_usdc}</span>
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>USDC</span>
+              </span>
+            ) : (
+              "—"
+            )
+          }
+        />
         <DetailRow label="Scheduled" value={scheduled} />
         <DetailRow label="Duration" value={values.duration_minutes ? `${values.duration_minutes} min` : "—"} />
         <DetailRow label="Seller" mono value={values.seller_address ? truncate(values.seller_address) : "—"} />
@@ -44,7 +56,7 @@ export function LinkPreviewCard({ values }: Props) {
       </div>
 
       <div style={insetStyle}>
-        <ArrabonSeal size={36} tone="auto" />
+        <ArrabonSeal size={56} tone="auto" />
         <div>
           <p style={insetTitleStyle}>Secured by Arrabon</p>
           <p style={insetSubStyle}>Onchain escrow · Trusted settlement</p>
@@ -98,8 +110,9 @@ const descStyle = {
 
 const divider = {
   background: "var(--rule)",
+  border: 0,
   height: 1,
-  margin: "16px 0 0",
+  margin: "20px 0",
 };
 
 const insetStyle = {
@@ -108,7 +121,7 @@ const insetStyle = {
   border: "1px solid var(--border-soft)",
   borderRadius: "var(--r-3)",
   display: "flex",
-  gap: 12,
+  gap: 14,
   padding: "14px 16px",
 };
 

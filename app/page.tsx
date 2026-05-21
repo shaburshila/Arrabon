@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 
-import { Icon } from "@/components/icons";
+import { Icon, type IconName } from "@/components/icons";
 import { AppShell } from "@/components/app/app-shell";
 import { ArrabonSeal } from "@/components/shared/arrabon-seal";
 import { Btn } from "@/components/shared/btn";
@@ -46,6 +46,7 @@ function HeroSection() {
           const hintOp = Math.max(0, 1 - y / 80);
           hintRef.current.style.opacity = String(hintOp);
           hintRef.current.style.pointerEvents = hintOp < 0.05 ? "none" : "auto";
+          hintRef.current.style.transform = `translateX(-50%) translateY(${Math.min(24, y * 0.4)}px)`;
         }
       });
     };
@@ -61,7 +62,7 @@ function HeroSection() {
     <section className="landing-hero-section" style={heroSectionInner}>
       <div className="landing-hero" ref={heroRef}>
         <div>
-          <p className="eyebrow">Onchain Escrow · Base Network</p>
+          <p className="eyebrow" style={{ marginBottom: 28 }}>Onchain Escrow · Base Network</p>
           <h1>
             Trusted settlement <br />
             for a single <span className="accent">consultation</span>.
@@ -101,7 +102,7 @@ function HeroSection() {
       >
         <span className="landing-scroll-hint__label">How it works</span>
         <span className="landing-scroll-hint__arrow">
-          <Icon name="utility-chevron-down" size={14} />
+          <Icon name="utility-chevron-down" size={16} />
         </span>
       </button>
     </section>
@@ -112,9 +113,9 @@ function StepsSection() {
   return (
     <section className="landing-steps" style={fullBleedSection}>
       <div style={sectionInner}>
-        <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
+        <div className="stack-12" style={{ maxWidth: 720, marginBottom: 32 }}>
           <p className="eyebrow">How it works</p>
-          <h2 className="h2">Three steps. One settlement.</h2>
+          <h2 className="h1" style={{ fontSize: 44 }}>Three steps. One settlement.</h2>
         </div>
         <div style={threeColGrid}>
           {STEPS.map((s) => (
@@ -130,9 +131,9 @@ function BenefitsSection() {
   return (
     <section className="landing-benefits" style={fullBleedSection}>
       <div style={sectionInner}>
-        <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
+        <div className="stack-12" style={{ maxWidth: 720, marginBottom: 32 }}>
           <p className="eyebrow">Built for both sides</p>
-          <h2 className="h2">A safer workflow for paid consultations.</h2>
+          <h2 className="h1" style={{ fontSize: 44 }}>A safer workflow for paid consultations.</h2>
         </div>
         <div style={threeColGrid}>
           {BENEFITS.map((b) => (
@@ -148,9 +149,9 @@ function StatsSection() {
   return (
     <section className="landing-stats" style={fullBleedSection}>
       <div style={sectionInner}>
-        <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
+        <div className="stack-12" style={{ maxWidth: 720, marginBottom: 32 }}>
           <p className="eyebrow">Results to date</p>
-          <h2 className="h2">Numbers from the network.</h2>
+          <h2 className="h1" style={{ fontSize: 44 }}>Numbers from the network.</h2>
         </div>
         <div className="landing-stats__grid">
           {STATS.map((s) => (
@@ -184,7 +185,7 @@ function FinalCtaSection() {
         <div className="landing-cta__trust">
           {TRUST_ITEMS.map((t) => (
             <span className="landing-cta__trust-item" key={t.label}>
-              <Icon name="utility-secure-subtle" size={13} />
+              <Icon name={t.icon as IconName} size={13} />
               {t.label}
             </span>
           ))}
@@ -201,6 +202,7 @@ function SiteFooter() {
         <div className="site-footer__grid">
           <div className="stack-12">
             <span style={brandStyle}>
+              <ArrabonSeal size={28} tone="auto" />
               <span style={brandWordStyle}>Arrabon</span>
             </span>
             <p style={footerTagStyle}>
@@ -334,9 +336,9 @@ const STATS = [
 ];
 
 const TRUST_ITEMS = [
-  { label: "Built on Base" },
-  { label: "Wallet-signed actions" },
-  { label: "Neutral dispute review" },
+  { icon: "utility-secure-subtle", label: "Built on Base" },
+  { icon: "utility-wallet-connected", label: "Wallet-signed actions" },
+  { icon: "utility-secure-subtle", label: "Neutral dispute review" },
 ];
 
 /* ─── Styles ────────────────────────────────────────────────────────── */
@@ -360,7 +362,7 @@ const fullBleedSection = {
   boxSizing: "border-box" as const,
   marginLeft: "calc(50% - 50vw)",
   marginRight: "calc(50% - 50vw)",
-  padding: "64px calc(50vw - 50% + 16px)",
+  padding: "0 calc(50vw - 50% + 16px)",
   width: "auto",
 };
 
@@ -374,7 +376,7 @@ const footerSectionStyle = {
 
 const sectionInner = {
   margin: "0 auto",
-  maxWidth: 1180,
+  maxWidth: 1280,
   paddingLeft: 16,
   paddingRight: 16,
   width: "100%",
@@ -404,8 +406,8 @@ const cardTitleStyle = {
 
 const cardDescStyle = {
   color: "var(--muted)",
-  fontSize: 13.5,
-  lineHeight: 1.65,
+  fontSize: 13,
+  lineHeight: 1.5,
   margin: 0,
 };
 
@@ -433,5 +435,5 @@ const footerTagStyle = {
 
 const footerCopyStyle = {
   color: "var(--muted-2)",
-  fontSize: 12,
+  fontSize: 13,
 };

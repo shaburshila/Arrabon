@@ -12,11 +12,13 @@ import { fetchDeal, type DealReadModel } from "@/lib/api/deals";
 import { formatDate } from "@/lib/ui/date";
 import { formatUsdcPrice } from "@/lib/ui/format";
 import { truncateAddress } from "@/lib/ui/address";
+import { Icon } from "@/components/icons";
 import { ArrabonSeal } from "@/components/shared/arrabon-seal";
 import { AppShell } from "@/components/app/app-shell";
 import { Btn } from "@/components/shared/btn";
 import { DetailRow } from "@/components/shared/detail-row";
 import { Notice } from "@/components/shared/notice";
+import { StatusPill } from "@/components/shared/status-pill";
 
 function getReceiptTitle(status: DealReadModel["status"]): string {
   if (status === "Released") return "Payment released";
@@ -61,9 +63,20 @@ export default function ReceiptPage() {
 
   return (
     <AppShell maxWidth={760}>
-      <Link href={`/deal/${dealId}`} style={backLinkStyle}>
-        ← Back to deal
-      </Link>
+      <div style={topRowStyle}>
+        <Link href={`/deal/${dealId}`} className="btn btn--quiet btn--sm">
+          <Icon name="utility-arrow-left" size={14} />
+          Back to deal
+        </Link>
+        <Btn
+          size="sm"
+          variant="ghost"
+          onClick={() => navigator.clipboard.writeText(deal?.id ?? "")}
+        >
+          <Icon name="utility-copy-address" size={14} />
+          Copy ID
+        </Btn>
+      </div>
 
       {loading && (
         <p style={loadingStyle}>Loading receipt…</p>
@@ -92,15 +105,23 @@ export default function ReceiptPage() {
 
             <div className="receipt__details">
               <DetailRow
-                bordered={false}
+                label="Deal ID"
+                mono
+                value={deal.id.slice(0, 8).toUpperCase()}
+              />
+              <DetailRow
                 label="Amount"
                 value={`${formatUsdcPrice(deal.price_usdc)} USDC`}
                 accent
               />
               <DetailRow
-                label="Deal"
-                mono
-                value={deal.id.slice(0, 8).toUpperCase()}
+                label="Status"
+                value={
+                  <StatusPill
+                    label={deal.status === "Released" ? "Released" : "Refunded"}
+                    tone={deal.status === "Released" ? "success" : "accent"}
+                  />
+                }
               />
               <DetailRow
                 label="Seller"
@@ -118,13 +139,14 @@ export default function ReceiptPage() {
               />
               {settledAt && (
                 <DetailRow
-                  label="Settled"
+                  label="Released"
                   value={formatDate(settledAt)}
                 />
               )}
               {deal.tx_hash && (
                 <DetailRow
-                  label="Tx hash"
+                  bordered={false}
+                  label="Settlement tx"
                   mono
                   value={
                     <a
@@ -180,14 +202,6 @@ export default function ReceiptPage() {
   );
 }
 
-const backLinkStyle = {
-  alignSelf: "flex-start",
-  color: "var(--muted)",
-  fontSize: 13,
-  fontWeight: 500,
-  textDecoration: "none",
-} as const;
-
 const loadingStyle = {
   color: "var(--muted)",
   fontSize: 14,
@@ -202,6 +216,12 @@ const txLinkStyle = {
 const contractNoteStyle = {
   marginTop: 4,
   textAlign: "center" as const,
+} as const;
+
+const topRowStyle = {
+  alignItems: "center",
+  display: "flex",
+  justifyContent: "space-between",
 } as const;
 
 const actionsStyle = {

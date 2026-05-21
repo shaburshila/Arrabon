@@ -19,7 +19,6 @@ import {
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
-import { DetailRow } from "@/components/shared/detail-row";
 import { Notice } from "@/components/shared/notice";
 import { FundingProgress } from "@/components/link/funding-progress";
 import { SiweSignModal } from "@/components/shared/siwe-sign-modal";
@@ -96,7 +95,7 @@ export function LinkActionCard({
 
   return (
     <ActionPanel style={{ padding: 20 }}>
-      <p style={labelStyle}>Book consultation</p>
+      <p style={labelStyle}>Fund this deal</p>
 
       {!isConnected && (
         <div style={stackStyle}>
@@ -140,14 +139,19 @@ export function LinkActionCard({
           <PaymentSummary priceUsdc={link.price_usdc} />
 
           {fundingState.step === "idle" && (
-            <Btn
-              disabled={isFunding}
-              fullWidth
-              loading={false}
-              onClick={execute}
-            >
-              Pay into escrow · ${formatUsdcAmount(totalAmount)}
-            </Btn>
+            <>
+              <Btn
+                disabled={isFunding}
+                fullWidth
+                loading={false}
+                onClick={execute}
+              >
+                Pay into escrow · ${formatUsdcAmount(totalAmount)}
+              </Btn>
+              <p style={signHelperStyle}>
+                You&apos;ll be asked to sign a SIWE message and approve USDC before funding.
+              </p>
+            </>
           )}
 
           {fundingState.step === "compliance_blocked" && (
@@ -208,18 +212,42 @@ function PaymentSummary({ priceUsdc }: { priceUsdc: string }) {
 
   return (
     <div style={paymentSummaryStyle}>
-      <DetailRow label="Consultation" value={`$${formatUsdcAmount(priceAmount)}`} />
-      <DetailRow label="Platform escrow fee" value={`$${formatUsdcAmount(feeAmount)}`} />
-      <DetailRow
-        bordered={false}
-        label="Total"
-        style={{ paddingBottom: 0 }}
-        value={`$${formatUsdcAmount(totalAmount)}`}
-      />
+      <div style={feeRowStyle}>
+        <span style={feeRowLabelStyle}>Consultation fee</span>
+        <span style={feeRowValueStyle}>
+          {formatUsdcAmount(priceAmount)}
+          <span style={feeRowTokenStyle}>USDC</span>
+        </span>
+      </div>
+      <div style={feeRowStyle}>
+        <span style={feeRowLabelStyle}>Platform fee (3%)</span>
+        <span style={feeRowValueStyle}>
+          {formatUsdcAmount(feeAmount)}
+          <span style={feeRowTokenStyle}>USDC</span>
+        </span>
+      </div>
+      <hr style={ruleStyle} />
+      <div style={totalRowStyle}>
+        <span style={totalLabelStyle}>You pay</span>
+        <span style={{ whiteSpace: "nowrap" }}>
+          <span style={totalAmountStyle}>{formatUsdcAmount(totalAmount)}</span>
+          <span style={totalTokenStyle}>USDC</span>
+        </span>
+      </div>
       <p style={feeNoteStyle}>Non-refundable escrow service fee</p>
     </div>
   );
 }
+
+const feeRowStyle = { alignItems: "center", display: "flex", justifyContent: "space-between" };
+const feeRowLabelStyle = { color: "var(--muted)", fontSize: 13, lineHeight: 1.5 };
+const feeRowValueStyle = { color: "var(--ink)", fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: "-0.01em", whiteSpace: "nowrap" as const };
+const feeRowTokenStyle = { color: "var(--muted)", fontSize: 11, marginLeft: 6 };
+const ruleStyle = { background: "var(--rule)", border: 0, height: 1, margin: 0 };
+const totalRowStyle = { alignItems: "baseline", display: "flex", justifyContent: "space-between", marginTop: 4 };
+const totalLabelStyle = { color: "var(--ink)", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" as const };
+const totalAmountStyle = { color: "var(--ink)", fontFamily: "var(--font-serif)", fontSize: 28, fontWeight: 500, letterSpacing: "-0.01em" };
+const totalTokenStyle = { color: "var(--muted)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", marginLeft: 6 };
 
 const labelStyle = {
   color: "var(--muted)",
@@ -263,6 +291,14 @@ const myLinksLinkStyle = {
   fontWeight: 700,
   marginTop: 12,
   textDecoration: "none",
+};
+
+const signHelperStyle = {
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.5,
+  margin: "12px 0 0",
+  textAlign: "center" as const,
 };
 
 const progressFooterStyle = {

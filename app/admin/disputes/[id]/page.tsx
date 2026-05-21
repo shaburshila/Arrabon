@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Hex } from "viem";
 import { useConfig } from "wagmi";
@@ -129,6 +129,9 @@ export default function AdminDisputeDetailPage() {
   const dealId = typeof params.id === "string" ? params.id : (params.id?.[0] ?? "");
 
   const session = useWalletSessionContext();
+  const pathname = usePathname();
+  const isDisputes = pathname.startsWith("/admin/disputes");
+  const isDenylist = pathname.startsWith("/admin/denylist");
   const [deal, setDeal] = useState<AdminDealReview | null>(null);
   const [compliance, setCompliance] = useState<AdminDealCompliance | null>(null);
   const [loading, setLoading] = useState(false);
@@ -325,9 +328,23 @@ export default function AdminDisputeDetailPage() {
   return (
     <AppShell maxWidth={1180}>
       <nav className="admin-subnav">
-        <span className="admin-badge">Admin</span>
-        <Link href="/admin/disputes" style={adminNavLinkStyle}>Disputes</Link>
-        <Link href="/admin/denylist" style={adminNavLinkStyle}>Denylist</Link>
+        <div className="admin-subnav__brand">
+          <span className="admin-badge">Admin</span>
+        </div>
+        <div className="admin-subnav__tabs">
+          <Link
+            href="/admin/disputes"
+            className={`admin-subnav__tab${isDisputes ? " is-active" : ""}`}
+          >
+            Disputes
+          </Link>
+          <Link
+            href="/admin/denylist"
+            className={`admin-subnav__tab${isDenylist ? " is-active" : ""}`}
+          >
+            Denylist
+          </Link>
+        </div>
       </nav>
 
       <Link href="/admin/disputes" style={backLinkStyle}>
@@ -677,13 +694,6 @@ const subtitleStyle = {
   fontSize: 14,
   lineHeight: 1.5,
   margin: 0,
-} as const;
-
-const adminNavLinkStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  fontWeight: 500,
-  textDecoration: "none",
 } as const;
 
 const toolbarStyle = {

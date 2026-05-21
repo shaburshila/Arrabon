@@ -3,7 +3,7 @@
 // /my-deals — Buyer's view of their paid consultation deals.
 // Requires wallet connection + SIWE session.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -23,14 +23,6 @@ import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { SkeletonRows } from "@/components/shared/skeleton-rows";
 import { StatusPill } from "@/components/shared/status-pill";
 import { WalletAuthStatePanel } from "@/components/shared/wallet-auth-state-panel";
-
-const FILTERS: { value: MyDealsFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "upcoming", label: "Upcoming" },
-  { value: "needs_action", label: "Needs action" },
-  { value: "disputed", label: "Disputed" },
-  { value: "resolved", label: "Resolved" },
-];
 
 const PAGE_SIZE = 20;
 
@@ -59,6 +51,17 @@ export default function MyDealsPage() {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const FILTERS = useMemo(
+    () => [
+      { value: "all" as const, label: `All${deals !== null ? ` · ${deals.length}` : ""}` },
+      { value: "upcoming" as const, label: "Upcoming" },
+      { value: "needs_action" as const, label: "Needs action" },
+      { value: "disputed" as const, label: "Disputed" },
+      { value: "resolved" as const, label: "Resolved" },
+    ],
+    [deals],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -171,12 +174,13 @@ export default function MyDealsPage() {
           options={FILTERS}
           value={filter}
         />
-        <div style={searchBoxStyle}>
-          <Icon name="utility-search" size={14} />
+        <div className="search-input">
+          <span className="search-input__icon">
+            <Icon name="utility-search" size={14} />
+          </span>
           <input
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by title or deal ID…"
-            style={searchInputStyle}
             type="search"
             value={query}
           />
@@ -244,7 +248,7 @@ function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
       <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />
       <span className="list-row__trailing">{dealTrailingLabel(deal.status)}</span>
       <span className="list-row__chevron">
-        <Icon name="utility-chevron-right" size={14} />
+        <Icon name="utility-chevron-right" size={16} />
       </span>
     </Link>
   );
@@ -263,28 +267,6 @@ const tabsRowStyle = {
   flexWrap: "wrap" as const,
   gap: 12,
   justifyContent: "space-between",
-} as const;
-
-const searchBoxStyle = {
-  alignItems: "center",
-  background: "var(--surface-2)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--r-3)",
-  color: "var(--muted)",
-  display: "inline-flex",
-  gap: 8,
-  height: 36,
-  padding: "0 12px",
-} as const;
-
-const searchInputStyle = {
-  background: "transparent",
-  border: "none",
-  color: "var(--ink)",
-  font: "inherit",
-  fontSize: 13,
-  outline: "none",
-  width: 200,
 } as const;
 
 const listPanelStyle = {

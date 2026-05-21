@@ -11,6 +11,7 @@ import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import { ApiError } from "@/lib/api/auth";
 import { createLink, type CreateLinkInput } from "@/lib/api/links";
 import { getComplianceWalletAddress } from "@/lib/base/compliance";
+import { Icon } from "@/components/icons";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
@@ -381,7 +382,9 @@ export function CreateLinkForm(props: Props) {
             sublabel="You will receive this amount in full. Buyer pays an additional 3% platform fee (min $1.50, max $30)."
             token="USDC"
           />
+          <hr style={ruleStyle} />
           <DetailRow bordered={false} label="Seller wallet" mono value={sellerAddress} />
+          <DetailRow bordered={false} label="Settlement" value="Base · USDC" />
         </div>
       </ActionPanel>
 
@@ -496,6 +499,9 @@ export function CreateLinkForm(props: Props) {
         type={primaryAction.type}
       >
         {primaryAction.label}
+        {primaryAction.type === "submit" && !primaryAction.loading && (
+          <Icon name="utility-arrow-right" size={16} />
+        )}
       </Btn>
     </form>
   );
@@ -514,8 +520,10 @@ const cardPaddedStyle = {
 const sectionStackStyle = {
   display: "flex",
   flexDirection: "column" as const,
-  gap: 18,
+  gap: 20,
 };
+
+const ruleStyle = { background: "var(--rule)", border: 0, height: 1, margin: 0 };
 
 const twoColumnRowStyle = {
   display: "grid",

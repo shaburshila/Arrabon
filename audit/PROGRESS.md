@@ -201,3 +201,77 @@
 - app/page.tsx — cardStyle padding "28px 24px" → 28
 
 **Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-9 — Stage 1 (P0) completed
+- app/page.tsx — landing section h2 size restored to 44px (.h1 + style override) — fixes plan-8 XX regression
+- components/link/link-action-card.tsx — PaymentSummary rewritten with mono fee rows + rule + giant 28px serif "You pay" amount; title "Book consultation" → "Fund this deal"; removed now-unused DetailRow import
+- app/not-found.tsx — title clamp(28,5vw,42) → .h-display .not-found__title (96px desktop); accent <em> → <span className="accent">; removed unused titleStyle/ledeStyle/accentStyle
+- app/globals.css — .not-found__title + .not-found__sub + mobile breakpoints (768/480)
+
+**Stage 1 checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-9 — Stage 2 (P1) completed
+
+### Group 2.A — Landing
+- app/page.tsx — hero eyebrow margin-bottom 28; scroll-hint icon 14→16; sectionInner maxWidth 1180→1280
+- app/page.tsx — fullBleedSection padding 64→0 (paddings moved to per-section CSS)
+- app/globals.css — .landing-{steps,benefits,stats,cta} per-section paddings 32/64, 64/64, 56/56, 56/56
+- app/globals.css — landing-cta__actions margin-top 4→12, landing-cta__trust margin-top 16 added
+- app/page.tsx — SiteFooter ArrabonSeal brand mark added
+
+### Group 2.B — Create
+- app/create/page.tsx — AppShell maxWidth 1180→1100
+- app/globals.css — .create-split gap 32→28
+- components/link/create-link-form.tsx — sectionStackStyle gap 18→20
+- components/link/create-link-form.tsx — Payment section + hr.rule + Settlement DetailRow
+- components/link/link-preview-card.tsx — divider margin "16/0/0"→"20/0" + border:0, inset seal 36→56, inset gap 12→14
+
+### Group 2.C — BuyerLink
+- app/globals.css — .link-page__topbar margin-bottom 40→24; .link-split__right top 32→88
+- app/link/[id]/page.tsx — back button → .btn .btn--quiet .btn--sm; inset seal card added below LinkActionCard
+- components/link/link-action-card.tsx — helper text below Pay btn
+
+### Group 2.D — Deal
+- app/deal/[id]/page.tsx — back link → .btn .btn--quiet .btn--sm + "Back to" prefix
+- app/globals.css — .deal-split__left/right gap 16→20
+- components/deal/key-times.tsx — StatusPill next to "Lifecycle"; padding 20→28
+- components/deal/deal-details-card.tsx — section-label "Details" added; padding "0 20"→28
+- 2.D.3 (hero title fallback to deal.title) — SKIPPED: DealReadModel has no `title` field and STATUS_TITLES already covers all 5 DealStatus values (fallback unreachable). Adding a title field would require API/type changes, out of scope for visual-only plan.
+
+### Group 2.E — Receipt
+- app/deal/[id]/receipt/page.tsx — back link → .btn .btn--quiet .btn--sm
+- app/deal/[id]/receipt/page.tsx — DetailRows reorder + Status row added; "Tx hash" → "Settlement tx"
+
+### Group 2.F — MyDeals/MyLinks
+- app/my-deals/page.tsx + my-links/page.tsx — tab labels with counts (FILTERS → useMemo)
+- app/my-deals/page.tsx + my-links/page.tsx — chevron Icon size 14→16
+- app/globals.css — .search-input* classes
+- both pages — search box → className="search-input"; removed inline searchBoxStyle/searchInputStyle
+
+### Group 2.G — Admin
+- app/globals.css — .admin-subnav__brand, .admin-subnav__tabs, .admin-subnav__tab classes
+- app/admin/{disputes,disputes/[id],denylist}/page.tsx — subnav restructured with tab segments + usePathname active state; removed adminNavLinkStyle
+- app/admin/disputes/page.tsx — tab labels with counts (VIEW_OPTIONS → viewOptions useMemo; AdminDisputesView type made explicit)
+
+### Group 2.H — NotFound
+- app/not-found.tsx — Btn md→lg with utility-arrow-left icon
+
+### Group 2.I — Shared
+- app/globals.css — .section-label class with ::after divider line
+- components/shared/section-label.tsx — use .section-label className
+- components/shared/segmented-tabs.tsx — match prototype .tabs visual (surface-2, border, gap 2, padding 8/16, fontSize 13, shadow-1)
+- components/app/app-shell.tsx — mainStyle padding 32/32/64 → 56/32/96; flushBottom bottom override 64→96
+
+**Stage 2 checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-9 — Stage 3 (P2) completed
+- app/page.tsx — scroll-hint parallax translateY; stack header marginBottom 40→32; cardDescStyle 13.5/1.65→13/1.5; trust icons variable (utility-secure-subtle / utility-wallet-connected); footer copy 12→13
+- components/link/create-link-form.tsx — submit arrow-right icon (conditional on submit + not loading)
+- components/link/link-preview-card.tsx — Price detail row mono value + muted USDC format
+- components/deal/deal-status-card.tsx — hero status Icon size 20→22
+- app/deal/[id]/page.tsx — countdown "Live" label fontSize 12→13
+- app/deal/[id]/receipt/page.tsx — Copy ID button added in top row next to back link
+- app/admin/disputes/page.tsx — dispute card title h2→h3 serif 22 (both open + resolved lists)
+- components/shared/detail-row.tsx — accent color var(--gold)→var(--gold-deep)
+
+**Stage 3 checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.

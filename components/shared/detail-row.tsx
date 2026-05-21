@@ -31,7 +31,7 @@ export function DetailRow({
       <span
         style={{
           ...valueStyle,
-          color: accent ? "var(--gold)" : "var(--ink)",
+          color: accent ? "var(--gold-deep)" : "var(--ink)",
           ...(mono
             ? {
                 fontFamily: "var(--font-mono)",

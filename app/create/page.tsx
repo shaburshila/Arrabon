@@ -51,7 +51,7 @@ export default function CreatePage() {
   );
 
   return (
-    <AppShell maxWidth={1180}>
+    <AppShell maxWidth={1100}>
       <header style={pageHeaderStyle}>
         <h1 className="h1">Create consultation link</h1>
         <p className="lede" style={{ marginTop: 8 }}>

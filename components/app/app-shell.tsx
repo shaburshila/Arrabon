@@ -24,7 +24,7 @@ export function AppShell({
   return (
     <>
       <TopNav />
-      <main style={{ ...mainStyle, paddingBottom: flushBottom ? 0 : 64 }}>
+      <main style={{ ...mainStyle, paddingBottom: flushBottom ? 0 : 96 }}>
         <div style={{ ...contentStyle, maxWidth }}>
           {children}
         </div>
@@ -38,7 +38,7 @@ const mainStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: "100vh",
-  padding: "32px 32px 64px",
+  padding: "56px 32px 96px",
 } as const;
 
 const contentStyle = {

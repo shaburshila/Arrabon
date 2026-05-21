@@ -44,7 +44,7 @@ export function DealStatusCard({ deal, isAdmin = false, isBuyer, isSeller, isPar
   return (
     <div className="deal-hero">
       <span className={`status-icon status-icon--lg status-icon--${tone}`}>
-        <Icon name={sc.icon} size={20} />
+        <Icon name={sc.icon} size={22} />
       </span>
       <div style={heroBodyStyle}>
         <p className="eyebrow">Deal · {deal.id.slice(0, 8).toUpperCase()}</p>

@@ -18,6 +18,7 @@ import { Icon } from "@/components/icons";
 import { LinkSummary } from "@/components/link/link-summary";
 import { LinkActionCard } from "@/components/link/link-action-card";
 import { StatusNotice } from "@/components/link/status-notice";
+import { ArrabonSeal } from "@/components/shared/arrabon-seal";
 import { Notice } from "@/components/shared/notice";
 
 export default function LinkPage() {
@@ -86,7 +87,7 @@ export default function LinkPage() {
             <img alt="Arrabon" height={28} src="/alpha-lock-full-gold.svg" width={28} />
             <span style={brandWordStyle}>Arrabon</span>
           </Link>
-          <button onClick={handleBack} style={backButtonStyle} type="button">
+          <button onClick={handleBack} className="btn btn--quiet btn--sm" type="button">
             <Icon name="utility-arrow-left" size={14} />
             Back
           </button>
@@ -149,6 +150,13 @@ export default function LinkPage() {
                 session={session}
                 funding={funding}
               />
+              <div style={insetSealCardStyle}>
+                <ArrabonSeal size={48} tone="auto" />
+                <div>
+                  <p style={insetSealLabelStyle}>Secured by Arrabon</p>
+                  <p style={insetSealDescStyle}>Onchain escrow on Base. Trusted settlement.</p>
+                </div>
+              </div>
             </aside>
           </div>
         )}
@@ -172,19 +180,31 @@ const brandWordStyle = {
   letterSpacing: "0.005em",
 } as const;
 
-const backButtonStyle = {
+const insetSealCardStyle = {
   alignItems: "center",
-  background: "transparent",
-  border: "none",
-  color: "var(--muted)",
-  cursor: "pointer",
-  display: "inline-flex",
-  fontFamily: "inherit",
-  fontSize: 13,
-  fontWeight: 500,
-  gap: 6,
-  padding: "8px 6px",
+  background: "var(--surface-2)",
+  border: "1px solid var(--border-soft)",
+  borderRadius: "var(--r-3)",
+  display: "flex",
+  gap: 14,
+  padding: 20,
 } as const;
+
+const insetSealLabelStyle = {
+  color: "var(--muted)",
+  fontSize: 11.5,
+  fontWeight: 600,
+  letterSpacing: "0.06em",
+  margin: 0,
+  textTransform: "uppercase" as const,
+};
+
+const insetSealDescStyle = {
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.5,
+  margin: "4px 0 0",
+};
 
 const centerStyle = {
   alignItems: "center",
