@@ -65,7 +65,7 @@ export function FundingProgress({
     return renderProgressContent(
       embedded,
       <>
-        <p style={sectionLabelStyle}>Payment progress</p>
+        <p className="section-label">Payment progress</p>
         <Notice
           message={error ?? "Payment failed. Please try again."}
           title="Payment failed"
@@ -79,7 +79,7 @@ export function FundingProgress({
   return renderProgressContent(
     embedded,
     <>
-      <p style={sectionLabelStyle}>Payment progress</p>
+      <p className="section-label">Payment progress</p>
 
       <FundingStepList steps={getProgressSteps(step)} />
 
@@ -260,15 +260,6 @@ function getActiveProgressKey(step: FundingStep) {
   }
 }
 
-const sectionLabelStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  margin: "0 0 16px",
-  textTransform: "uppercase" as const,
-};
-
 const activeHelperStyle = {
   color: "var(--muted)",
   fontSize: 13,
@@ -288,7 +279,7 @@ const recoveryLinkStyle = {
 };
 
 const txStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 12,
   margin: "8px 0 0",
   wordBreak: "break-all" as const,

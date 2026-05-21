@@ -199,7 +199,7 @@ function ActionGroup({
           style={{
             background: "var(--success-muted)",
             border: "1px solid var(--success)",
-            borderRadius: "var(--radius-sm)",
+            borderRadius: "var(--r-3)",
             color: "var(--success)",
             fontSize: 13,
             padding: "10px 14px",

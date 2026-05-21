@@ -17,7 +17,7 @@ export function KeyTimes({ deal }: KeyTimesProps) {
   return (
     <ActionPanel as="section" style={{ padding: 28 }}>
       <div style={headRowStyle}>
-        <p style={sectionLabelStyle}>Lifecycle</p>
+        <p className="section-label section-label--no-rule">Lifecycle</p>
         <StatusPill label={badge.label} size="md" tone={tone} />
       </div>
       <LifecycleTimeline deal={deal} />
@@ -30,13 +30,4 @@ const headRowStyle = {
   display: "flex",
   justifyContent: "space-between",
   marginBottom: 20,
-};
-
-const sectionLabelStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "0.16em",
-  margin: 0,
-  textTransform: "uppercase" as const,
 };

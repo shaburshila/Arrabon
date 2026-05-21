@@ -305,3 +305,75 @@
 - form labels reverted from UPPERCASE — prototype uses normal case "Title" / "Description"
 - TokenAmountRow blue $ circle was iconographic noise not in prototype — removed
 - DEVIATION (Phase 3 .list-row__price-token): plan's "Замени блоки" code omitted font-family, but that element is nested inside .list-row__price (var(--font-mono)), so it would inherit mono — contradicting the plan's own table ("✓ оставить sans") and acceptance ("«USDC» — обычный case"). Kept `font-family: var(--font-sans)` explicit to honor stated intent.
+
+## Plan-11 — typography sweep
+
+### Phase A — Eyebrows / section-labels unified
+- app/not-found.tsx — eyebrow → className="eyebrow"; removed eyebrowStyle
+- components/deal/deal-status-card.tsx — already className="eyebrow" (plan-8 RR) — verified, no-op
+- components/deal/dispute-thread.tsx — eyebrow → className; removed eyebrowStyle
+- components/shared/legal-page-layout.tsx — eyebrow → className; removed eyebrowStyle
+- components/link/link-preview-card.tsx — eyebrow → className; removed eyebrow const
+- components/deal/key-times.tsx — sectionLabelStyle → className="section-label section-label--no-rule"
+- app/globals.css — added .section-label--no-rule modifier
+- components/link/funding-progress.tsx — sectionLabelStyle → className="section-label" (both branches)
+- components/link/link-action-card.tsx — labelStyle → className="section-label" ("Your link" + "Fund this deal")
+- components/deal/deal-details-card.tsx — detailsLabelStyle → className="section-label"
+- app/link/[id]/page.tsx — insetSealLabelStyle → className="tiny"
+- app/page.tsx SiteFooter — already className="eyebrow" — verified, no-op
+
+**Phase A checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+### Phase B — fontWeight 800 / 700 violations
+- components/link/create-link-form.tsx — success branch: panelTitleStyle → className="h2", panelSubtitleStyle → className="lede", shareLabelStyle → className="tiny"; removed those 3 consts; shareUrlStyle --foreground→--ink, font-mono fallback removed (note: no h1Style existed — already absent)
+- components/shared/progress-steps.tsx — marker fontWeight 800 → 600
+- app/error.tsx — full rewrite using .not-found pattern (.h-display .not-found__title + .eyebrow + .lede); removed gradient-text slop / fontWeight 800 codeStyle / --accent / --panel / --radius legacy tokens
+- components/deal/dispute-thread.tsx — refreshButtonStyle + labelStyle fontWeight 700 → 600
+- app/global-error.tsx — left as-is: self-contained (own --g-* vars, separate <html> root, cannot rely on globals.css / app components)
+
+**Phase B checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+### Phase C — Legacy token cleanup
+- Mechanical sweep across all components/**/*.tsx + app/**/*.tsx:
+  - var(--foreground) → var(--ink)
+  - var(--accent) / var(--accent-hover) → var(--gold-deep)
+  - var(--radius) → var(--r-4); var(--radius-sm) → var(--r-3); var(--radius-lg) → var(--r-5)
+  - var(--panel) → var(--surface); var(--panel-muted) → var(--surface-2); var(--panel-hover) → var(--surface-3)
+  - var(--input-bg) → var(--surface); var(--input-border) → var(--border)
+  - var(--surface-raised) → var(--surface-2)
+- components/shared/progress-steps.tsx — active marker: labelColor → gold-deep (text), markerBg → var(--gold) (background per C.2 rule), markerColor → var(--gold-on)
+- components/shared/wallet-session-card.tsx — DELETED (D.9: unused, no imports anywhere)
+- Verified: grep for var(--foreground|--accent|--radius|--panel|--input-bg|--input-border|--surface-raised) in components/ app/ → 0 results
+- globals.css :root aliases left intact (backward-compat, per plan)
+- var(--muted-bg) / var(--accent-muted) left as-is — not in plan scope (separate aliases, --muted-bg flagged OK in plan future-work)
+- app/global-error.tsx untouched — uses isolated --g-* vars, not design tokens
+
+**Phase C checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+### Phase D — Specific page typography
+- components/link/create-link-form.tsx — success branch done in Phase B (h2/lede/tiny classes); D.1 — no further work
+- app/admin/disputes/[id]/page.tsx — h1Style → className="h2"; subtitleStyle → .small; 3× sectionTitleStyle (h2) → h3 className="h3"; 2× sectionDescriptionStyle → .small; metaStyle → .small; countStyle → .small; confirmTextStyle → .body; removed 7 unused consts; dealTitleStyle kept (22, per plan)
+- app/error.tsx — done in Phase B (.h-display + .eyebrow + .lede not-found pattern)
+- app/global-error.tsx — left as-is (self-contained, isolated --g-* vars)
+- components/shared/legal-page-layout.tsx — titleStyle clamp(30-42) → className="h1"; updatedStyle → .small; removed both consts; contentStyle kept as layout container (flex/gap, lineHeight 1.7 — not type-scale)
+- app/top-nav.tsx brandWordStyle — left at 24px (approved deviation per plan D.5)
+- components/link/link-preview-card.tsx titleStyle — left at 22/500 serif (per plan D.6)
+- components/deal/dispute-thread.tsx titleStyle(compact) — left as-is (single conditional-sized element; plan D.7 marked soft "оставить или поднять")
+- components/shared/token-amount-row.tsx — verified clean from plan-10 rewrite (no amountInputStyle/tokenIconStyle/$ circle)
+- components/shared/wallet-session-card.tsx — deleted (D.9, handled in Phase C)
+
+**Phase D checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+### Phase E — Utility text consistency
+- app/page.tsx — cardDescStyle → className="small" (StepCard + BenefitCard); removed const
+- app/page.tsx — footerTagStyle → className="small" + inline maxWidth 32ch; removed const
+- app/page.tsx — footerCopyStyle left inline (muted-2 color, not a type-scale class)
+- app/link/[id]/page.tsx — "Loading…" → className="small"
+- app/deal/[id]/page.tsx — "Loading deal…" → className="small"
+- app/deal/[id]/receipt/page.tsx — "Loading receipt…" → className="small" + inline textAlign; removed loadingStyle const
+
+### Phase F — Final
+- Grep verification (components/**/*.tsx + app/**/*.tsx): fontWeight: 800 → 0, var(--foreground) → 0, var(--accent) → 0, var(--radius) → 0, var(--panel) → 0, var(--input-bg|--input-border) → 0
+- Note: app/globals.css `.receipt` rule still uses var(--panel) — left as-is (stylesheet rule, not component inline style; Phase C scoped to .tsx per plan; alias remains valid backward-compat token)
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.

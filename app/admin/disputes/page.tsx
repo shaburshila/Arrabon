@@ -758,7 +758,7 @@ const metaStyle = {
 };
 
 const detailLinkStyle = {
-  color: "var(--accent)",
+  color: "var(--gold-deep)",
   display: "inline-block",
   fontSize: 13,
   fontWeight: 600,
@@ -804,7 +804,7 @@ const actionsStyle = {
 };
 
 const confirmStyle = {
-  background: "var(--panel-muted)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   display: "flex",
@@ -814,7 +814,7 @@ const confirmStyle = {
 };
 
 const confirmTextStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 14,
   margin: 0,
 };
@@ -837,7 +837,7 @@ const smallButtonStyle = {
   background: "transparent",
   border: "1px solid var(--border)",
   borderRadius: 8,
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 13,
   fontWeight: 700,
   minHeight: 36,

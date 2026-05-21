@@ -352,8 +352,8 @@ export default function AdminDisputeDetailPage() {
       </Link>
 
       <div style={headerStyle}>
-        <h1 style={h1Style}>Dispute detail</h1>
-        <p style={subtitleStyle}>
+        <h1 className="h2">Dispute detail</h1>
+        <p className="small">
           Review the full dispute record, conversation, and admin resolution options.
         </p>
       </div>
@@ -372,7 +372,7 @@ export default function AdminDisputeDetailPage() {
       {canLoadAdminDeal && (
         <>
           <div style={toolbarStyle}>
-            <span style={countStyle}>Dispute ID: {dealId}</span>
+            <span className="small">Dispute ID: {dealId}</span>
             <button
               disabled={loading || isResolving}
               onClick={loadDeal}
@@ -395,7 +395,7 @@ export default function AdminDisputeDetailPage() {
                 <div style={dealHeaderStyle}>
                   <div>
                     <h2 style={dealTitleStyle}>{deal.title}</h2>
-                    <p style={metaStyle}>Deal #{deal.onchain_deal_id}</p>
+                    <p className="small">Deal #{deal.onchain_deal_id}</p>
                   </div>
                   <div style={badgeStackStyle}>
                     <StatusPill label="Disputed" size="md" tone="danger" />
@@ -463,7 +463,7 @@ export default function AdminDisputeDetailPage() {
 
               <ActionPanel as="section" style={sectionStyle}>
                 <div style={sectionHeaderStyle}>
-                  <h2 style={sectionTitleStyle}>Resolution metadata</h2>
+                  <h3 className="h3">Resolution metadata</h3>
                 </div>
                 <div style={rowsStyle}>
                   <DetailRow
@@ -504,8 +504,8 @@ export default function AdminDisputeDetailPage() {
 
               <ActionPanel as="section" style={sectionStyle}>
                 <div style={sectionHeaderStyle}>
-                  <h2 style={sectionTitleStyle}>Admin resolution</h2>
-                  <p style={sectionDescriptionStyle}>
+                  <h3 className="h3">Admin resolution</h3>
+                  <p className="small">
                     Resolve the open dispute and sync the final status back into the app.
                   </p>
                 </div>
@@ -553,7 +553,7 @@ export default function AdminDisputeDetailPage() {
 
                 {confirming ? (
                   <div style={confirmStyle}>
-                    <p style={confirmTextStyle}>
+                    <p className="body">
                       {confirming === "release"
                         ? `Release ${deal.price_usdc} USDC to seller?`
                         : `Refund ${deal.price_usdc} USDC to buyer?`}
@@ -606,8 +606,8 @@ export default function AdminDisputeDetailPage() {
 
               <ActionPanel as="section" style={sectionStyle}>
                 <div style={sectionHeaderStyle}>
-                  <h2 style={sectionTitleStyle}>Compliance checks</h2>
-                  <p style={sectionDescriptionStyle}>
+                  <h3 className="h3">Compliance checks</h3>
+                  <p className="small">
                     Review provider results, wallets, and timestamps before taking an admin action.
                   </p>
                 </div>
@@ -668,7 +668,7 @@ const pageStackStyle = {
 
 const backLinkStyle = {
   alignSelf: "flex-start",
-  color: "var(--accent)",
+  color: "var(--gold-deep)",
   fontSize: 13,
   fontWeight: 600,
   textDecoration: "none",
@@ -680,38 +680,17 @@ const headerStyle = {
   gap: 8,
 } as const;
 
-const h1Style = {
-  color: "var(--ink)",
-  fontFamily: "var(--font-serif)",
-  fontSize: 28,
-  fontWeight: 500,
-  letterSpacing: "-0.01em",
-  margin: "0 0 4px",
-} as const;
-
-const subtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.5,
-  margin: 0,
-} as const;
-
 const toolbarStyle = {
   alignItems: "center",
   display: "flex",
   justifyContent: "space-between",
 } as const;
 
-const countStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-} as const;
-
 const smallButtonStyle = {
   background: "transparent",
   border: "1px solid var(--border)",
   borderRadius: 8,
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 13,
   fontWeight: 700,
   minHeight: 36,
@@ -743,30 +722,11 @@ const dealTitleStyle = {
   margin: 0,
 } as const;
 
-const metaStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  margin: "6px 0 0",
-} as const;
-
 const sectionHeaderStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 6,
   marginBottom: 12,
-} as const;
-
-const sectionTitleStyle = {
-  fontSize: 18,
-  lineHeight: 1.25,
-  margin: 0,
-} as const;
-
-const sectionDescriptionStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.5,
-  margin: 0,
 } as const;
 
 const rowsStyle = {
@@ -785,11 +745,6 @@ const confirmStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 12,
-} as const;
-
-const confirmTextStyle = {
-  fontSize: 14,
-  margin: 0,
 } as const;
 
 const actionsStyle = {
@@ -813,7 +768,7 @@ const checksListStyle = {
 } as const;
 
 const checkCardStyle = {
-  background: "var(--panel-muted)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   padding: 12,

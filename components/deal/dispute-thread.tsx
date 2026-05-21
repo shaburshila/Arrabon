@@ -121,7 +121,7 @@ export function DisputeThread({
     <>
       <div style={headerStyle(compact)}>
         <div>
-          <p style={eyebrowStyle}>Dispute discussion</p>
+          <p className="eyebrow">Dispute discussion</p>
           <h2 style={titleStyle(compact)}>Messages and evidence</h2>
         </div>
         <button
@@ -275,15 +275,6 @@ function headerStyle(compact: boolean) {
   };
 }
 
-const eyebrowStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  margin: "0 0 6px",
-  textTransform: "uppercase" as const,
-};
-
 function titleStyle(compact: boolean) {
   return {
     fontSize: compact ? 16 : 18,
@@ -296,9 +287,9 @@ const refreshButtonStyle = {
   background: "transparent",
   border: "1px solid var(--border)",
   borderRadius: 8,
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 600,
   minHeight: 34,
   padding: "0 10px",
 };
@@ -388,19 +379,19 @@ function formStyle(compact: boolean) {
 }
 
 const labelStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   display: "flex",
   flexDirection: "column" as const,
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 600,
   gap: 6,
 };
 
 const textareaStyle = {
-  background: "var(--surface-raised)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
-  color: "var(--foreground)",
+  color: "var(--ink)",
   font: "inherit",
   minHeight: 110,
   padding: 12,
@@ -408,10 +399,10 @@ const textareaStyle = {
 };
 
 const inputStyle = {
-  background: "var(--surface-raised)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
-  color: "var(--foreground)",
+  color: "var(--ink)",
   font: "inherit",
   minHeight: 42,
   padding: "0 12px",

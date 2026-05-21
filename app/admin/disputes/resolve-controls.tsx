@@ -121,7 +121,7 @@ const actionsStyle = {
 };
 
 const confirmStyle = {
-  background: "var(--panel-muted)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   display: "flex",
@@ -131,7 +131,7 @@ const confirmStyle = {
 };
 
 const confirmTextStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 14,
   margin: 0,
 };

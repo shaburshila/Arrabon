@@ -205,7 +205,7 @@ function SiteFooter() {
               <ArrabonSeal size={28} tone="auto" />
               <span style={brandWordStyle}>Arrabon</span>
             </span>
-            <p style={footerTagStyle}>
+            <p className="small" style={{ maxWidth: "32ch" }}>
               Onchain escrow for a single scheduled consultation. Settlement in USDC on Base.
             </p>
           </div>
@@ -258,7 +258,7 @@ function StepCard({ n, title, desc }: { n: string; title: string; desc: string }
       <div className="stack-12">
         <span className="eyebrow">{n}</span>
         <h3 style={cardTitleStyle}>{title}</h3>
-        <p style={cardDescStyle}>{desc}</p>
+        <p className="small">{desc}</p>
       </div>
     </div>
   );
@@ -282,7 +282,7 @@ function BenefitCard({
           <Icon name={icon} size={18} />
         </span>
         <h3 style={cardTitleStyle}>{title}</h3>
-        <p style={cardDescStyle}>{desc}</p>
+        <p className="small">{desc}</p>
       </div>
     </div>
   );
@@ -404,13 +404,6 @@ const cardTitleStyle = {
   margin: 0,
 };
 
-const cardDescStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.5,
-  margin: 0,
-};
-
 const brandStyle = {
   display: "inline-flex",
   alignItems: "center",
@@ -423,14 +416,6 @@ const brandWordStyle = {
   fontWeight: 500,
   color: "var(--ink)",
   letterSpacing: "0.005em",
-};
-
-const footerTagStyle = {
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.6,
-  margin: 0,
-  maxWidth: "32ch",
 };
 
 const footerCopyStyle = {

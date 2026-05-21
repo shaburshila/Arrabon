@@ -32,7 +32,7 @@ export function LinkPreviewCard({ values }: Props) {
   return (
     <div style={stack}>
       <div style={cardStyle}>
-        <p style={eyebrow}>Preview</p>
+        <p className="eyebrow">Preview</p>
         <h3 style={titleStyle}>{values.title || "Consultation title"}</h3>
         {values.description && <p style={descStyle}>{values.description}</p>}
         <div style={divider} />
@@ -79,15 +79,6 @@ const cardStyle = {
   display: "flex",
   flexDirection: "column" as const,
   padding: 28,
-};
-
-const eyebrow = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.16em",
-  margin: "0 0 14px",
-  textTransform: "uppercase" as const,
 };
 
 const titleStyle = {

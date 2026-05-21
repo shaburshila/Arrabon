@@ -93,9 +93,9 @@ function getStepColors(state: ProgressStepState) {
   switch (state) {
     case "active":
       return {
-        labelColor: "var(--accent)",
-        markerBg: "var(--accent)",
-        markerColor: "#fff",
+        labelColor: "var(--gold-deep)",
+        markerBg: "var(--gold)",
+        markerColor: "var(--gold-on)",
       };
     case "done":
       return {
@@ -148,7 +148,7 @@ const markerStyle = {
   borderRadius: "50%",
   display: "flex",
   fontSize: 13,
-  fontWeight: 800,
+  fontWeight: 600,
   height: 24,
   justifyContent: "center",
   lineHeight: 1,

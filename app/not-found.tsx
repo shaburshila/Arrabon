@@ -13,7 +13,7 @@ export default function NotFound() {
   return (
     <main className="not-found">
       <ArrabonSeal size={80} tone="auto" />
-      <p style={eyebrowStyle}>Error 404</p>
+      <p className="eyebrow">Error 404</p>
       <h1 className="h-display not-found__title">
         <span className="accent">Page</span>&nbsp;not&nbsp;found.
       </h1>
@@ -33,15 +33,6 @@ export default function NotFound() {
     </main>
   );
 }
-
-const eyebrowStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.1em",
-  margin: 0,
-  textTransform: "uppercase" as const,
-};
 
 const actionsStyle = {
   display: "flex",

@@ -1860,6 +1860,8 @@ select {
   .section-label::after { display: none; }
 }
 
+.section-label--no-rule::after { display: none; }
+
 /* ─── Form fields ──────────────────────────────────────────────────── */
 
 .field {

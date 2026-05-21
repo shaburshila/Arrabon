@@ -349,7 +349,7 @@ const pillAvatarStyle = {
 // Dropdown
 
 const dropdownStyle = {
-  background: "var(--panel)",
+  background: "var(--surface)",
   border: "1px solid var(--border)",
   borderRadius: 16,
   boxShadow: "0 20px 60px rgba(0,0,0,0.24), 0 4px 16px rgba(0,0,0,0.10)",

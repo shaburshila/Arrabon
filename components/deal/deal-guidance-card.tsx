@@ -206,7 +206,7 @@ const labelStyle = {
 };
 
 const messageStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 14,
   lineHeight: 1.55,
   margin: 0,

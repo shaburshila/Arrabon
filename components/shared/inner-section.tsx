@@ -10,8 +10,8 @@ export function InnerSection({
   return (
     <div
       style={{
-        background: "var(--panel-muted)",
-        borderRadius: "var(--radius)",
+        background: "var(--surface-2)",
+        borderRadius: "var(--r-4)",
         padding: 16,
         ...style,
       }}

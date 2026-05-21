@@ -15,7 +15,7 @@ interface Props {
 export function DealDetailsCard({ deal, role }: Props) {
   return (
     <ActionPanel style={{ padding: 28 }}>
-      <p style={detailsLabelStyle}>Details</p>
+      <p className="section-label">Details</p>
       <DetailRow label="Amount" value={`${formatUsdcPrice(deal.price_usdc)} USDC`} accent />
       <DetailRow label="Deal ID" mono value={deal.id.slice(0, 8).toUpperCase()} />
       <DetailRow
@@ -69,11 +69,3 @@ function formatPartyAddress(address: string, isCurrentUser: boolean): string {
   return isCurrentUser ? `${truncateAddress(address)} (you)` : truncateAddress(address);
 }
 
-const detailsLabelStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "0.16em",
-  margin: "0 0 14px",
-  textTransform: "uppercase" as const,
-};

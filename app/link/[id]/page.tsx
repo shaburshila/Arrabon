@@ -95,7 +95,7 @@ export default function LinkPage() {
 
         {linkPage.status === "loading" && (
           <div style={centerStyle}>
-            <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading…</p>
+            <p className="small">Loading…</p>
           </div>
         )}
 
@@ -153,7 +153,7 @@ export default function LinkPage() {
               <div style={insetSealCardStyle}>
                 <ArrabonSeal size={48} tone="auto" />
                 <div>
-                  <p style={insetSealLabelStyle}>Secured by Arrabon</p>
+                  <p className="tiny">Secured by Arrabon</p>
                   <p style={insetSealDescStyle}>Onchain escrow on Base. Trusted settlement.</p>
                 </div>
               </div>
@@ -189,15 +189,6 @@ const insetSealCardStyle = {
   gap: 14,
   padding: 20,
 } as const;
-
-const insetSealLabelStyle = {
-  color: "var(--muted)",
-  fontSize: 11.5,
-  fontWeight: 600,
-  letterSpacing: "0.06em",
-  margin: 0,
-  textTransform: "uppercase" as const,
-};
 
 const insetSealDescStyle = {
   color: "var(--muted)",

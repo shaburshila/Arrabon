@@ -51,7 +51,7 @@ const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
   },
   Consumed: {
     bg: "var(--accent-muted)",
-    color: "var(--accent)",
+    color: "var(--gold-deep)",
     label: "Funded",
   },
   Draft: {

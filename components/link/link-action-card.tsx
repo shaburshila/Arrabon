@@ -78,7 +78,7 @@ export function LinkActionCard({
   if (role === "seller") {
     return (
       <ActionPanel style={{ padding: 20 }}>
-        <p style={labelStyle}>Your link</p>
+        <p className="section-label">Your link</p>
         <p style={hintStyle}>
           This is your consultation link. Share it with your client.
         </p>
@@ -95,7 +95,7 @@ export function LinkActionCard({
 
   return (
     <ActionPanel style={{ padding: 20 }}>
-      <p style={labelStyle}>Fund this deal</p>
+      <p className="section-label">Fund this deal</p>
 
       {!isConnected && (
         <div style={stackStyle}>
@@ -249,15 +249,6 @@ const totalLabelStyle = { color: "var(--ink)", fontSize: 14, fontWeight: 600, wh
 const totalAmountStyle = { color: "var(--ink)", fontFamily: "var(--font-serif)", fontSize: 28, fontWeight: 500, letterSpacing: "-0.01em" };
 const totalTokenStyle = { color: "var(--muted)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", marginLeft: 6 };
 
-const labelStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  margin: "0 0 12px",
-  textTransform: "uppercase" as const,
-};
-
 const stackStyle = {
   display: "flex",
   flexDirection: "column" as const,
@@ -272,8 +263,8 @@ const hintStyle = {
 };
 
 const paymentSummaryStyle = {
-  background: "var(--panel-muted)",
-  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
+  borderRadius: "var(--r-3)",
   padding: "4px 14px 12px",
 };
 
@@ -285,7 +276,7 @@ const feeNoteStyle = {
 };
 
 const myLinksLinkStyle = {
-  color: "var(--accent)",
+  color: "var(--gold-deep)",
   display: "inline-block",
   fontSize: 13,
   fontWeight: 700,

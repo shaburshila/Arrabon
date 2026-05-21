@@ -308,14 +308,14 @@ export function CreateLinkForm(props: Props) {
             ✓
           </div>
           <div style={successHeaderStyle}>
-            <h2 style={panelTitleStyle}>Link created</h2>
-            <p style={panelSubtitleStyle}>
+            <h2 className="h2">Link created</h2>
+            <p className="lede">
               Your consultation link is live and ready to share.
             </p>
           </div>
 
           <InnerSection style={shareSectionStyle}>
-            <p style={shareLabelStyle}>Share link</p>
+            <p className="tiny">Share link</p>
             <p style={shareUrlStyle}>{shareUrl}</p>
           </InnerSection>
 
@@ -532,20 +532,6 @@ const helperTextStyle = {
   margin: 0,
 };
 
-const panelTitleStyle = {
-  color: "var(--foreground)",
-  fontSize: 18,
-  fontWeight: 600,
-  margin: 0,
-};
-
-const panelSubtitleStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1.45,
-  margin: 0,
-};
-
 const successPanelStyle = {
   display: "flex",
   flexDirection: "column" as const,
@@ -579,21 +565,12 @@ const shareSectionStyle = {
   textAlign: "left" as const,
 };
 
-const shareLabelStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  fontWeight: 500,
-  letterSpacing: "0.08em",
-  margin: "0 0 8px",
-  textTransform: "uppercase" as const,
-};
-
 const shareUrlStyle = {
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 14,
   lineHeight: 1.45,
   margin: 0,
-  fontFamily: "var(--font-mono, monospace)",
+  fontFamily: "var(--font-mono)",
   wordBreak: "break-all" as const,
 };
 

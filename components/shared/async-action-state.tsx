@@ -58,7 +58,7 @@ export function AsyncActionState({ error, step, stepLabel, txHash }: AsyncAction
       {txHash && (
         <p style={{ fontSize: 12, margin: 0, wordBreak: "break-all" }}>
           <span style={{ color: "var(--muted)" }}>Tx: </span>
-          <code style={{ color: "var(--foreground)", fontFamily: "var(--font-mono, monospace)" }}>
+          <code style={{ color: "var(--ink)", fontFamily: "var(--font-mono, monospace)" }}>
             {txHash.slice(0, 10)}…{txHash.slice(-6)}
           </code>
         </p>

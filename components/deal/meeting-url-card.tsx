@@ -138,7 +138,7 @@ export function MeetingUrlCard({
             style={{
               background: "var(--success-muted)",
               border: "1px solid var(--success)",
-              borderRadius: "var(--radius-sm)",
+              borderRadius: "var(--r-3)",
               display: "flex",
               flexDirection: "column",
               gap: 6,
@@ -152,7 +152,7 @@ export function MeetingUrlCard({
               href={meetingUrl}
               rel="noopener noreferrer"
               style={{
-                color: "var(--accent)",
+                color: "var(--gold-deep)",
                 fontSize: 14,
                 fontWeight: 500,
                 wordBreak: "break-all",

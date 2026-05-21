@@ -421,7 +421,7 @@ const smallButtonStyle = {
   background: "transparent",
   border: "1px solid var(--border)",
   borderRadius: 8,
-  color: "var(--foreground)",
+  color: "var(--ink)",
   fontSize: 13,
   fontWeight: 700,
   minHeight: 36,
@@ -435,7 +435,7 @@ const listStyle = {
 } as const;
 
 const entryCardStyle = {
-  background: "var(--panel-muted)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   padding: 12,
@@ -465,10 +465,10 @@ const removeActionsStyle = {
 } as const;
 
 const selectStyle = {
-  background: "var(--input-bg)",
-  border: "1px solid var(--input-border)",
-  borderRadius: "var(--radius)",
-  color: "var(--foreground)",
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--r-4)",
+  color: "var(--ink)",
   fontSize: 16,
   fontWeight: 400,
   minHeight: 48,

@@ -79,7 +79,7 @@ export default function ReceiptPage() {
       </div>
 
       {loading && (
-        <p style={loadingStyle}>Loading receipt…</p>
+        <p className="small" style={{ textAlign: "center" }}>Loading receipt…</p>
       )}
 
       {error && (
@@ -202,14 +202,8 @@ export default function ReceiptPage() {
   );
 }
 
-const loadingStyle = {
-  color: "var(--muted)",
-  fontSize: 14,
-  textAlign: "center" as const,
-} as const;
-
 const txLinkStyle = {
-  color: "var(--accent)",
+  color: "var(--gold-deep)",
   textDecoration: "none",
 } as const;
 

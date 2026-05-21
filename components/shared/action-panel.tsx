@@ -14,9 +14,9 @@ export function ActionPanel({
   return (
     <Component
       style={{
-        background: "var(--panel)",
+        background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
+        borderRadius: "var(--r-5)",
         boxShadow: "var(--shadow-panel)",
         ...style,
       }}
