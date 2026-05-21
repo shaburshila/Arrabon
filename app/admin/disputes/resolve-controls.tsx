@@ -127,7 +127,7 @@ const confirmStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 12,
-  padding: 12,
+  padding: "12px 14px",
 };
 
 const confirmTextStyle = {

@@ -424,14 +424,14 @@ export default function AdminDisputesPage() {
                 <span>Show only flagged</span>
               </label>
             </div>
-            <button
+            <Btn
               disabled={loading || isResolving}
               onClick={loadDeals}
-              style={smallButtonStyle}
-              type="button"
+              size="sm"
+              variant="ghost"
             >
               Refresh
-            </button>
+            </Btn>
           </div>
 
           {loading && (
@@ -563,7 +563,7 @@ export default function AdminDisputesPage() {
                       <StatusPill
                         label={deal.status === "Released" ? "Released" : "Refunded"}
                         size="md"
-                        tone={deal.status === "Released" ? "success" : "accent"}
+                        tone={deal.status === "Released" ? "green" : "purple"}
                       />
                       <RiskBadge riskStatus={deal.risk_status} size="md" />
                     </div>
@@ -659,7 +659,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function truncateTxHash(value: string) {
-  return `${value.slice(0, 10)}...${value.slice(-6)}`;
+  return `${value.slice(0, 10)}…${value.slice(-6)}`;
 }
 
 function formatResolutionDecision(
@@ -688,6 +688,7 @@ const headerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
+  marginBottom: 40,
 };
 
 const toolbarStyle = {
@@ -833,13 +834,3 @@ const acknowledgeLabelStyle = {
   gap: 8,
 } as const;
 
-const smallButtonStyle = {
-  background: "transparent",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--r-2)",
-  color: "var(--ink)",
-  fontSize: 13,
-  fontWeight: 500,
-  minHeight: 36,
-  padding: "0 12px",
-};

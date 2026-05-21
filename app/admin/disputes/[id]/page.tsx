@@ -678,6 +678,7 @@ const headerStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 8,
+  marginBottom: 40,
 } as const;
 
 const toolbarStyle = {

@@ -639,3 +639,29 @@
 - components/app/wallet-status-pill.tsx — dropdownAddressStyle removed letterSpacing -0.01em
 
 **Plan-19 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+## Plan-20 — completed (admin pages)
+
+### Phase 1 — StatusPill tone fix
+- app/admin/disputes/page.tsx — resolved list StatusPill: tone success/accent → green/purple
+- DEVIATION: app/admin/disputes/[id]/page.tsx has NO resolved-status StatusPill — the detail page only renders disputed deals with a hardcoded `<StatusPill label="Disputed" tone="danger">`. Nothing matching success/accent exists there; no change applied.
+
+### Phase 2 — Page header marginBottom 40
+- app/admin/disputes/page.tsx — headerStyle marginBottom 40 added
+- app/admin/disputes/[id]/page.tsx — headerStyle marginBottom 40 added
+- app/admin/denylist/page.tsx — headerStyle marginBottom 40 added
+
+### Phase 3 — Ellipsis character
+- app/admin/disputes/page.tsx — truncateTxHash uses "…" (U+2026) instead of "..."
+
+### Phase 4 — Confirm dialog padding
+- app/admin/disputes/resolve-controls.tsx — confirmStyle padding 12 → "12px 14px" (matches admin-acknowledge / compliance-check 12×14)
+
+### Phase 5 — Denylist sweep (verification only, no changes)
+- app/admin/denylist/page.tsx — verified: ActionPanel sectionStyle padding 28 ✓; section headings use `.h2` class ✓; form helper text via FormField (`.field__help`) ✓; entry cards use shared DetailRow ✓; headerStyle marginBottom 40 applied in Phase 2. No code change required.
+
+### Phase 6 — Refresh button
+- app/admin/disputes/page.tsx — Refresh button → <Btn variant="ghost" size="sm">; removed smallButtonStyle const
+- NOTE: app/admin/disputes/[id]/page.tsx and app/admin/denylist/page.tsx have the same inline `smallButtonStyle` Refresh-button pattern; left untouched — Phase 6 scope is disputes/page.tsx only per the plan.
+
+**Plan-20 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
