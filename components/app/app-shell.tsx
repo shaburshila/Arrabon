@@ -38,7 +38,7 @@ const mainStyle = {
   display: "flex",
   justifyContent: "center",
   minHeight: "100vh",
-  padding: "128px 16px 64px",
+  padding: "32px 32px 64px",
 } as const;
 
 const contentStyle = {

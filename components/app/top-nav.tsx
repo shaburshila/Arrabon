@@ -92,11 +92,8 @@ const headerStyle = {
   borderBottom: "1px solid var(--border)",
   display: "flex",
   justifyContent: "center",
-  left: 0,
-  position: "fixed" as const,
-  right: 0,
+  position: "sticky" as const,
   top: 0,
-  width: "100%",
   zIndex: 40,
 } as const;
 

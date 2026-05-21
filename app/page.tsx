@@ -114,7 +114,7 @@ function StepsSection() {
       <div style={sectionInner}>
         <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
           <p className="eyebrow">How it works</p>
-          <h2 style={sectionH2Style}>Three steps. One settlement.</h2>
+          <h2 className="h2">Three steps. One settlement.</h2>
         </div>
         <div style={threeColGrid}>
           {STEPS.map((s) => (
@@ -132,7 +132,7 @@ function BenefitsSection() {
       <div style={sectionInner}>
         <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
           <p className="eyebrow">Built for both sides</p>
-          <h2 style={sectionH2Style}>A safer workflow for paid consultations.</h2>
+          <h2 className="h2">A safer workflow for paid consultations.</h2>
         </div>
         <div style={threeColGrid}>
           {BENEFITS.map((b) => (
@@ -150,7 +150,7 @@ function StatsSection() {
       <div style={sectionInner}>
         <div className="stack-12" style={{ maxWidth: 720, marginBottom: 40 }}>
           <p className="eyebrow">Results to date</p>
-          <h2 style={sectionH2Style}>Numbers from the network.</h2>
+          <h2 className="h2">Numbers from the network.</h2>
         </div>
         <div className="landing-stats__grid">
           {STATS.map((s) => (
@@ -380,16 +380,6 @@ const sectionInner = {
   width: "100%",
 };
 
-const sectionH2Style = {
-  fontFamily: "var(--font-serif)",
-  fontSize: "clamp(28px, 4vw, 44px)",
-  fontWeight: 500,
-  letterSpacing: "-0.015em",
-  lineHeight: 1.1,
-  color: "var(--ink)",
-  margin: 0,
-};
-
 const threeColGrid = {
   display: "grid",
   gap: 20,
@@ -400,7 +390,7 @@ const cardStyle = {
   background: "var(--surface)",
   border: "1px solid var(--border)",
   borderRadius: "var(--r-4)",
-  padding: "28px 24px",
+  padding: 28,
 };
 
 const cardTitleStyle = {

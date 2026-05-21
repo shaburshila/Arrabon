@@ -47,9 +47,11 @@ export function DealStatusCard({ deal, isAdmin = false, isBuyer, isSeller, isPar
         <Icon name={sc.icon} size={20} />
       </span>
       <div style={heroBodyStyle}>
-        <p style={eyebrowStyle}>Deal · {deal.id.slice(0, 8).toUpperCase()}</p>
+        <p className="eyebrow">Deal · {deal.id.slice(0, 8).toUpperCase()}</p>
         <h1 style={heroTitleStyle}>{title}</h1>
-        <p style={heroSubtitleStyle}>{guidanceSubtitle}</p>
+        <p className="body" style={{ color: "var(--muted)", maxWidth: "60ch", margin: 0 }}>
+          {guidanceSubtitle}
+        </p>
       </div>
       <div className="deal-hero__amount">
         <div className="deal-hero__amount-num">{formatUsdcPrice(deal.price_usdc)}</div>
@@ -61,16 +63,7 @@ export function DealStatusCard({ deal, isAdmin = false, isBuyer, isSeller, isPar
 
 const heroBodyStyle = { display: "flex", flexDirection: "column" as const, gap: 8, minWidth: 0 };
 
-const eyebrowStyle = {
-  color: "var(--muted)", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
-  margin: 0, textTransform: "uppercase" as const,
-};
-
 const heroTitleStyle = {
-  color: "var(--ink)", fontFamily: "var(--font-serif)", fontSize: 28, fontWeight: 500,
+  color: "var(--ink)", fontFamily: "var(--font-serif)", fontSize: 36, fontWeight: 500,
   letterSpacing: "-0.01em", lineHeight: 1.1, margin: 0,
-};
-
-const heroSubtitleStyle = {
-  color: "var(--muted)", fontSize: 14, lineHeight: 1.5, margin: 0, maxWidth: "52ch",
 };

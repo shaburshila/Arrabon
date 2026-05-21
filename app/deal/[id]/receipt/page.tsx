@@ -142,20 +142,25 @@ export default function ReceiptPage() {
 
             <div className="receipt__foot">
               <ArrabonSeal size={36} tone="gold-line" />
-              <span className="receipt__foot-text">
-                Settled on <strong>Base Network</strong> via <strong>Arrabon</strong> escrow.{" "}
-                Powered by smart contract{" "}
-                <a
-                  href="https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD"
-                  rel="noreferrer"
-                  style={txLinkStyle}
-                  target="_blank"
-                >
-                  0x2EB0…1C5aD
-                </a>.
-              </span>
+              <div className="receipt__foot-text">
+                <strong>Secured by Arrabon</strong>
+                Onchain escrow on Base · Trusted settlement
+              </div>
             </div>
           </div>
+
+          <p className="small" style={contractNoteStyle}>
+            Powered by smart contract{" "}
+            <a
+              href="https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD"
+              rel="noreferrer"
+              style={txLinkStyle}
+              target="_blank"
+            >
+              0x2EB0…1C5aD
+            </a>{" "}
+            on Base.
+          </p>
 
           <div style={actionsStyle}>
             <Link href={`/deal/${dealId}`} style={{ textDecoration: "none" }}>
@@ -192,6 +197,11 @@ const loadingStyle = {
 const txLinkStyle = {
   color: "var(--accent)",
   textDecoration: "none",
+} as const;
+
+const contractNoteStyle = {
+  marginTop: 4,
+  textAlign: "center" as const,
 } as const;
 
 const actionsStyle = {

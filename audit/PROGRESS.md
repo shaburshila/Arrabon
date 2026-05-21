@@ -161,3 +161,43 @@
 - Brand mark size 32 and brand word font-size 24 left at current values per plan's explicit "оставь" notes
 
 **Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-8 — completed
+
+### Phase QQ — Landing hero
+- app/globals.css — .landing-hero h1 (clamp(36,5vw,56)→64px, lh 1.1→1.12, ls -0.02→-0.012em, margin-bottom 20→40)
+- app/globals.css — .landing-hero__sub (16→19px, lh 1.65→1.5, max-width 52→50ch)
+
+### Phase RR — Deal hero
+- components/deal/deal-status-card.tsx — heroTitleStyle fontSize 28→36; replaced inline eyebrowStyle with .eyebrow class and heroSubtitleStyle with .body class + inline {color:muted, maxWidth:60ch, margin:0}; removed both unused style consts
+
+### Phase SS — LinkSummary 4-section card
+- components/link/link-summary.tsx — restructured monolithic div into 4 full-bleed sections divided by edge-to-edge hairline borders: header (28x32, border-bottom), description (20x32, muted, border-bottom), details (8x32x20), gold trust footer (16x32, full-bleed, border-top)
+- cardStyle: removed padding/gap, added overflow:hidden
+- titleStyle fontSize 28→32 (lineHeight 1.15)
+- amount-num fontSize 36 (inline override of default 48)
+- seller line split: non-mono "Seller" label + mono address span
+- shield icon utility-secure-subtle 14→18
+- trust text updated to prototype copy
+
+### Phase TT — Receipt
+- app/globals.css — .receipt__seal margin-bottom 8→28 (margin:0 auto 28px); .receipt__sub lh 1.6→1.5, max-width 48→44ch, margin-bottom 24→32; .receipt__details padding 0/20→22/24, added margin-bottom 24, removed border, added text-align:left; .receipt__foot gap 10→12, removed margin-top/width; .receipt__foot-text text-align:left + line-height 1.45, removed flex/wrap/justify; .receipt__foot-text strong display:block fontSize 13 margin-bottom 2 letter-spacing 0.005em
+- app/deal/[id]/receipt/page.tsx — restructured foot to seal-left + 2-line text ("Secured by Arrabon" strong line + descriptor); moved smart-contract address to a centered <p className="small"> note below the receipt card
+
+### Phase UU — Deal countdown
+- app/globals.css — .deal-countdown__value removed font-family:var(--font-mono), fontSize 14→14.5px
+
+### Phase VV — AppShell padding
+- components/app/app-shell.tsx — mainStyle side padding 16→32
+- app/globals.css — added @media (max-width:768px) main padding-left/right 16px !important
+
+### Phase WW — Top-nav sticky [applied]
+- components/app/top-nav.tsx — headerStyle position fixed→sticky, removed left/right/width
+- components/app/app-shell.tsx — mainStyle padding-top 128→32 (final: 32px 32px 64px)
+- app/globals.css — scroll-margin-top 64px kept (correct for sticky nav)
+
+### Phase XX/YY — landing polish
+- app/page.tsx — sectionH2Style → .h2 className on all 3 section headings (prototype match), removed sectionH2Style const
+- app/page.tsx — cardStyle padding "28px 24px" → 28
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.

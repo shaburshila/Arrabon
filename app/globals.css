@@ -968,19 +968,19 @@ select {
 
 .landing-hero h1 {
   font-family: var(--font-serif);
-  font-size: clamp(36px, 5vw, 56px);
+  font-size: 64px;
   font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  line-height: 1.12;
+  letter-spacing: -0.012em;
   color: var(--ink);
-  margin: 0 0 20px;
+  margin: 0 0 40px;
 }
 
 .landing-hero__sub {
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: 19px;
+  line-height: 1.5;
   color: var(--muted);
-  max-width: 52ch;
+  max-width: 50ch;
   margin: 0 0 32px;
 }
 
@@ -1235,7 +1235,11 @@ select {
 
 .receipt > * { position: relative; }
 
-.receipt__seal { display: flex; justify-content: center; margin-bottom: 8px; }
+.receipt__seal {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 28px;
+}
 
 .receipt__title {
   font-family: var(--font-serif);
@@ -1249,43 +1253,46 @@ select {
 
 .receipt__sub {
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--muted);
-  max-width: 48ch;
-  margin: 0 auto 24px;
+  max-width: 44ch;
+  margin: 0 auto 32px;
   text-align: center;
 }
 
 .receipt__details {
   background: var(--surface-2);
-  border: 1px solid var(--border-soft);
   border-radius: var(--r-3);
-  padding: 0 20px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
   width: 100%;
+  text-align: left;
 }
 
 .receipt__foot {
   display: flex;
   align-items: center;
-  gap: 10px;
   justify-content: center;
+  gap: 12px;
   padding-top: 24px;
   border-top: 1px solid var(--border-soft);
-  margin-top: 8px;
-  width: 100%;
 }
 
 .receipt__foot-text {
+  text-align: left;
   font-size: 12px;
   color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
+  line-height: 1.45;
 }
 
-.receipt__foot-text strong { color: var(--ink-soft); font-weight: 600; }
+.receipt__foot-text strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 2px;
+  letter-spacing: 0.005em;
+}
 
 /* ─── Landing hero h1 (mobile) ───────────────────────────────────── */
 
@@ -1334,8 +1341,7 @@ select {
 .deal-countdown__label { font-size: 13px; color: var(--muted); }
 
 .deal-countdown__value {
-  font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 500;
   color: var(--ink);
   white-space: nowrap;
@@ -1685,10 +1691,18 @@ select {
   .list-row__chevron { grid-area: chevron; }
 }
 
-/* Compensate fixed top-nav when programmatic scrolling to sections */
+/* Compensate sticky top-nav when programmatic scrolling to sections */
 .landing-steps,
 .landing-benefits,
 .landing-stats,
 .landing-cta {
   scroll-margin-top: 64px;
+}
+
+/* Tighter side padding on mobile */
+@media (max-width: 768px) {
+  main {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
 }
