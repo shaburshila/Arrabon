@@ -76,7 +76,7 @@ const pageHeaderStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 12,
-  marginBottom: 48,
+  marginBottom: 40,
   maxWidth: 720,
 };
 

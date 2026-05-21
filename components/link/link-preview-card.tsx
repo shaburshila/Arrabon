@@ -32,9 +32,14 @@ export function LinkPreviewCard({ values }: Props) {
   return (
     <div style={stack}>
       <div style={cardStyle}>
-        <p className="eyebrow">Preview</p>
-        <h3 style={titleStyle}>{values.title || "Consultation title"}</h3>
-        {values.description && <p style={descStyle}>{values.description}</p>}
+        <p className="section-label" style={{ marginBottom: 18 }}>Preview</p>
+        <div className="stack-12">
+          <p className="eyebrow">Consultation</p>
+          <h3 style={titleStyle}>{values.title || "Untitled consultation"}</h3>
+          {values.description && (
+            <p className="small" style={{ color: "var(--muted)" }}>{values.description}</p>
+          )}
+        </div>
         <div style={divider} />
         <DetailRow
           label="Price"
@@ -50,7 +55,7 @@ export function LinkPreviewCard({ values }: Props) {
           }
         />
         <DetailRow label="Scheduled" value={scheduled} />
-        <DetailRow label="Duration" value={values.duration_minutes ? `${values.duration_minutes} min` : "—"} />
+        <DetailRow label="Duration" value={values.duration_minutes ? `${values.duration_minutes} minutes` : "—"} />
         <DetailRow label="Seller" mono value={values.seller_address ? truncate(values.seller_address) : "—"} />
         <DetailRow bordered={false} label="Expires" value={expires} />
       </div>
@@ -58,8 +63,10 @@ export function LinkPreviewCard({ values }: Props) {
       <div style={insetStyle}>
         <ArrabonSeal size={56} tone="auto" />
         <div>
-          <p style={insetTitleStyle}>Secured by Arrabon</p>
-          <p style={insetSubStyle}>Onchain escrow · Trusted settlement</p>
+          <p className="tiny">Secured by Arrabon</p>
+          <p className="small" style={{ color: "var(--muted)", marginTop: 4 }}>
+            Onchain escrow · Trusted settlement
+          </p>
         </div>
       </div>
     </div>
@@ -70,12 +77,13 @@ function truncate(addr: string): string {
   return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }
 
-const stack = { display: "flex", flexDirection: "column" as const, gap: 16 };
+const stack = { display: "flex", flexDirection: "column" as const, gap: 20 };
 
 const cardStyle = {
   background: "var(--surface)",
-  border: "1px solid var(--border)",
+  border: "1px solid var(--border-soft)",
   borderRadius: "var(--r-3)",
+  boxShadow: "var(--shadow-2)",
   display: "flex",
   flexDirection: "column" as const,
   padding: 28,
@@ -92,13 +100,6 @@ const titleStyle = {
   textWrap: "balance" as const,
 } as const;
 
-const descStyle = {
-  color: "var(--muted)",
-  fontSize: 13.5,
-  lineHeight: 1.55,
-  margin: "8px 0 0",
-};
-
 const divider = {
   background: "var(--rule)",
   border: 0,
@@ -113,18 +114,6 @@ const insetStyle = {
   borderRadius: "var(--r-3)",
   display: "flex",
   gap: 14,
-  padding: "14px 16px",
+  padding: 28,
 };
 
-const insetTitleStyle = {
-  color: "var(--ink)",
-  fontSize: 13,
-  fontWeight: 600,
-  margin: 0,
-};
-
-const insetSubStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  margin: "2px 0 0",
-};

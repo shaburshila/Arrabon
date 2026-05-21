@@ -475,3 +475,59 @@
 **Part II checks:** npm run typecheck clean (exit 0), npm run test:unit 12/12 passing. npm run build deferred (same environment network blocker as Part I).
 
 **Plan-15 — npm run build:** re-run after environment network recovered → compiled successfully, exit 0, full route table. All three checks now confirmed for Plan-15 (typecheck + build + test:unit 12/12).
+
+## Plan-16 — completed (/create page audit)
+
+### Part I — Structural
+
+#### Phase 1 — ActionPanel defaults match prototype Card
+- components/shared/action-panel.tsx — borderRadius var(--r-5)→var(--r-3); border var(--border)→var(--border-soft); boxShadow var(--shadow-panel)→var(--shadow-2)
+- (affects ALL ActionPanel usage: create form, DealDetailsCard, KeyTimes, my-deals/my-links list panels, admin disputes — system-wide visual lighter/less rounded)
+
+#### Phase 2 — Preview section-label + nested eyebrow
+- components/link/link-preview-card.tsx — restructured preview: section-label "Preview" (marginBottom 18, with divider line via ::after) → stack-12 inner with eyebrow "Consultation" + h3 + description; removed descStyle const; description now `.small` class + inline color; placeholder "Consultation title" → "Untitled consultation"
+
+#### Phase 3 — Preview inset padding 28
+- components/link/link-preview-card.tsx — insetStyle padding "14px 16px" → 28
+
+#### Phase 4 — Preview stack gap 20
+- components/link/link-preview-card.tsx — stack.gap 16→20
+
+**Part I checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+### Part II — Type / copy
+
+#### Phase 5 — Inset title .tiny class
+- components/link/link-preview-card.tsx — inset title → className="tiny" (CAPS 0.06em muted); subtitle → className="small" + inline color/marginTop 4; removed insetTitleStyle/insetSubStyle consts
+
+#### Phase 6 — Description helper
+- components/link/create-link-form.tsx — Description helper appended ". Markdown not supported."
+
+#### Phase 7 — Payment sublabel wording
+- components/link/create-link-form.tsx — TokenAmountRow sublabel: "You will receive" → "You receive"; "3% platform fee" → "3% fee"
+
+#### Phase 8 — Duration "min" → "minutes"
+- components/link/link-preview-card.tsx — Duration DetailRow value
+
+#### Phase 9 — Preview cardStyle boxShadow
+- components/link/link-preview-card.tsx — cardStyle: border var(--border)→var(--border-soft); added boxShadow var(--shadow-2)
+
+**Part II checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+### Part III — Page header
+
+#### Phase 10 — pageHeader marginBottom 40
+- app/create/page.tsx — pageHeaderStyle marginBottom 48→40 (matches prototype .page__head)
+
+**Part III checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+### Part IV — Cleanup / DRY
+
+#### Phase 11 — helperTextStyle → .field__help
+- components/link/create-link-form.tsx — inline helperTextStyle (link-expiration helper <p>) → className="field__help"; removed helperTextStyle const
+- DEVIATION: plan called `.field__help` values "identical" to helperTextStyle, but the class lacked `margin: 0` (helperTextStyle had it). Applied to a `<p>` element this would gain browser-default vertical margins. Adapted: added `margin: 0` to `.field__help` in app/globals.css. Harmless to existing `<span>` usages (vertical margin does not apply to inline elements).
+
+#### Phase 12 — TokenAmountRow label/helper → field classes
+- components/shared/token-amount-row.tsx — labelStyle → className="field__label"; helperStyle → className="field__help"; removed both consts (affects /create payment row + receipt)
+
+**Part IV checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.

@@ -359,7 +359,7 @@ export function CreateLinkForm(props: Props) {
               value={form.title}
             />
           </FormField>
-          <FormField label="Description" helper="A short note for the buyer.">
+          <FormField label="Description" helper="A short note for the buyer. Markdown not supported.">
             <TextArea
               id="description"
               onChange={(e) => setField("description", e.target.value)}
@@ -379,7 +379,7 @@ export function CreateLinkForm(props: Props) {
             label="Price"
             onChange={(value) => setField("price_usdc", value)}
             required
-            sublabel="You will receive this amount in full. Buyer pays an additional 3% platform fee (min $1.50, max $30)."
+            sublabel="You receive this amount in full. Buyer pays an additional 3% fee (min $1.50, max $30)."
             token="USDC"
           />
           <hr style={ruleStyle} />
@@ -451,7 +451,7 @@ export function CreateLinkForm(props: Props) {
               />
             </FormField>
           </div>
-          <p style={helperTextStyle}>
+          <p className="field__help">
             The link cannot be funded after this time. Defaults to 5 minutes before the consultation.
           </p>
         </div>
@@ -524,13 +524,6 @@ const sectionStackStyle = {
 };
 
 const ruleStyle = { background: "var(--rule)", border: 0, height: 1, margin: 0 };
-
-const helperTextStyle = {
-  color: "var(--muted-2)",
-  fontSize: 12,
-  lineHeight: 1.45,
-  margin: 0,
-};
 
 const successPanelStyle = {
   display: "flex",

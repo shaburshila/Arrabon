@@ -23,7 +23,7 @@ export function TokenAmountRow({
 
   return (
     <div style={fieldStyle}>
-      {label && <span style={labelStyle}>{label}</span>}
+      {label && <span className="field__label">{label}</span>}
       <div className="amount-input">
         {readonly ? (
           <span style={readonlyAmountStyle}>{amount}</span>
@@ -39,7 +39,7 @@ export function TokenAmountRow({
         )}
         <span className="amount-input__token">{token}</span>
       </div>
-      {sublabel && <span style={helperStyle}>{sublabel}</span>}
+      {sublabel && <span className="field__help">{sublabel}</span>}
     </div>
   );
 }
@@ -48,19 +48,6 @@ const fieldStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 6,
-};
-
-const labelStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  fontWeight: 500,
-  letterSpacing: "0.005em",
-};
-
-const helperStyle = {
-  color: "var(--muted-2)",
-  fontSize: 12,
-  lineHeight: 1.45,
 };
 
 const readonlyAmountStyle = {
