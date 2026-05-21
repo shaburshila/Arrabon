@@ -22,102 +22,55 @@ export function TokenAmountRow({
   }
 
   return (
-    <div style={rowStyle}>
-      <div style={amountColumnStyle}>
-        {label && <p style={labelStyle}>{label}</p>}
+    <div style={fieldStyle}>
+      {label && <span style={labelStyle}>{label}</span>}
+      <div className="amount-input">
         {readonly ? (
-          <p style={amountStyle}>{amount}</p>
+          <span style={readonlyAmountStyle}>{amount}</span>
         ) : (
           <input
             inputMode="decimal"
             onChange={handleChange}
-            placeholder="0"
+            placeholder="0.00"
             required={required}
-            style={amountInputStyle}
             type="number"
             value={amount}
           />
         )}
-        {sublabel && <p style={sublabelStyle}>{sublabel}</p>}
+        <span className="amount-input__token">{token}</span>
       </div>
-      <div style={tokenStyle}>
-        <span style={tokenIconStyle}>$</span>
-        <span style={tokenTextStyle}>{token}</span>
-      </div>
+      {sublabel && <span style={helperStyle}>{sublabel}</span>}
     </div>
   );
 }
 
-const rowStyle = {
-  alignItems: "center",
+const fieldStyle = {
   display: "flex",
-  gap: 12,
-  justifyContent: "space-between",
-};
-
-const amountColumnStyle = {
-  flex: 1,
-  minWidth: 0,
+  flexDirection: "column" as const,
+  gap: 6,
 };
 
 const labelStyle = {
   color: "var(--muted)",
   fontSize: 12,
-  margin: "0 0 4px",
+  fontWeight: 500,
+  letterSpacing: "0.005em",
 };
 
-const amountStyle = {
-  color: "var(--foreground)",
-  fontSize: 32,
-  fontWeight: 600,
-  lineHeight: 1.1,
-  margin: 0,
-};
-
-const amountInputStyle = {
-  background: "transparent",
-  border: "none",
-  color: "var(--foreground)",
-  fontSize: 32,
-  fontWeight: 600,
-  lineHeight: 1.1,
-  outline: "none",
-  padding: 0,
-  width: "100%",
-};
-
-const sublabelStyle = {
-  color: "var(--muted)",
+const helperStyle = {
+  color: "var(--muted-2)",
   fontSize: 12,
-  margin: "4px 0 0",
+  lineHeight: 1.45,
 };
 
-const tokenStyle = {
+const readonlyAmountStyle = {
   alignItems: "center",
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
+  color: "var(--ink)",
   display: "inline-flex",
-  flexShrink: 0,
-  gap: 6,
-  padding: "8px 12px",
-};
-
-const tokenIconStyle = {
-  alignItems: "center",
-  background: "#2775ca",
-  borderRadius: "50%",
-  color: "#fff",
-  display: "inline-flex",
-  fontSize: 10,
-  fontWeight: 800,
-  height: 20,
-  justifyContent: "center",
-  width: 20,
-};
-
-const tokenTextStyle = {
-  color: "var(--foreground)",
-  fontSize: 14,
-  fontWeight: 600,
+  fontFamily: "var(--font-serif)",
+  fontSize: 28,
+  fontWeight: 500,
+  height: 56,
+  letterSpacing: "-0.01em",
+  padding: "0 16px",
 };

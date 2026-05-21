@@ -391,7 +391,7 @@ export function CreateLinkForm(props: Props) {
       <ActionPanel style={cardPaddedStyle}>
         <div style={sectionStackStyle}>
           <SectionLabel>Schedule</SectionLabel>
-          <div style={twoColumnRowStyle}>
+          <div className="field__row">
             <FormField label="Date">
               <TextInput
                 id="scheduled_date"
@@ -431,7 +431,7 @@ export function CreateLinkForm(props: Props) {
       <ActionPanel style={cardPaddedStyle}>
         <div style={sectionStackStyle}>
           <SectionLabel>Link expiration</SectionLabel>
-          <div style={twoColumnRowStyle}>
+          <div className="field__row">
             <FormField label="Expiration date">
               <TextInput
                 id="expires_date"
@@ -524,12 +524,6 @@ const sectionStackStyle = {
 };
 
 const ruleStyle = { background: "var(--rule)", border: 0, height: 1, margin: 0 };
-
-const twoColumnRowStyle = {
-  display: "grid",
-  gap: 12,
-  gridTemplateColumns: "1fr 1fr",
-};
 
 const helperTextStyle = {
   color: "var(--muted-2)",

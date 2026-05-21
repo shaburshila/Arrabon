@@ -275,3 +275,33 @@
 - components/shared/detail-row.tsx — accent color var(--gold)→var(--gold-deep)
 
 **Stage 3 checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-10 — completed
+
+### Phase 1 — Background gradient
+- app/globals.css — body background-image: 2 radial gradients (1200x600 at 80%/-100, 900x500 at -10%/120) with var(--gold-soft); background-attachment: fixed
+- app/globals.css — [data-theme="dark"] body — darker gradient overrides (0.08 / 0.05 alpha)
+
+### Phase 2 — Forms (.input / .textarea / .amount-input / .field*)
+- app/globals.css — added .field, .field__label, .field__help, .field__row, .input, .textarea, .select, .input--mono, .amount-input, .amount-input__token, .rule classes
+- components/shared/text-input.tsx — replaced inline style with className="input" (style still passes through via ...props)
+- components/shared/text-area.tsx — replaced inline style with className="textarea"
+- components/shared/form-field.tsx — replaced inline styles with className="field" + .field__label / .field__help; labels no longer UPPERCASE
+- components/shared/token-amount-row.tsx — rewritten with .amount-input grid: removed blue $ circle icon (slop), removed detached pill, integrated token chip with surface-2 + left-border; serif 28px / 500 input with focus-within gold ring; label + sublabel moved outside .amount-input
+- components/link/create-link-form.tsx — twoColumnRowStyle → className="field__row" (2.6, removed const)
+
+### Phase 3 — List rows typography revert
+- app/globals.css — .list-row__title gap 3→4
+- app/globals.css — .list-row__title-name 15.5/600/letter-spacing → 14.5/500 (no letter-spacing)
+- app/globals.css — .list-row__title-sub removed margin-top
+- app/globals.css — .list-row__price 16/600/letter-spacing → 14/500 (no letter-spacing)
+- app/globals.css — .list-row__price-token 10.5/600/uppercase/0.04em/ml 6 → 11/default-weight/no-case/no-letter-spacing/ml 4
+- app/globals.css — .list-row__trailing 13.5 → 13
+
+**Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+### Notes
+- background-attachment: fixed used because we don't have an .app wrapper — gradient stays fixed relative to viewport (visually identical to prototype where .app has min-height 100vh)
+- form labels reverted from UPPERCASE — prototype uses normal case "Title" / "Description"
+- TokenAmountRow blue $ circle was iconographic noise not in prototype — removed
+- DEVIATION (Phase 3 .list-row__price-token): plan's "Замени блоки" code omitted font-family, but that element is nested inside .list-row__price (var(--font-mono)), so it would inherit mono — contradicting the plan's own table ("✓ оставить sans") and acceptance ("«USDC» — обычный case"). Kept `font-family: var(--font-sans)` explicit to honor stated intent.
