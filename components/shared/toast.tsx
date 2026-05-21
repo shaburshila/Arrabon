@@ -52,9 +52,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ push, dismiss }}>
       {children}
-      <div className="toasts">
+      <div
+        className="toasts"
+        aria-live="polite"
+        aria-atomic="false"
+        role="region"
+        aria-label="Notifications"
+      >
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast--${t.tone ?? "default"}`}>
+          <div
+            key={t.id}
+            className={`toast toast--${t.tone ?? "default"}`}
+            role={t.tone === "danger" ? "alert" : "status"}
+          >
             {t.icon && (
               <span className="toast__icon">
                 <Icon name={t.icon} size={14} />

@@ -12,7 +12,7 @@ interface Props {
 
 export function SiweSignModal({ open, onApprove, onReject, siweMessage }: Props) {
   return (
-    <Modal open={open} width={460} onClose={onReject}>
+    <Modal open={open} width={460} onClose={onReject} labelledBy="siwe-modal-title">
       <button
         aria-label="Close"
         className="modal__close"
@@ -43,6 +43,7 @@ export function SiweSignModal({ open, onApprove, onReject, siweMessage }: Props)
               Wallet signature requested
             </p>
             <h3
+              id="siwe-modal-title"
               style={{
                 fontFamily: "var(--font-serif)",
                 fontSize: 22,

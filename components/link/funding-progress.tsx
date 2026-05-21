@@ -79,7 +79,7 @@ export function FundingProgress({
   return renderProgressContent(
     embedded,
     <>
-      <p className="section-label">Payment progress</p>
+      <p className="section-label" id="funding-progress-label">Payment progress</p>
 
       <FundingStepList steps={getProgressSteps(step)} />
 
@@ -137,7 +137,11 @@ interface FundStep {
 
 function FundingStepList({ steps }: { steps: FundStep[] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div
+      aria-labelledby="funding-progress-label"
+      aria-live="polite"
+      style={{ display: "flex", flexDirection: "column", gap: 10 }}
+    >
       {steps.map((s) => (
         <div key={s.key} style={{ alignItems: "center", display: "flex", gap: 10 }}>
           <span style={stepMarkerStyle(s.state)}>
@@ -274,7 +278,7 @@ const recoveryHintStyle = {
 };
 
 const recoveryLinkStyle = {
-  color: "var(--gold)",
+  color: "var(--gold-deep)",
   fontWeight: 600,
 };
 

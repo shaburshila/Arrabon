@@ -95,7 +95,7 @@ export default function LinkPage() {
 
         {linkPage.status === "loading" && (
           <div style={centerStyle}>
-            <p className="small">Loading…</p>
+            <p className="small" role="status" aria-live="polite">Loading…</p>
           </div>
         )}
 

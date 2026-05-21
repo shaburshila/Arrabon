@@ -26,7 +26,7 @@ export function AppShell({
   return (
     <>
       <TopNav />
-      <main style={mainStyle}>
+      <main id="main-content" style={mainStyle}>
         <div
           style={{
             boxSizing: "border-box",
@@ -48,5 +48,5 @@ export function AppShell({
 }
 
 const mainStyle = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
 } as const;

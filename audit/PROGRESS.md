@@ -428,3 +428,28 @@
 - app/page.tsx — HomePage uses <AppShell flushBottom flushTop maxWidth={1180}>
 
 **Final checks:** npm run typecheck clean, npm run build clean (full route table, exit 0), npm run test:unit 12/12 passing.
+
+## Plan-14 — Production readiness + A11y
+
+### Part I — Production readiness
+- Phase 1 (SSR theme flash): app/layout.tsx — inline theme script now falls back to prefers-color-scheme when no stored theme; body suppressHydrationWarning added
+- Phase 2 (iOS dvh): app/globals.css — 100vh → 100dvh in .landing-hero-section, .not-found, main; components/app/app-shell.tsx — mainStyle minHeight 100vh → 100dvh
+- Phase 3 (iOS input zoom): app/globals.css — @media (max-width:768px) bumps .input/.textarea/.select/.amount-input input/.search-input input to 16px
+- Phase 4 (autofill): app/globals.css — -webkit-autofill box-shadow/text-fill overrides (light + dark)
+- Phase 5 (color-mix fallback): app/globals.css — @supports not(color-mix) rgba() fallbacks for .notice--*, .btn--danger:hover, .admin-badge
+- Phase 6 (print): app/globals.css — @media print: hides nav/tabs/toasts, white bg, black text, no shadows, page-break-inside avoid
+- Phase 7 (clipboard fallback): components/shared/copy-btn.tsx + components/app/wallet-status-pill.tsx — execCommand textarea fallback for non-secure (HTTP) contexts
+
+**Part I checks:** npm run typecheck clean, npm run build clean (exit 0), npm run test:unit 12/12 passing.
+
+### Part II — A11y (WCAG 2.1 AA)
+- Phase 8 (focus visibility): app/globals.css — :focus-visible outlines for .btn/.iconbtn/.copy-field__btn/.admin-subnav__tab/.bottom-tabs__item/.toast__close/.modal__close/.landing-scroll-hint/.list-row/.search-input input + a links
+- Phase 9 (reduced motion): app/globals.css — @media (prefers-reduced-motion: reduce) block; app/page.tsx — HeroSection onScroll early-returns if reduced motion
+- Phase 10 (live regions): components/shared/toast.tsx — container role=region aria-live=polite aria-label; each toast role=alert(danger)/status; 3× loading texts (link/deal/receipt) role=status aria-live=polite; components/link/funding-progress.tsx — section-label id + steps list aria-labelledby + aria-live
+- Phase 11 (modal a11y): components/shared/modal.tsx — rewritten with role=dialog, aria-modal, aria-labelledby/describedby, focus trap (Tab cycle), auto-focus first element, return-focus on close; siwe-sign-modal.tsx — labelledBy + h3 id="siwe-modal-title"
+- Phase 12 (skip link): app/layout.tsx — skip-link <a> as first body child; components/app/app-shell.tsx — main id="main-content"; app/globals.css — .skip-link styles
+- Phase 13 (search aria-label): app/my-deals/page.tsx + my-links/page.tsx — aria-label on search inputs
+- Phase 14 (color contrast): app/globals.css — --muted-2 #8B847B → #757067 (Variant A, 4.5:1); components/link/funding-progress.tsx + components/deal/dispute-thread.tsx — link color var(--gold) → var(--gold-deep) (gold-as-text fails AA); dark-mode [data-theme=dark] color:var(--gold) rules left (light-on-dark, contrast OK)
+- Phase 15 (footer landmark): app/page.tsx SiteFooter — footer role=contentinfo, grid div → nav aria-label="Footer navigation"
+
+**Final checks:** npm run typecheck clean, npm run build clean (compiled successfully, exit 0), npm run test:unit 12/12 passing.

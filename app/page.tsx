@@ -28,6 +28,7 @@ function HeroSection() {
   const hintRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     const onScroll = () => {
       if (raf) return;
@@ -197,9 +198,9 @@ function FinalCtaSection() {
 
 function SiteFooter() {
   return (
-    <footer className="site-footer" style={footerSectionStyle}>
+    <footer className="site-footer" style={footerSectionStyle} role="contentinfo">
       <div style={{ ...sectionInner, paddingTop: 32, paddingBottom: 24 }}>
-        <div className="site-footer__grid">
+        <nav aria-label="Footer navigation" className="site-footer__grid">
           <div className="stack-12">
             <span style={brandStyle}>
               <ArrabonSeal size={28} tone="auto" />
@@ -239,7 +240,7 @@ function SiteFooter() {
               <Link href="/compliance" className="site-footer__link">Compliance</Link>
             </div>
           </div>
-        </div>
+        </nav>
         <div className="site-footer__base">
           <span style={footerCopyStyle}>© 2026 Arrabon · Onchain settlement on Base</span>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>

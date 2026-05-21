@@ -21,7 +21,7 @@
 
   /* --- Muted text --- */
   --muted:         #6B6660;
-  --muted-2:       #8B847B;
+  --muted-2:       #757067;
 
   /* --- Borders --- */
   --border:        rgba(22, 22, 22, 0.08);
@@ -296,7 +296,7 @@ a {
 }
 
 main {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 button {
@@ -959,7 +959,7 @@ select {
 
 .landing-hero-section {
   position: relative;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   display: flex;
   align-items: center;
   padding: 32px 0;
@@ -1213,7 +1213,7 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   padding: 64px 24px;
   text-align: center;
   gap: 16px;
@@ -1985,4 +1985,183 @@ select {
   background: var(--rule);
   border: 0;
   margin: 0;
+}
+
+/* ─── iOS input zoom prevention (font-size >= 16px on mobile) ───────── */
+
+@media (max-width: 768px) {
+  .input,
+  .textarea,
+  .select,
+  .amount-input input,
+  .search-input input {
+    font-size: 16px;
+  }
+}
+
+/* ─── Browser autofill highlight override ──────────────────────────── */
+
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus,
+.textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--ink);
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: var(--ink);
+}
+
+[data-theme="dark"] .input:-webkit-autofill,
+[data-theme="dark"] .textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--ink);
+}
+
+/* ─── color-mix() fallback for Safari < 16.4 / legacy Chromium ──────── */
+
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .notice--danger  { border-color: rgba(239, 68, 68, 0.22); }
+  .notice--warning { border-color: rgba(245, 158, 11, 0.22); }
+  .notice--success { border-color: rgba(34, 197, 94, 0.22); }
+  .notice--gold    { border-color: rgba(198, 161, 91, 0.26); }
+  .notice--info    { border-color: rgba(59, 130, 246, 0.22); }
+
+  .btn--danger:hover:not(:disabled) {
+    border-color: rgba(239, 68, 68, 0.30);
+  }
+
+  .admin-badge {
+    border-color: rgba(198, 161, 91, 0.25);
+  }
+}
+
+/* ─── Print styles ─────────────────────────────────────────────────── */
+
+@media print {
+  .topnav,
+  .bottom-tabs,
+  .toasts,
+  .landing-scroll-hint,
+  .tweaks-panel {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    background-image: none !important;
+    color: black !important;
+  }
+
+  .card,
+  .receipt,
+  .deal-hero,
+  .modal {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .receipt {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  .receipt__details,
+  .receipt__foot,
+  .deal-hero {
+    page-break-inside: avoid;
+  }
+
+  .deal-hero::before,
+  .receipt::before,
+  .landing-cta::before {
+    display: none !important;
+  }
+
+  .h-display,
+  .h1,
+  .h2,
+  .h3,
+  .lede,
+  .body,
+  .mono,
+  .small {
+    color: black !important;
+  }
+
+  a {
+    color: black !important;
+    text-decoration: underline;
+  }
+}
+
+/* ─── Keyboard focus indicators (a11y) ─────────────────────────────── */
+
+.btn:focus-visible,
+.iconbtn:focus-visible,
+.copy-field__btn:focus-visible,
+.admin-subnav__tab:focus-visible,
+.bottom-tabs__item:focus-visible,
+.toast__close:focus-visible,
+.modal__close:focus-visible,
+.landing-scroll-hint:focus-visible,
+.list-row:focus-visible,
+.search-input input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--r-2);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--r-1);
+}
+
+/* ─── Reduced motion (a11y) ────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .landing-scroll-hint__arrow,
+  .live-dot,
+  .spin {
+    animation: none !important;
+  }
+
+  .live-dot { box-shadow: none !important; }
+
+  .skeleton {
+    animation: none !important;
+    background: var(--surface-2) !important;
+  }
+}
+
+/* ─── Skip-to-content link (a11y) ──────────────────────────────────── */
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 200;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: var(--r-2);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }

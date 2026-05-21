@@ -361,7 +361,7 @@ const bodyStyle = {
 };
 
 const evidenceLinkStyle = {
-  color: "var(--gold)",
+  color: "var(--gold-deep)",
   display: "inline-block",
   fontSize: 13,
   fontWeight: 600,

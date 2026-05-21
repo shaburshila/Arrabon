@@ -109,7 +109,7 @@ export default function DealPage() {
 
       {dealPage.status === "loading" && (
         <div style={centerStyle}>
-          <p className="small">Loading deal…</p>
+          <p className="small" role="status" aria-live="polite">Loading deal…</p>
         </div>
       )}
       {dealPage.status === "not_found" && <Notice message="Deal not found." tone="muted" />}

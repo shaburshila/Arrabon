@@ -79,7 +79,7 @@ export default function ReceiptPage() {
       </div>
 
       {loading && (
-        <p className="small" style={{ textAlign: "center" }}>Loading receipt…</p>
+        <p className="small" role="status" aria-live="polite" style={{ textAlign: "center" }}>Loading receipt…</p>
       )}
 
       {error && (

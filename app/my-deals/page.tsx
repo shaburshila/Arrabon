@@ -179,6 +179,7 @@ export default function MyDealsPage() {
             <Icon name="utility-search" size={14} />
           </span>
           <input
+            aria-label="Search by title or deal ID"
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by title or deal ID…"
             type="search"

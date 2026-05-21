@@ -224,6 +224,7 @@ export default function MyLinksPage() {
             <Icon name="utility-search" size={14} />
           </span>
           <input
+            aria-label="Search by title or link ID"
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by title or link ID…"
             type="search"
