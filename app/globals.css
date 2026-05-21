@@ -1216,7 +1216,16 @@ select {
   min-height: calc(100dvh - 64px);
   padding: 64px 24px;
   text-align: center;
-  gap: 16px;
+}
+
+.not-found__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  max-width: 540px;
+  margin: 0 auto;
 }
 
 /* ─── Receipt page ──────────────────────────────────────────────────── */

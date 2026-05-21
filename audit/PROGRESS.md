@@ -612,3 +612,30 @@
 - app/my-links/page.tsx — LinkRow signature: removed unused isLast
 
 **Plan-18 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+## Plan-19 — completed (not-found / error / receipt / wallet pill)
+
+### Phase 1 — not-found inner wrapper (max-width 540)
+- app/globals.css — added .not-found__inner (flex column, align-items center, gap 18, max-width 540, margin 0 auto); removed gap 16px from .not-found
+- app/not-found.tsx — wrapped content in <div className="not-found__inner">
+- app/error.tsx — same
+
+### Phase 2 — Receipt Refunded title + sub voice
+- app/deal/[id]/receipt/page.tsx — getReceiptTitle Refunded: "Funds refunded" → "Refund issued"
+- getReceiptSub: applied plan's prototype-voice copy for both Released ("Your consultation has been settled...") and Refunded ("The deal has been refunded to the buyer per admin resolution.") — chose the plan's primary diff over the keep-current alternative; formatUsdcPrice still used by Amount row + fallback sub
+
+### Phase 3 — Receipt Status pill purple for Refunded
+- app/deal/[id]/receipt/page.tsx — tone "accent" → "purple" for Refunded; "success" → "green" for Released
+
+### Phase 4 — Settlement tx last 6 chars
+- app/deal/[id]/receipt/page.tsx — anchor text: added …{tx_hash.slice(-6)} suffix
+
+### Phase 5 — Receipt dates with timezone
+- app/deal/[id]/receipt/page.tsx — Scheduled + Released formatDate(... { showTimeZoneName: true })
+
+### Phase 6 — Wallet pill address
+- components/app/wallet-status-pill.tsx — pillAddressStyle fontSize 12→12.5, removed letterSpacing -0.01em
+- components/app/wallet-status-pill.tsx — getAddress(session.address) for EIP-55 checksum in pill + dropdown header; imported getAddress from viem
+- components/app/wallet-status-pill.tsx — dropdownAddressStyle removed letterSpacing -0.01em
+
+**Plan-19 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.

@@ -22,16 +22,16 @@ import { StatusPill } from "@/components/shared/status-pill";
 
 function getReceiptTitle(status: DealReadModel["status"]): string {
   if (status === "Released") return "Payment released";
-  if (status === "Refunded") return "Funds refunded";
+  if (status === "Refunded") return "Refund issued";
   return "Settlement receipt";
 }
 
 function getReceiptSub(deal: DealReadModel): string {
   if (deal.status === "Released") {
-    return `${formatUsdcPrice(deal.price_usdc)} USDC was released to the seller after the consultation was completed.`;
+    return "Your consultation has been settled. Funds have arrived in the seller's wallet on Base.";
   }
   if (deal.status === "Refunded") {
-    return `${formatUsdcPrice(deal.price_usdc)} USDC was returned to the buyer after the dispute was resolved.`;
+    return "The deal has been refunded to the buyer per admin resolution.";
   }
   return `Settlement record for deal ${deal.id.slice(0, 8).toUpperCase()}.`;
 }
@@ -119,7 +119,7 @@ export default function ReceiptPage() {
                 value={
                   <StatusPill
                     label={deal.status === "Released" ? "Released" : "Refunded"}
-                    tone={deal.status === "Released" ? "success" : "accent"}
+                    tone={deal.status === "Released" ? "green" : "purple"}
                   />
                 }
               />
@@ -135,12 +135,12 @@ export default function ReceiptPage() {
               />
               <DetailRow
                 label="Scheduled"
-                value={formatDate(deal.scheduled_at)}
+                value={formatDate(deal.scheduled_at, { showTimeZoneName: true })}
               />
               {settledAt && (
                 <DetailRow
                   label="Released"
-                  value={formatDate(settledAt)}
+                  value={formatDate(settledAt, { showTimeZoneName: true })}
                 />
               )}
               {deal.tx_hash && (
@@ -155,7 +155,7 @@ export default function ReceiptPage() {
                       style={txLinkStyle}
                       target="_blank"
                     >
-                      {deal.tx_hash.slice(0, 10)}…
+                      {deal.tx_hash.slice(0, 10)}…{deal.tx_hash.slice(-6)}
                     </a>
                   }
                 />

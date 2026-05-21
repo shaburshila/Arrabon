@@ -20,22 +20,24 @@ export default function ErrorPage({
 
   return (
     <main className="not-found">
-      <ArrabonSeal size={80} tone="auto" />
-      <p className="eyebrow">Error 500</p>
-      <h1 className="h-display not-found__title">
-        <span className="accent">Something</span>&nbsp;broke.
-      </h1>
-      <p className="lede not-found__sub">
-        An unexpected error occurred. Please try again or return home.
-      </p>
-      <div style={actionsStyle}>
-        <Btn onClick={reset} size="lg" variant="ghost">
-          <Icon name="utility-arrow-left" size={14} />
-          Try again
-        </Btn>
-        <Link href="/" style={{ textDecoration: "none" }}>
-          <Btn size="lg" variant="primary">Home</Btn>
-        </Link>
+      <div className="not-found__inner">
+        <ArrabonSeal size={80} tone="auto" />
+        <p className="eyebrow">Error 500</p>
+        <h1 className="h-display not-found__title">
+          <span className="accent">Something</span>&nbsp;broke.
+        </h1>
+        <p className="lede not-found__sub">
+          An unexpected error occurred. Please try again or return home.
+        </p>
+        <div style={actionsStyle}>
+          <Btn onClick={reset} size="lg" variant="ghost">
+            <Icon name="utility-arrow-left" size={14} />
+            Try again
+          </Btn>
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Btn size="lg" variant="primary">Home</Btn>
+          </Link>
+        </div>
       </div>
     </main>
   );

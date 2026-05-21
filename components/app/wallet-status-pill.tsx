@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { getAddress } from "viem";
 
 import { Icon } from "@/components/icons";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -83,7 +84,7 @@ export function WalletStatusPill() {
   // ─── Connected (dropdown-enabled) ────────────────────────────────
   const isAdmin = session.session?.is_admin === true;
   const isSigned = session.siweStatus === "authenticated";
-  const address = session.address ? truncatePill(session.address) : "…";
+  const address = session.address ? truncatePill(getAddress(session.address)) : "…";
 
   return (
     <div ref={containerRef} style={wrapperStyle}>
@@ -120,7 +121,7 @@ export function WalletStatusPill() {
                 {isAdmin ? "Admin wallet" : "Connected wallet"}
               </p>
               <p style={dropdownAddressStyle}>
-                {session.address ? truncateAddress(session.address) : ""}
+                {session.address ? truncateAddress(getAddress(session.address)) : ""}
               </p>
             </div>
           </div>
@@ -336,9 +337,8 @@ const networkLabelStyle = {
 const pillAddressStyle = {
   color: "var(--ink)",
   fontFamily: "var(--font-mono)",
-  fontSize: 12,
+  fontSize: 12.5,
   fontWeight: 500,
-  letterSpacing: "-0.01em",
 } as const;
 
 const pillAvatarStyle = {
@@ -404,7 +404,6 @@ const dropdownAddressStyle = {
   fontFamily: "var(--font-mono)",
   fontSize: 14,
   fontWeight: 500,
-  letterSpacing: "-0.01em",
   margin: 0,
   overflowWrap: "anywhere" as const,
 } as const;
