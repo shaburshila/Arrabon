@@ -765,3 +765,14 @@ Plan-22 is an architectural blueprint ("не diff-уровень… переда
 - DEVIATION: `PublicLink` has no `share_url` field, so `link.share_url ||` fallback in the plan is N/A — shareUrl is built solely from `origin` + `/link/${link.id}`.
 
 **Plan-23 checks:** npm run typecheck clean (exit 0); npm run build compiled successfully (third-party warnings only, exit 0); npm run test:unit 12/12 passing.
+
+## Plan-23 — follow-up
+
+### Fix A — auto_release / buyer_confirmed labels
+- lib/ui/deal-status.ts — DEAL_RESOLUTION_LABELS: auto_release "Auto-released" → "Released"; buyer_confirmed "Released by buyer" → "Released" (closes Plan-23 Phase 4 deviation — all 4 Released-outcome resolution types now show the short "Released" pill; source context still visible via DisputeThread / LifecycleTimeline / receipt resolution_type field)
+
+### Fix B — cache verification (no code change)
+- Verified Plan-23 Phase 2 applied correctly in app/globals.css: `.deal-hero__amount-num { color: var(--gold-deep) }` (line 905) + `[data-theme="dark"] .deal-hero__amount-num { color: var(--gold) }` (lines 908-910)
+- No bug — stale gold visual is browser CSS cache; resolved by hard reload / Disable cache / Clear site data
+
+**Plan-23 follow-up checks:** npm run typecheck clean (exit 0); npm run build + npm run test:unit launched (slow build environment — results pending at time of writing; Fix A is a one-line string-literal change with no type/logic surface, Fix B is verification-only).
