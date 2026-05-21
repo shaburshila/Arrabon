@@ -1,6 +1,8 @@
-import type { DealReadModel } from "@/lib/api/deals";
+import type { DealReadModel, DealStatus } from "@/lib/api/deals";
 import { DEAL_LIFECYCLE, DISPUTE_LIFECYCLE, lifecycleStateOf } from "@/lib/ui/deal-lifecycle";
 import { formatDate } from "@/lib/ui/date";
+import { StatusPill } from "@/components/shared/status-pill";
+import { toneFromStatus } from "@/lib/ui/deal-status";
 
 // Some timestamp fields exist on MyDeal but not on DealReadModel — treat as optional.
 type DealWithOptionalDates = DealReadModel & {
@@ -46,10 +48,16 @@ export function LifecycleTimeline({ deal }: { deal: DealWithOptionalDates }) {
             <div className="timeline__content">
               <p className={`timeline__title${step.state === "idle" ? " timeline__title--idle" : ""}`}>
                 {data?.title ?? step.key}
+                {step.state === "current" && (
+                  <StatusPill
+                    label={step.key}
+                    size="md"
+                    tone={toneFromStatus(step.key as DealStatus)}
+                    style={{ marginLeft: 8 }}
+                  />
+                )}
               </p>
-              {data?.desc && step.state !== "idle" && (
-                <p className="timeline__desc">{data.desc}</p>
-              )}
+              {data?.desc && <p className="timeline__desc">{data.desc}</p>}
               {step.state !== "idle" && date && (
                 <p className="timeline__meta">{formatDate(date)}</p>
               )}

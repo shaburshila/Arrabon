@@ -531,3 +531,60 @@
 - components/shared/token-amount-row.tsx — labelStyle → className="field__label"; helperStyle → className="field__help"; removed both consts (affects /create payment row + receipt)
 
 **Part IV checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+## Plan-17 — completed (/deal/[id] + /link/[id])
+
+### Part I — /deal/[id]
+
+#### Phase 1 — MeetingUrlCard idle state
+- components/deal/meeting-url-card.tsx — idle state wrapped in flex column gap 12: added .copy-field with 32 bullet chars + gold "Hidden" pill (utility-lock icon); Reveal btn; helper "URL is encrypted server-side and visible only to deal participants."; imported Icon
+
+#### Phase 2 — DealSealCard always present
+- components/deal/receipt-inset.tsx renamed → components/deal/deal-seal-card.tsx; ReceiptInset → DealSealCard, prop visible → isSettled; always renders ArrabonSeal 56 (tone="auto") + "Secured by Arrabon" tiny + "Onchain escrow · Base · Deal AR-XXXX" muted; "View receipt" ghost btn (utility-external-link) only when isSettled
+- app/deal/[id]/page.tsx — import + usage swapped ReceiptInset → DealSealCard
+
+#### Phase 3 — Padding 28 + section-label
+- components/deal/meeting-url-card.tsx — cardStyle padding 20→28; all 6 `<p style={labelStyle}>Meeting link</p>` → `<p className="section-label" style={{marginBottom:18}}>`; removed labelStyle const
+- components/deal/deal-actions-card.tsx — ActionPanel padding 20→28; inline label → `<p className="section-label" style={{marginBottom:14}}>Action</p>`; "Actions" → "Action"
+
+#### Phase 4 — DealDetailsCard section-label gap
+- components/deal/deal-details-card.tsx — section-label marginBottom 14 added
+
+#### Phase 5 — LifecycleTimeline enrichments
+- components/deal/lifecycle-timeline.tsx — current step shows inline StatusPill (size md, tone from toneFromStatus); description now visible for all states (removed `step.state !== "idle"` gate); imported StatusPill + toneFromStatus
+- DEVIATION: plan diff used `toneFromStatus(step.key as any)`; used `as DealStatus` instead (step.key is `string`; `as any` would trip ESLint no-explicit-any during `next build`). toneFromStatus has a default→"gray" branch so non-DealStatus keys like "Open" stay safe.
+
+#### Phase 6 — Misc
+- app/deal/[id]/page.tsx — back link marginBottom 16→20; countdown utility-time icon stroke 1.8 added
+- Phase 6.3 — verified .deal-split__right already `gap: 20px` (no change needed)
+
+**Part I checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+### Part II — /link/[id]
+
+#### Phase 7 — LinkActionCard padding 28 + section-label marginBottom 18
+- components/link/link-action-card.tsx — both ActionPanel padding 20→28; section-label marginBottom 18 ("Your link" seller card + "Fund this deal")
+
+#### Phase 8 — PaymentSummary flat (no surface-2 wrapper)
+- components/link/link-action-card.tsx — removed paymentSummaryStyle wrapper, fees render flat in flex column gap 12; removed "Non-refundable escrow service fee" text + feeNoteStyle const + paymentSummaryStyle const
+
+#### Phase 9 — Inset seal padding 28
+- app/link/[id]/page.tsx — insetSealCardStyle padding 20→28
+
+#### Phase 10 — Right column gap 20
+- app/globals.css — .link-split__right gap 16→20
+
+#### Phase 11 — LinkSummary header stack-12
+- components/link/link-summary.tsx — left header block wrapped in className="stack-12"; titleStyle margin "10px 0 6px" → 0
+
+#### Phase 12 — Shield icon stroke + color
+- components/link/link-summary.tsx — utility-secure-subtle icon: stroke 1.8 + style color var(--gold-deep)
+
+#### Phase 13 — Duration format
+- components/link/link-summary.tsx — Duration value: removed " · {timezone}" suffix; uses raw `${duration_minutes} minutes` (chose plan's closer-to-prototype option)
+- DEVIATION: that option drops the only call site of the local `formatDuration` helper; removed the now-unused `formatDuration` function to keep ESLint clean during `next build`. `link.timezone` still used by Scheduled/Expires rows — no unused import.
+
+#### Phase 14 — Link ID bordered
+- components/link/link-summary.tsx — removed bordered={false} on Link ID DetailRow (separator now drawn above it)
+
+**Part II checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.

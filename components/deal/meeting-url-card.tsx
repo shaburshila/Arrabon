@@ -14,6 +14,7 @@ import type { DealStatus } from "@/lib/api/deals";
 import { fetchMeetingUrl } from "@/lib/api/deals";
 import { ApiError } from "@/lib/api/auth";
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
+import { Icon } from "@/components/icons";
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { CopyBtn } from "@/components/shared/copy-btn";
@@ -44,7 +45,7 @@ export function MeetingUrlCard({
   if (dealStatus === "Refunded") {
     return (
       <ActionPanel style={cardStyle}>
-        <p style={labelStyle}>Meeting link</p>
+        <p className="section-label" style={{ marginBottom: 18 }}>Meeting link</p>
         <Notice message="Meeting link is unavailable — this deal was refunded." tone="muted" />
       </ActionPanel>
     );
@@ -54,7 +55,7 @@ export function MeetingUrlCard({
   if (!isConnected) {
     return (
       <ActionPanel style={cardStyle}>
-        <p style={labelStyle}>Meeting link</p>
+        <p className="section-label" style={{ marginBottom: 18 }}>Meeting link</p>
         <Notice message="Connect your wallet to reveal the meeting link." tone="muted" />
       </ActionPanel>
     );
@@ -64,7 +65,7 @@ export function MeetingUrlCard({
   if (!isCorrectChain) {
     return (
       <ActionPanel style={cardStyle}>
-        <p style={labelStyle}>Meeting link</p>
+        <p className="section-label" style={{ marginBottom: 18 }}>Meeting link</p>
         <Notice message="Switch to the correct network to reveal the meeting link." tone="warning" />
       </ActionPanel>
     );
@@ -74,7 +75,7 @@ export function MeetingUrlCard({
   if (!isParticipant) {
     return (
       <ActionPanel style={cardStyle}>
-        <p style={labelStyle}>Meeting link</p>
+        <p className="section-label" style={{ marginBottom: 18 }}>Meeting link</p>
         <Notice message="Only the buyer and seller can access the meeting link." tone="muted" />
       </ActionPanel>
     );
@@ -84,7 +85,7 @@ export function MeetingUrlCard({
   if (siweStatus !== "authenticated") {
     return (
       <ActionPanel style={cardStyle}>
-        <p style={labelStyle}>Meeting link</p>
+        <p className="section-label" style={{ marginBottom: 18 }}>Meeting link</p>
         <Notice message="Sign in to reveal the meeting link." style={{ marginBottom: 12 }} tone="muted" />
         <Btn
           fullWidth
@@ -118,12 +119,26 @@ export function MeetingUrlCard({
 
   return (
     <ActionPanel style={cardStyle}>
-      <p style={labelStyle}>Meeting link</p>
+      <p className="section-label" style={{ marginBottom: 18 }}>Meeting link</p>
 
       {revealState === "idle" && (
-        <Btn fullWidth onClick={handleReveal} variant="secondary">
-          Reveal meeting link
-        </Btn>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="copy-field">
+            <span className="copy-field__value" style={{ color: "var(--muted-2)" }}>
+              ••••••••••••••••••••••••••••••••
+            </span>
+            <span className="pill pill--gold" style={{ alignItems: "center", gap: 4 }}>
+              <Icon name="utility-lock" size={11} stroke={2.2} />
+              Hidden
+            </span>
+          </div>
+          <Btn fullWidth onClick={handleReveal} variant="secondary">
+            Reveal meeting link
+          </Btn>
+          <p className="small" style={{ color: "var(--muted)", margin: 0 }}>
+            URL is encrypted server-side and visible only to deal participants.
+          </p>
+        </div>
       )}
 
       {revealState === "loading" && (
@@ -179,14 +194,5 @@ export function MeetingUrlCard({
 }
 
 const cardStyle = {
-  padding: 20,
+  padding: 28,
 } as const;
-
-const labelStyle = {
-  color: "var(--muted)",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "0.08em",
-  margin: "0 0 12px",
-  textTransform: "uppercase" as const,
-};

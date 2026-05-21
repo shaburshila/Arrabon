@@ -12,13 +12,6 @@ interface LinkSummaryProps {
   link: PublicLink;
 }
 
-function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
 function getStatusPill(status: string): {
   label: string;
   tone: "accent" | "gold" | "muted" | "green";
@@ -34,7 +27,7 @@ export function LinkSummary({ link }: LinkSummaryProps) {
   return (
     <div style={cardStyle}>
       <div style={headerSectionStyle}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="stack-12" style={{ flex: 1, minWidth: 0 }}>
           <StatusPill label={status.label} tone={status.tone} />
           <h1 style={titleStyle}>{link.title}</h1>
           <p style={sellerStyle}>
@@ -65,7 +58,7 @@ export function LinkSummary({ link }: LinkSummaryProps) {
         />
         <DetailRow
           label="Duration"
-          value={`${formatDuration(link.duration_minutes)} · ${link.timezone}`}
+          value={`${link.duration_minutes} minutes`}
         />
         <DetailRow
           label="Expires"
@@ -80,7 +73,6 @@ export function LinkSummary({ link }: LinkSummaryProps) {
           value={truncateAddress(link.seller_address)}
         />
         <DetailRow
-          bordered={false}
           label="Link ID"
           mono
           value={link.id.slice(0, 8).toUpperCase()}
@@ -88,7 +80,7 @@ export function LinkSummary({ link }: LinkSummaryProps) {
       </div>
 
       <div style={trustSectionStyle}>
-        <Icon name="utility-secure-subtle" size={18} />
+        <Icon name="utility-secure-subtle" size={18} stroke={1.8} style={{ color: "var(--gold-deep)" }} />
         <p style={trustTextStyle}>
           Funds held in escrow on Base. Meeting URL revealed only after funding.
         </p>
@@ -122,7 +114,7 @@ const titleStyle = {
   fontWeight: 500,
   letterSpacing: "-0.005em",
   lineHeight: 1.15,
-  margin: "10px 0 6px",
+  margin: 0,
   overflowWrap: "anywhere" as const,
   textWrap: "balance" as const,
 } as const;

@@ -15,7 +15,7 @@ interface Props {
 export function DealDetailsCard({ deal, role }: Props) {
   return (
     <ActionPanel style={{ padding: 28 }}>
-      <p className="section-label">Details</p>
+      <p className="section-label" style={{ marginBottom: 14 }}>Details</p>
       <DetailRow label="Amount" value={`${formatUsdcPrice(deal.price_usdc)} USDC`} accent />
       <DetailRow label="Deal ID" mono value={deal.id.slice(0, 8).toUpperCase()} />
       <DetailRow

@@ -63,19 +63,8 @@ export function DealActionsCard({
   if (!showComplete && !showRelease && !showDispute && !showAutoRelease) return null;
 
   return (
-    <ActionPanel style={{ padding: 20 }}>
-      <p
-        style={{
-          color: "var(--muted)",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          margin: "0 0 16px",
-          textTransform: "uppercase",
-        }}
-      >
-        Actions
-      </p>
+    <ActionPanel style={{ padding: 28 }}>
+      <p className="section-label" style={{ marginBottom: 14 }}>Action</p>
 
       {/* Auth gate */}
       {actionsBlocked && (

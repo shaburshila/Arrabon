@@ -18,7 +18,7 @@ import { MeetingUrlCard } from "@/components/deal/meeting-url-card";
 import { DealActionsCard } from "@/components/deal/deal-actions-card";
 import { DisputeThread } from "@/components/deal/dispute-thread";
 import { KeyTimes } from "@/components/deal/key-times";
-import { ReceiptInset } from "@/components/deal/receipt-inset";
+import { DealSealCard } from "@/components/deal/deal-seal-card";
 import { Countdown } from "@/components/shared/countdown";
 import { Notice } from "@/components/shared/notice";
 import type { DealReadModel } from "@/lib/api/deals";
@@ -101,7 +101,7 @@ export default function DealPage() {
       <Link
         href={backLink.href}
         className="btn btn--quiet btn--sm"
-        style={{ alignSelf: "flex-start", marginBottom: 16 }}
+        style={{ alignSelf: "flex-start", marginBottom: 20 }}
       >
         <Icon name="utility-arrow-left" size={14} />
         Back to {backLink.label.toLowerCase()}
@@ -158,7 +158,7 @@ export default function DealPage() {
           {(dealPage.deal.status === "Funded" || dealPage.deal.status === "ConfirmPending") && (
             <div className="deal-countdown">
               <span className="deal-countdown__icon">
-                <Icon name="utility-time" size={14} />
+                <Icon name="utility-time" size={14} stroke={1.8} />
               </span>
               {dealPage.deal.status === "Funded" && (
                 <>
@@ -244,9 +244,9 @@ export default function DealPage() {
                 scheduledAt={dealPage.deal.scheduled_at}
                 session={session}
               />
-              <ReceiptInset
+              <DealSealCard
                 dealId={dealId}
-                visible={
+                isSettled={
                   dealPage.deal.status === "Released" || dealPage.deal.status === "Refunded"
                 }
               />

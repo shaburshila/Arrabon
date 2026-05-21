@@ -1554,7 +1554,7 @@ select {
 .link-split__right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   position: sticky;
   top: 88px;
 }

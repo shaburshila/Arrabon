@@ -187,7 +187,7 @@ const insetSealCardStyle = {
   borderRadius: "var(--r-3)",
   display: "flex",
   gap: 14,
-  padding: 20,
+  padding: 28,
 } as const;
 
 const insetSealDescStyle = {

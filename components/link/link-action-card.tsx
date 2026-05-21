@@ -77,8 +77,8 @@ export function LinkActionCard({
 
   if (role === "seller") {
     return (
-      <ActionPanel style={{ padding: 20 }}>
-        <p className="section-label">Your link</p>
+      <ActionPanel style={{ padding: 28 }}>
+        <p className="section-label" style={{ marginBottom: 18 }}>Your link</p>
         <p style={hintStyle}>
           This is your consultation link. Share it with your client.
         </p>
@@ -94,8 +94,8 @@ export function LinkActionCard({
   }
 
   return (
-    <ActionPanel style={{ padding: 20 }}>
-      <p className="section-label">Fund this deal</p>
+    <ActionPanel style={{ padding: 28 }}>
+      <p className="section-label" style={{ marginBottom: 18 }}>Fund this deal</p>
 
       {!isConnected && (
         <div style={stackStyle}>
@@ -211,7 +211,7 @@ function PaymentSummary({ priceUsdc }: { priceUsdc: string }) {
   const totalAmount = calculateTotalWithFee(priceAmount);
 
   return (
-    <div style={paymentSummaryStyle}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={feeRowStyle}>
         <span style={feeRowLabelStyle}>Consultation fee</span>
         <span style={feeRowValueStyle}>
@@ -234,7 +234,6 @@ function PaymentSummary({ priceUsdc }: { priceUsdc: string }) {
           <span style={totalTokenStyle}>USDC</span>
         </span>
       </div>
-      <p style={feeNoteStyle}>Non-refundable escrow service fee</p>
     </div>
   );
 }
@@ -260,19 +259,6 @@ const hintStyle = {
   fontSize: 14,
   lineHeight: 1.45,
   margin: 0,
-};
-
-const paymentSummaryStyle = {
-  background: "var(--surface-2)",
-  borderRadius: "var(--r-3)",
-  padding: "4px 14px 12px",
-};
-
-const feeNoteStyle = {
-  color: "var(--muted)",
-  fontSize: 12,
-  lineHeight: 1.45,
-  margin: "10px 0 0",
 };
 
 const myLinksLinkStyle = {
