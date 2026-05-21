@@ -377,3 +377,16 @@
 - Note: app/globals.css `.receipt` rule still uses var(--panel) — left as-is (stylesheet rule, not component inline style; Phase C scoped to .tsx per plan; alias remains valid backward-compat token)
 
 **Final checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+## Plan-12
+
+### Part I — Cleanup after plan-11
+- app/admin/disputes/page.tsx + disputes/[id]/page.tsx + denylist/page.tsx — smallButtonStyle fontWeight 700→500
+- components/link/funding-progress.tsx — stepMarkerStyle + recoveryLinkStyle fontWeight 700→600
+- components/link/link-action-card.tsx — myLinksLinkStyle fontWeight 700→600
+- app/my-links/page.tsx — LINK_STATUS_CONFIG.Consumed.bg var(--accent-muted) → var(--gold-soft)
+- app/globals.css — .receipt background var(--panel) → var(--surface)
+- app/admin/denylist/page.tsx — select style={selectStyle} → className="select"; removed selectStyle const
+- components/shared/wallet-session-card.tsx — already deleted in plan-11 Phase C (verified absent)
+
+**Part I checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.

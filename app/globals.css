@@ -1229,7 +1229,7 @@ select {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--r-4);
-  background: var(--panel);
+  background: var(--surface);
 }
 
 .receipt::before {

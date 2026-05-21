@@ -53,7 +53,7 @@ export function StatusPill({
 }) {
   const colors = toneStyles[tone];
   const sizeStyle = size === "md" ? mdStyle : smStyle;
-  const iconSize = size === "md" ? 16 : 14;
+  const iconSize = size === "md" ? 13 : 12;
 
   return (
     <span
@@ -75,7 +75,7 @@ export function StatusPill({
         ...style,
       }}
     >
-      {icon && <Icon aria-hidden name={icon} size={iconSize} />}
+      {icon && <Icon aria-hidden name={icon} size={iconSize} stroke={2.2} />}
       {label}
     </span>
   );

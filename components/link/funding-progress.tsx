@@ -142,7 +142,7 @@ function FundingStepList({ steps }: { steps: FundStep[] }) {
         <div key={s.key} style={{ alignItems: "center", display: "flex", gap: 10 }}>
           <span style={stepMarkerStyle(s.state)}>
             {s.state === "done" ? (
-              <Icon name="status-released" size={11} />
+              <Icon name="utility-check" size={11} stroke={3} />
             ) : s.state === "active" ? (
               <span className="spin" style={spinnerDotStyle} />
             ) : s.state === "error" ? (
@@ -182,7 +182,7 @@ function stepMarkerStyle(state: StepState) {
     display: "inline-grid",
     flexShrink: 0,
     fontSize: 11,
-    fontWeight: 700,
+    fontWeight: 600,
     height: 18,
     placeItems: "center",
     width: 18,
@@ -275,7 +275,7 @@ const recoveryHintStyle = {
 
 const recoveryLinkStyle = {
   color: "var(--gold)",
-  fontWeight: 700,
+  fontWeight: 600,
 };
 
 const txStyle = {

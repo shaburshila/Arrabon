@@ -839,7 +839,7 @@ const smallButtonStyle = {
   borderRadius: 8,
   color: "var(--ink)",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 500,
   minHeight: 36,
   padding: "0 12px",
 };

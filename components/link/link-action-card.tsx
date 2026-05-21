@@ -279,7 +279,7 @@ const myLinksLinkStyle = {
   color: "var(--gold-deep)",
   display: "inline-block",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 600,
   marginTop: 12,
   textDecoration: "none",
 };

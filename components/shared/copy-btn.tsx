@@ -35,7 +35,7 @@ export function CopyBtn({ fullWidth = false, text, label = "Copy" }: CopyBtnProp
         onClick={handleCopy}
       >
         <Icon
-          name={copied ? "status-released" : "utility-copy-address"}
+          name={copied ? "utility-check" : "utility-copy-address"}
           size={13}
         />
         {copied ? "Copied" : label}

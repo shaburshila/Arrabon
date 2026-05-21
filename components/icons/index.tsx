@@ -14,15 +14,21 @@ export type IconName =
   | "status-refunded"
   | "status-released"
   | "status-reveal-meeting-url-available"
+  | "utility-alert"
   | "utility-arrow-left"
   | "utility-arrow-right"
   | "utility-bell"
+  | "utility-check"
+  | "utility-circle"
   | "utility-calendar"
   | "utility-chevron-down"
   | "utility-chevron-right"
   | "utility-close"
   | "utility-copy-address"
+  | "utility-external-link"
+  | "utility-hourglass"
   | "utility-info"
+  | "utility-lock"
   | "utility-more-horizontal"
   | "utility-more-vertical"
   | "utility-plus"
@@ -30,6 +36,7 @@ export type IconName =
   | "utility-search"
   | "utility-secure-subtle"
   | "utility-settings"
+  | "utility-shield-check"
   | "utility-sync-indexing"
   | "utility-theme-dark"
   | "utility-theme-light"
@@ -43,6 +50,42 @@ export type IconName =
   | "utility-wrong-network";
 
 const icons: Record<IconName, ReactNode> = {
+  "utility-alert": (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v6" />
+      <path d="M12 17h.01" />
+    </>
+  ),
+  "utility-check": <path d="M4 12l6 6L20 6" />,
+  "utility-circle": <circle cx="12" cy="12" r="9" />,
+  "utility-external-link": (
+    <>
+      <path d="M14 4h6v6" />
+      <path d="M10 14L20 4" />
+      <path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6" />
+    </>
+  ),
+  "utility-hourglass": (
+    <>
+      <path d="M7 3h10" />
+      <path d="M7 21h10" />
+      <path d="M7 3v5l5 4 5-4V3" />
+      <path d="M7 21v-5l5-4 5 4v5" />
+    </>
+  ),
+  "utility-lock": (
+    <>
+      <rect x="5" y="10" width="14" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  "utility-shield-check": (
+    <>
+      <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3Z" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
   "status-confirm-pending": (
     <>
       <path d="M8 4h8" />
@@ -298,6 +341,7 @@ const icons: Record<IconName, ReactNode> = {
 interface IconProps {
   name: IconName;
   size?: number;
+  stroke?: number;
   style?: CSSProperties;
   className?: string;
   "aria-label"?: string;
@@ -307,6 +351,7 @@ interface IconProps {
 export function Icon({
   name,
   size = 24,
+  stroke = 2,
   style,
   className,
   "aria-label": ariaLabel,
@@ -323,7 +368,7 @@ export function Icon({
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
+      strokeWidth={stroke}
       style={style}
       viewBox="0 0 24 24"
       width={size}

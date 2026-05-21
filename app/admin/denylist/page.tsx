@@ -231,10 +231,10 @@ export default function AdminDenylistPage() {
 
               <FormField label="Reason">
                 <select
+                  className="select"
                   onChange={(event: ChangeEvent<HTMLSelectElement>) =>
                     setField("reason", event.target.value)
                   }
-                  style={selectStyle}
                   value={form.reason}
                 >
                   <option value="fraud">Fraud</option>
@@ -423,7 +423,7 @@ const smallButtonStyle = {
   borderRadius: 8,
   color: "var(--ink)",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 500,
   minHeight: 36,
   padding: "0 12px",
 } as const;
@@ -464,15 +464,3 @@ const removeActionsStyle = {
   gap: 8,
 } as const;
 
-const selectStyle = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--r-4)",
-  color: "var(--ink)",
-  fontSize: 16,
-  fontWeight: 400,
-  minHeight: 48,
-  outline: "none",
-  padding: "0 14px",
-  width: "100%",
-};

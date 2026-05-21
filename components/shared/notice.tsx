@@ -14,6 +14,21 @@ const toneStyles: Record<NoticeTone, { background: string; border: string; color
   warning: { background: "var(--amber-bg)", border: "color-mix(in srgb, var(--amber) 22%, transparent)", color: "var(--amber)" },
 };
 
+function getDefaultIcon(tone: NoticeTone): IconName {
+  switch (tone) {
+    case "danger":
+    case "warning":
+      return "utility-alert";
+    case "success":
+      return "utility-shield-check";
+    case "gold":
+      return "utility-secure-subtle";
+    case "info":
+    default:
+      return "utility-info";
+  }
+}
+
 export function Notice({
   icon,
   message,
@@ -41,7 +56,9 @@ export function Notice({
       }}
     >
       <div style={{ display: "flex", gap: 12 }}>
-        {icon && <span style={iconWrapStyle}><Icon name={icon} size={16} /></span>}
+        <span style={iconWrapStyle}>
+          <Icon name={icon ?? getDefaultIcon(tone)} size={16} />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           {title && <p style={titleStyle}>{title}</p>}
           <div style={messageStyle}>{message}</div>

@@ -12,19 +12,19 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
   ConfirmPending: {
     bg: "var(--amber-bg)",
     color: "var(--amber)",
-    icon: "status-confirm-pending",
+    icon: "utility-hourglass",
     label: "Confirm Pending",
   },
   Disputed: {
     bg: "var(--red-bg)",
     color: "var(--red)",
-    icon: "status-disputed",
+    icon: "utility-alert",
     label: "Disputed",
   },
   Funded: {
     bg: "var(--blue-bg)",
     color: "var(--blue)",
-    icon: "status-funded-escrow-held",
+    icon: "utility-lock",
     label: "Funded",
   },
   Refunded: {
@@ -36,7 +36,7 @@ export const DEAL_STATUS_CONFIG: Record<DealStatus, DealStatusConfig> = {
   Released: {
     bg: "var(--green-bg)",
     color: "var(--green)",
-    icon: "status-released",
+    icon: "utility-check",
     label: "Released",
   },
 };

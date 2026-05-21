@@ -50,7 +50,7 @@ const LINK_STATUS_CONFIG: Record<MyLink["status"], MyLinkBadge> = {
     label: "Cancelled",
   },
   Consumed: {
-    bg: "var(--accent-muted)",
+    bg: "var(--gold-soft)",
     color: "var(--gold-deep)",
     label: "Funded",
   },
@@ -328,10 +328,10 @@ function getMyLinkBadge(link: MyLink): MyLinkBadge & { icon?: IconName } {
   }
 
   const linkIconByStatus: Record<MyLink["status"], IconName> = {
-    Open: "status-open",
-    Consumed: "status-funded-escrow-held",
+    Open: "utility-circle",
+    Consumed: "utility-lock",
     Cancelled: "utility-close",
-    Draft: "status-payment-pending",
+    Draft: "utility-hourglass",
     Expired: "status-expired",
   };
   return {
