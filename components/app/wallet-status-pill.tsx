@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { getAddress } from "viem";
 
 import { Icon } from "@/components/icons";
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
@@ -84,7 +83,7 @@ export function WalletStatusPill() {
   // ─── Connected (dropdown-enabled) ────────────────────────────────
   const isAdmin = session.session?.is_admin === true;
   const isSigned = session.siweStatus === "authenticated";
-  const address = session.address ? truncatePill(getAddress(session.address)) : "…";
+  const address = session.address ? truncatePill(formatDisplayAddress(session.address)) : "…";
 
   return (
     <div ref={containerRef} style={wrapperStyle}>
@@ -121,7 +120,7 @@ export function WalletStatusPill() {
                 {isAdmin ? "Admin wallet" : "Connected wallet"}
               </p>
               <p style={dropdownAddressStyle}>
-                {session.address ? truncateAddress(getAddress(session.address)) : ""}
+                {session.address ? truncateAddress(formatDisplayAddress(session.address)) : ""}
               </p>
             </div>
           </div>
@@ -313,6 +312,11 @@ const separatorStyle = {
   opacity: 0.6,
 } as const;
 
+// Display format: lowercase 0x prefix + UPPERCASE hex (not EIP-55 checksum).
+function formatDisplayAddress(addr: string): string {
+  return `0x${addr.slice(2).toUpperCase()}`;
+}
+
 function truncatePill(addr: string): string {
   if (!addr || addr.length < 12) return addr ?? "";
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -338,7 +342,7 @@ const pillAddressStyle = {
   color: "var(--ink)",
   fontFamily: "var(--font-mono)",
   fontSize: 12.5,
-  fontWeight: 500,
+  fontWeight: 400,
 } as const;
 
 const pillAvatarStyle = {
@@ -403,7 +407,7 @@ const dropdownAddressStyle = {
   color: "var(--ink)",
   fontFamily: "var(--font-mono)",
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
   margin: 0,
   overflowWrap: "anywhere" as const,
 } as const;

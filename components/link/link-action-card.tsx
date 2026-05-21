@@ -4,8 +4,7 @@
 // Renders the right action based on wallet/session/role/link state.
 // Delegates to funding hook — does not contain funding logic itself.
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import type { WalletSessionState } from "@/hooks/use-wallet-session";
 import type { FundingFlow } from "@/hooks/use-funding-flow";
@@ -19,6 +18,7 @@ import {
 import { ActionPanel } from "@/components/shared/action-panel";
 import { Btn } from "@/components/shared/btn";
 import { ComplianceBlockedNotice } from "@/components/shared/compliance-blocked-notice";
+import { CopyBtn } from "@/components/shared/copy-btn";
 import { Notice } from "@/components/shared/notice";
 import { FundingProgress } from "@/components/link/funding-progress";
 import { SiweSignModal } from "@/components/shared/siwe-sign-modal";
@@ -52,6 +52,11 @@ export function LinkActionCard({
   const { execute, reset, state: fundingState } = funding;
 
   const [showSiwe, setShowSiwe] = useState(false);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   async function handleSignInClick() {
     setShowSiwe(true);
@@ -76,15 +81,18 @@ export function LinkActionCard({
     fundingState.step !== "succeeded";
 
   if (role === "seller") {
+    const shareUrl = origin ? `${origin}/link/${link.id}` : "";
+
     return (
       <ActionPanel style={{ padding: 28 }}>
         <p className="section-label" style={{ marginBottom: 18 }}>Your link</p>
-        <p style={hintStyle}>
-          This is your consultation link. Share it with your client.
+        <CopyBtn fullWidth label="Copy link" text={shareUrl} />
+        <p
+          className="small"
+          style={{ color: "var(--muted)", margin: "12px 0 0", textAlign: "center" }}
+        >
+          Share this link with the buyer to receive payment.
         </p>
-        <Link href="/my-links" style={myLinksLinkStyle}>
-          View in My Links →
-        </Link>
       </ActionPanel>
     );
   }
@@ -259,15 +267,6 @@ const hintStyle = {
   fontSize: 14,
   lineHeight: 1.45,
   margin: 0,
-};
-
-const myLinksLinkStyle = {
-  color: "var(--gold-deep)",
-  display: "inline-block",
-  fontSize: 13,
-  fontWeight: 600,
-  marginTop: 12,
-  textDecoration: "none",
 };
 
 const signHelperStyle = {

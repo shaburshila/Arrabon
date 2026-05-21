@@ -902,7 +902,11 @@ select {
   font-size: 48px;
   line-height: 1;
   letter-spacing: -0.015em;
-  color: var(--ink);
+  color: var(--gold-deep);
+}
+
+[data-theme="dark"] .deal-hero__amount-num {
+  color: var(--gold);
 }
 
 .deal-hero__amount-token {

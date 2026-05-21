@@ -743,3 +743,25 @@ Plan-22 is an architectural blueprint ("не diff-уровень… переда
 - N/A or deferred: server/client cache hit ratio, optimistic `+1`, p95 cache latency — see deviations.
 
 **Plan-22 checks:** npm run typecheck clean (exit 0); npm run build compiled successfully (third-party warnings only, exit 0); npm run test:unit 12/12; test:unit:services 34/34; my-deals-service.test.ts 10/10 — service refactor (delegation) left all existing service tests green.
+
+## Plan-23 — completed (chat mini-fixes consolidation)
+
+### Phase 1 — Wallet pill uppercase + 400
+- components/app/wallet-status-pill.tsx — removed `getAddress` import (reverts Plan-19 Phase 6 EIP-55 checksum); added `formatDisplayAddress()` (lowercase `0x` + UPPERCASE hex); both pill + dropdown-header addresses now use it; pillAddressStyle + dropdownAddressStyle fontWeight 500→400
+
+### Phase 2 — Hero amount gold
+- app/globals.css — .deal-hero__amount-num color var(--ink) → var(--gold-deep); added `[data-theme="dark"] .deal-hero__amount-num { color: var(--gold) }` (gold-deep too dark on dark surface)
+- Same class also used by LinkSummary on /link/[id] — fix applies to both pages automatically
+
+### Phase 3 — Details Amount + Deal ID
+- components/deal/deal-details-card.tsx — removed `accent` prop on Amount DetailRow (now neutral ink); removed the Deal ID DetailRow entirely (list now starts Amount → Seller)
+
+### Phase 4 — Status labels shortened
+- lib/ui/deal-status.ts — DEAL_RESOLUTION_LABELS: admin_refund "Refunded after dispute" → "Refunded"; admin_release "Released after dispute" → "Released" (fit the StatusPill oval; dispute context still shown via DisputeThread + lifecycle timeline). auto_release / buyer_confirmed labels left unchanged.
+
+### Phase 5 — Copy link button (seller)
+- components/link/link-action-card.tsx — seller branch rewritten: section-label + `<CopyBtn>` + helper text "Share this link with the buyer to receive payment."; added `useEffect` import + `origin` state (SSR-safe `window.location.origin`, matching the existing LinkRow pattern); removed now-unused `import Link` + `myLinksLinkStyle` const
+- DEVIATION: the plan's diff wrapped a separate `.copy-field` div around the URL plus a `<CopyBtn value=... size="lg">`. Actual `CopyBtn` (components/shared/copy-btn.tsx) ALREADY renders its own `.copy-field` + `.copy-field__value` (URL) + copy button, and its prop is `text` (no `value`, no `size`). Used `<CopyBtn fullWidth label="Copy link" text={shareUrl} />` directly — a separate `.copy-field` would double-render the URL. Faithful to the acceptance (seller sees full URL in a copy-field + Copy button with Copied state).
+- DEVIATION: `PublicLink` has no `share_url` field, so `link.share_url ||` fallback in the plan is N/A — shareUrl is built solely from `origin` + `/link/${link.id}`.
+
+**Plan-23 checks:** npm run typecheck clean (exit 0); npm run build compiled successfully (third-party warnings only, exit 0); npm run test:unit 12/12 passing.

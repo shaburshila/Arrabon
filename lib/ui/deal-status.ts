@@ -61,8 +61,8 @@ export function toneFromStatus(status: DealStatus): StatusTone {
 }
 
 export const DEAL_RESOLUTION_LABELS: Record<DealResolutionType, string> = {
-  admin_refund: "Refunded after dispute",
-  admin_release: "Released after dispute",
+  admin_refund: "Refunded",
+  admin_release: "Released",
   auto_release: "Auto-released",
   buyer_confirmed: "Released by buyer",
 };
