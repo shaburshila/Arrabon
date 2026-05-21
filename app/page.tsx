@@ -364,7 +364,8 @@ const fullBleedSection = {
   boxSizing: "border-box" as const,
   marginLeft: "calc(50% - 50vw)",
   marginRight: "calc(50% - 50vw)",
-  padding: "0 calc(50vw - 50% + 16px)",
+  paddingLeft: "calc(50vw - 50% + 16px)",
+  paddingRight: "calc(50vw - 50% + 16px)",
   width: "auto",
 };
 
