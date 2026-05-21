@@ -52,7 +52,7 @@ export function ThemeToggle() {
       onClick={toggle}
       type="button"
     >
-      <Icon name={theme === "dark" ? "utility-theme-light" : "utility-theme-dark"} size={15} />
+      <Icon name={theme === "dark" ? "utility-theme-light" : "utility-theme-dark"} size={16} />
     </button>
   );
 }

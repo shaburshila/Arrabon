@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { Icon } from "@/components/icons";
@@ -16,19 +15,6 @@ const navItems = [
 
 export function TopNav() {
   const pathname = usePathname();
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    const update = () =>
-      setIsDark(document.documentElement.dataset.theme === "dark");
-    update();
-    const obs = new MutationObserver(update);
-    obs.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-    return () => obs.disconnect();
-  }, []);
 
   return (
     <header style={headerStyle}>
@@ -44,7 +30,7 @@ export function TopNav() {
             <img
               alt="Arrabon"
               height={32}
-              src={isDark ? "/alpha-lock-full-gold.svg" : "/alpha-lock-full-graphite.svg"}
+              src="/alpha-lock-full-gold.svg"
               width={32}
             />
           </span>
@@ -72,7 +58,6 @@ export function TopNav() {
             aria-label="Notifications"
             className="iconbtn iconbtn--tooltip"
             data-tooltip="Soon"
-            style={{ border: "1px solid var(--border)" }}
             type="button"
           >
             <Icon name="utility-bell" size={16} />

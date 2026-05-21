@@ -264,8 +264,7 @@ const connectPillStyle = {
   display: "inline-flex",
   fontSize: 13,
   fontWeight: 600,
-  height: 34,
-  padding: "0 18px",
+  padding: "8px 18px",
   whiteSpace: "nowrap" as const,
 } as const;
 
@@ -280,8 +279,7 @@ const wrongNetPillStyle = {
   fontSize: 13,
   fontWeight: 500,
   gap: 8,
-  height: 34,
-  padding: "0 14px",
+  padding: "8px 14px",
   whiteSpace: "nowrap" as const,
 } as const;
 
@@ -304,8 +302,7 @@ const connectedPillStyle = {
   display: "inline-flex",
   flexShrink: 0,
   gap: 10,
-  height: 34,
-  padding: "0 6px 0 14px",
+  padding: "6px 6px 6px 14px",
   whiteSpace: "nowrap" as const,
 } as const;
 
@@ -351,10 +348,10 @@ const pillAvatarStyle = {
   color: "var(--gold-on)",
   display: "inline-flex",
   flexShrink: 0,
-  height: 22,
+  height: 24,
   justifyContent: "center",
   marginLeft: 1,
-  width: 22,
+  width: 24,
 } as const;
 
 // Dropdown

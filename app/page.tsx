@@ -103,7 +103,7 @@ function HeroSection() {
       >
         <span className="landing-scroll-hint__label">How it works</span>
         <span className="landing-scroll-hint__arrow">
-          <Icon name="utility-chevron-down" size={16} />
+          <Icon name="utility-chevron-down" size={16} stroke={1.6} />
         </span>
       </button>
     </section>
@@ -156,7 +156,7 @@ function StatsSection() {
         </div>
         <div className="landing-stats__grid">
           {STATS.map((s) => (
-            <div key={s.label}>
+            <div key={s.label} className="landing-stat">
               <span className="landing-stat__num">{s.num}</span>
               <span className="landing-stat__label">{s.label}</span>
             </div>
@@ -170,11 +170,11 @@ function StatsSection() {
 function FinalCtaSection() {
   return (
     <section className="landing-cta" style={fullBleedSection}>
-      <div className="landing-cta__inner" style={{ paddingTop: 0 }}>
+      <div className="landing-cta__inner">
         <div className="landing-cta__seal">
           <ArrabonSeal size={56} tone="auto" />
         </div>
-        <h2 className="landing-cta__title">
+        <h2 className="h1 landing-cta__title">
           Ready to create your first{" "}
           <span className="accent">consultation link?</span>
         </h2>
@@ -186,7 +186,7 @@ function FinalCtaSection() {
         <div className="landing-cta__trust">
           {TRUST_ITEMS.map((t) => (
             <span className="landing-cta__trust-item" key={t.label}>
-              <Icon name={t.icon as IconName} size={13} />
+              <Icon name={t.icon as IconName} size={13} stroke={1.7} />
               {t.label}
             </span>
           ))}
@@ -203,7 +203,8 @@ function SiteFooter() {
         <nav aria-label="Footer navigation" className="site-footer__grid">
           <div className="stack-12">
             <span style={brandStyle}>
-              <ArrabonSeal size={28} tone="auto" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="Arrabon" height={28} src="/alpha-lock-full-gold.svg" width={28} />
               <span style={brandWordStyle}>Arrabon</span>
             </span>
             <p className="small" style={{ maxWidth: "32ch" }}>
@@ -280,7 +281,7 @@ function BenefitCard({
     <div style={cardStyle}>
       <div className="stack-12">
         <span className={`status-icon status-icon--md status-icon--${tone}`} style={{ marginBottom: 4 }}>
-          <Icon name={icon} size={18} />
+          <Icon name={icon} size={18} stroke={1.8} />
         </span>
         <h3 style={cardTitleStyle}>{title}</h3>
         <p className="small">{desc}</p>
@@ -338,8 +339,8 @@ const STATS = [
 
 const TRUST_ITEMS = [
   { icon: "utility-secure-subtle", label: "Built on Base" },
-  { icon: "utility-wallet-connected", label: "Wallet-signed actions" },
-  { icon: "utility-secure-subtle", label: "Neutral dispute review" },
+  { icon: "utility-lock", label: "Wallet-signed actions" },
+  { icon: "utility-shield-check", label: "Neutral dispute review" },
 ];
 
 /* ─── Styles ────────────────────────────────────────────────────────── */
@@ -393,6 +394,7 @@ const cardStyle = {
   background: "var(--surface)",
   border: "1px solid var(--border)",
   borderRadius: "var(--r-4)",
+  boxShadow: "var(--shadow-2)",
   padding: 28,
 };
 

@@ -799,7 +799,7 @@ select {
 .iconbtn:hover { background: var(--surface-2); border-color: var(--border-strong); }
 
 .iconbtn--tooltip { cursor: default; }
-.iconbtn--tooltip:hover { color: var(--muted); }
+.iconbtn--tooltip:hover { color: var(--muted-2); }
 
 .iconbtn--tooltip::after {
   content: attr(data-tooltip) "…";

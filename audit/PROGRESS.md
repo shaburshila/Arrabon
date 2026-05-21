@@ -453,3 +453,25 @@
 - Phase 15 (footer landmark): app/page.tsx SiteFooter — footer role=contentinfo, grid div → nav aria-label="Footer navigation"
 
 **Final checks:** npm run typecheck clean, npm run build clean (compiled successfully, exit 0), npm run test:unit 12/12 passing.
+
+## Plan-15 — top-nav + landing fixes
+
+### Part I — Top-nav
+- Phase 1: components/app/top-nav.tsx — brand mark always /alpha-lock-full-gold.svg; removed isDark state + useEffect + MutationObserver + useState/useEffect import
+- Phase 2: components/app/wallet-status-pill.tsx — connectedPillStyle height 34 removed, padding "0 6 0 14"→"6 6 6 14" (content-based 36px); connectPillStyle/wrongNetPillStyle height removed, padding vertical 8px; pillAvatarStyle 22→24
+- Phase 3: components/shared/theme-toggle.tsx — Icon size 15→16
+- Phase 4: components/app/top-nav.tsx — removed duplicate inline border on bell button (.iconbtn class already provides it)
+- Phase 5: app/globals.css — .iconbtn--tooltip:hover color var(--muted) → var(--muted-2)
+
+**Part I checks:** npm run typecheck clean (exit 0), npm run test:unit 12/12 passing. npm run build deferred — environment network is down and next/font/google fetches fonts at build time (Retrying… TLS disconnect); to be run when network returns.
+
+### Part II — Landing page
+- Phase 6: app/page.tsx — SiteFooter brand <ArrabonSeal size=28> → <img src="/alpha-lock-full-gold.svg" 28×28> (matches top-nav); ArrabonSeal still used in hero/CTA/footer-base
+- Phase 7: app/page.tsx — TRUST_ITEMS 3 distinct icons: utility-secure-subtle / utility-lock / utility-shield-check
+- Phase 8: app/page.tsx — cardStyle added boxShadow var(--shadow-2) (StepCard + BenefitCard soft elevation)
+- Phase 9: app/page.tsx — scroll-hint chevron stroke 1.6; CTA trust icons stroke 1.7; BenefitCard icons stroke 1.8
+- Phase 10: app/page.tsx — removed no-op inline paddingTop:0 on .landing-cta__inner; stats wrapped in <div className="landing-stat">; CTA h2 className "landing-cta__title" → "h1 landing-cta__title"
+
+**Part II checks:** npm run typecheck clean (exit 0), npm run test:unit 12/12 passing. npm run build deferred (same environment network blocker as Part I).
+
+**Plan-15 — npm run build:** re-run after environment network recovered → compiled successfully, exit 0, full route table. All three checks now confirmed for Plan-15 (typecheck + build + test:unit 12/12).
