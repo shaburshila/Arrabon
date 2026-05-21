@@ -238,7 +238,7 @@ function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
       <div className="list-row__title">
         <span className="list-row__title-name">{deal.title}</span>
         <span className="list-row__title-sub">
-          {deal.id.slice(0, 8).toUpperCase()} · {formatDate(deal.scheduled_at, { timeZone: deal.timezone })}
+          {formatDate(deal.scheduled_at, { timeZone: deal.timezone })}
         </span>
       </div>
       <span className="list-row__price">

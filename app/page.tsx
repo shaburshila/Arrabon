@@ -10,7 +10,7 @@ import { Btn } from "@/components/shared/btn";
 
 export default function HomePage() {
   return (
-    <AppShell flushBottom maxWidth={1180}>
+    <AppShell flushBottom flushTop maxWidth={1180}>
       <div style={homeStackStyle}>
         <HeroSection />
         <StepsSection />

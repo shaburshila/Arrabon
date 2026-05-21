@@ -1711,7 +1711,7 @@ select {
 
 /* Tighter side padding on mobile */
 @media (max-width: 768px) {
-  main {
+  main > div {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }

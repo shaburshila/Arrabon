@@ -303,7 +303,7 @@ function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
       <div className="list-row__title">
         <span className="list-row__title-name">{link.title}</span>
         <span className="list-row__title-sub">
-          {link.id.slice(0, 8).toUpperCase()} · {formatDate(link.scheduled_at, { timeZone: link.timezone })}
+          {formatDate(link.scheduled_at, { timeZone: link.timezone })}
         </span>
       </div>
       <span className="list-row__price">

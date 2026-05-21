@@ -123,7 +123,7 @@ const actionsStyle = {
 const confirmStyle = {
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-2)",
   display: "flex",
   flexDirection: "column" as const,
   gap: 12,

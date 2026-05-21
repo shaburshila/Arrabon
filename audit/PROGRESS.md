@@ -390,3 +390,41 @@
 - components/shared/wallet-session-card.tsx — already deleted in plan-11 Phase C (verified absent)
 
 **Part I checks:** npm run typecheck clean, npm run build clean, npm run test:unit 12/12 passing.
+
+### Part II — Icons audit
+- components/icons/index.tsx — added 7 generic icons (utility-alert, utility-check, utility-circle, utility-external-link, utility-hourglass, utility-lock, utility-shield-check); utility-shield NOT added (no path in plan; utility-secure-subtle already serves plain-shield role)
+- components/icons/index.tsx — added stroke?: number prop to Icon (default 2, backward-compatible)
+- components/shared/status-pill.tsx — iconSize md 16→13 / sm 14→12; pass stroke={2.2}
+- lib/ui/deal-status.ts — Path B: ConfirmPending status-confirm-pending→utility-hourglass, Disputed status-disputed→utility-alert, Funded status-funded-escrow-held→utility-lock, Released status-released→utility-check (Refunded kept status-refunded)
+- app/my-links/page.tsx — linkIconByStatus: Open→utility-circle, Consumed→utility-lock, Draft→utility-hourglass (Cancelled/Expired kept)
+- components/admin/risk-badge.tsx — Clear→utility-shield-check, Review→utility-alert, Blocked kept utility-secure-subtle (plain shield)
+- components/shared/notice.tsx — added getDefaultIcon(tone): danger/warning→alert, success→shield-check, gold→secure-subtle, info/muted→info; icon always rendered
+- components/shared/copy-btn.tsx — after-click icon status-released → utility-check
+- components/link/funding-progress.tsx — done marker status-released → utility-check stroke 3
+- components/shared/arrabon-seal.tsx — verified, no changes (II.8)
+
+**Part II checks:** npm run typecheck clean, npm run test:unit 12/12 passing; npm run build — first run surfaced a spurious `/_document PageNotFoundError` from a stale .next cache; clean rebuild (rm -rf .next) succeeded with full route table, exit 0.
+
+## Plan-13 — completed
+
+### Phase 1 — Content width fix
+- components/app/app-shell.tsx — moved padding from outer <main> to inner <div> with boxSizing:border-box + margin:0 auto; maxWidth now correctly includes the 64px horizontal padding (content area = maxWidth − 64, matches prototype .page semantics)
+- app/globals.css — mobile padding override: `main` → `main > div`
+
+### Phase 2 — List sub-meta cleanup
+- app/my-deals/page.tsx — DealRow sub-meta: removed deal.id prefix, only date+time remains
+- app/my-links/page.tsx — LinkRow sub-meta: removed link.id prefix, only date+time remains
+
+### Phase 3 — borderRadius literals → tokens
+- borderRadius: 8 → var(--r-2), borderRadius: 16 → var(--r-4) across components/**/*.tsx + app/**/*.tsx (excl. global-error.tsx)
+- Files: app/admin/disputes/page.tsx, disputes/[id]/page.tsx, denylist/page.tsx, disputes/resolve-controls.tsx, components/app/wallet-status-pill.tsx, components/deal/dispute-thread.tsx
+- Note: dispute-thread.tsx had 3 borderRadius:8 not listed in the plan's table — included for consistency (same value, in scope). Remaining numeric values (999 pill-round, 12, 10, 4) left as-is — outside the plan's explicit "8 и 16" scope; 999 has no radius token.
+
+### Phase 4 — Theme toggle as iconbtn
+- components/shared/theme-toggle.tsx — replaced inline btnStyle with className="iconbtn"; removed btnStyle const (now transparent bg / 36×36 / var(--r-2), identical to bell button)
+
+### Phase 5 — Landing hero centering
+- components/app/app-shell.tsx — added flushTop?: boolean prop (Variant A); padding top is `${flushTop ? 0 : 56}px`
+- app/page.tsx — HomePage uses <AppShell flushBottom flushTop maxWidth={1180}>
+
+**Final checks:** npm run typecheck clean, npm run build clean (full route table, exit 0), npm run test:unit 12/12 passing.

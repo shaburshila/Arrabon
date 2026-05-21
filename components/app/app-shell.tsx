@@ -9,10 +9,12 @@ import { TopNav } from "@/components/app/top-nav";
 export function AppShell({
   children,
   flushBottom = false,
+  flushTop = false,
   maxWidth = 640,
 }: {
   children: React.ReactNode;
   flushBottom?: boolean;
+  flushTop?: boolean;
   maxWidth?: number;
 }) {
   const pathname = usePathname();
@@ -24,8 +26,19 @@ export function AppShell({
   return (
     <>
       <TopNav />
-      <main style={{ ...mainStyle, paddingBottom: flushBottom ? 0 : 96 }}>
-        <div style={{ ...contentStyle, maxWidth }}>
+      <main style={mainStyle}>
+        <div
+          style={{
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: 24,
+            margin: "0 auto",
+            maxWidth,
+            padding: `${flushTop ? 0 : 56}px 32px ${flushBottom ? 0 : 96}px`,
+            width: "100%",
+          }}
+        >
           {children}
         </div>
       </main>
@@ -35,15 +48,5 @@ export function AppShell({
 }
 
 const mainStyle = {
-  display: "flex",
-  justifyContent: "center",
   minHeight: "100vh",
-  padding: "56px 32px 96px",
 } as const;
-
-const contentStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 24,
-  width: "100%",
-};

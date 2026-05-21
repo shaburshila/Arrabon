@@ -689,7 +689,7 @@ const toolbarStyle = {
 const smallButtonStyle = {
   background: "transparent",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-2)",
   color: "var(--ink)",
   fontSize: 13,
   fontWeight: 500,
@@ -770,6 +770,6 @@ const checksListStyle = {
 const checkCardStyle = {
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-2)",
   padding: 12,
 } as const;

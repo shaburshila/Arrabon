@@ -48,26 +48,11 @@ export function ThemeToggle() {
   return (
     <button
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className="iconbtn"
       onClick={toggle}
-      style={btnStyle}
       type="button"
     >
       <Icon name={theme === "dark" ? "utility-theme-light" : "utility-theme-dark"} size={15} />
     </button>
   );
 }
-
-const btnStyle = {
-  alignItems: "center",
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  color: "var(--muted)",
-  cursor: "pointer",
-  display: "inline-flex",
-  flexShrink: 0,
-  height: 34,
-  justifyContent: "center",
-  padding: 0,
-  width: 34,
-} as const;

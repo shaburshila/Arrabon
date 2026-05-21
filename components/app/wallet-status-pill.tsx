@@ -351,7 +351,7 @@ const pillAvatarStyle = {
 const dropdownStyle = {
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: 16,
+  borderRadius: "var(--r-4)",
   boxShadow: "0 20px 60px rgba(0,0,0,0.24), 0 4px 16px rgba(0,0,0,0.10)",
   display: "flex",
   flexDirection: "column" as const,
@@ -441,7 +441,7 @@ function menuIconWrap(tone: "danger" | "muted" | "warning") {
   return {
     ...colors,
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: "var(--r-2)",
     display: "inline-flex",
     flexShrink: 0,
     height: 24,

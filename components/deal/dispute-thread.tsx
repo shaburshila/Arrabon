@@ -286,7 +286,7 @@ function titleStyle(compact: boolean) {
 const refreshButtonStyle = {
   background: "transparent",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-2)",
   color: "var(--ink)",
   fontSize: 13,
   fontWeight: 600,
@@ -390,7 +390,7 @@ const labelStyle = {
 const textareaStyle = {
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-2)",
   color: "var(--ink)",
   font: "inherit",
   minHeight: 110,
@@ -401,7 +401,7 @@ const textareaStyle = {
 const inputStyle = {
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-2)",
   color: "var(--ink)",
   font: "inherit",
   minHeight: 42,
