@@ -588,3 +588,27 @@
 - components/link/link-summary.tsx — removed bordered={false} on Link ID DetailRow (separator now drawn above it)
 
 **Part II checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+## Plan-18 — completed (/my-deals + /my-links)
+
+### Phase 1 — StatusPill vertical center + proper height
+- components/shared/status-pill.tsx — removed alignSelf: "flex-start"; smStyle: height 24, padding "0 10px" (was "2px 8px"); mdStyle: height 28, padding "0 12px", fontSize 14→13 (was "4px 12px")
+- (affects: list rows in my-deals/my-links, LifecycleTimeline current step pill, admin disputes badges, any StatusPill consumer)
+
+### Phase 2 — Chevron stroke 1.8
+- app/my-deals/page.tsx — DealRow chevron Icon stroke 1.8
+- app/my-links/page.tsx — LinkRow chevron Icon stroke 1.8
+
+### Phase 3 — Page header marginBottom 40
+- app/my-deals/page.tsx — pageHeaderStyle marginBottom 32→40
+- app/my-links/page.tsx — pageHeaderStyle marginBottom 32→40
+
+### Phase 4 — EmptyState Icon stroke 1.4
+- app/my-deals/page.tsx — 3 EmptyState icons (wallet-connected, search ×2) get stroke=1.4 (WalletAuthStatePanel size-32 icon left untouched — not an EmptyState)
+- app/my-links/page.tsx — 3 EmptyState icons (plus, search ×2) get stroke=1.4 (WalletAuthStatePanel size-32 icon left untouched)
+
+### Phase 5 — isLast cleanup
+- app/my-deals/page.tsx — DealRow signature: removed unused isLast
+- app/my-links/page.tsx — LinkRow signature: removed unused isLast
+
+**Plan-18 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.

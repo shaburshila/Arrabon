@@ -59,7 +59,6 @@ export function StatusPill({
     <span
       style={{
         alignItems: "center",
-        alignSelf: "flex-start",
         background: bg ?? colors.background,
         border: "1px solid transparent",
         borderRadius: 999,
@@ -83,10 +82,12 @@ export function StatusPill({
 
 const smStyle = {
   fontSize: 12,
-  padding: "2px 8px",
+  height: 24,
+  padding: "0 10px",
 } as const;
 
 const mdStyle = {
-  fontSize: 14,
-  padding: "4px 12px",
+  fontSize: 13,
+  height: 28,
+  padding: "0 12px",
 } as const;

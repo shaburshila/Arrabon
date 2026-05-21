@@ -96,7 +96,7 @@ export default function MyDealsPage() {
       return (
         <EmptyState
           description="Pay for a consultation link to see it here."
-          icon={<Icon name="utility-wallet-connected" size={28} />}
+          icon={<Icon name="utility-wallet-connected" size={28} stroke={1.4} />}
           title="No paid consultations yet"
         />
       );
@@ -113,7 +113,7 @@ export default function MyDealsPage() {
             )
           }
           description={query ? `No deals match "${query}".` : "Try another filter."}
-          icon={<Icon name="utility-search" size={28} />}
+          icon={<Icon name="utility-search" size={28} stroke={1.4} />}
           title="No matching deals"
         />
       );
@@ -130,7 +130,7 @@ export default function MyDealsPage() {
         <EmptyState
           action={<Btn size="sm" variant="ghost" onClick={() => setQuery("")}>Clear search</Btn>}
           description={`No deals match "${query}".`}
-          icon={<Icon name="utility-search" size={28} />}
+          icon={<Icon name="utility-search" size={28} stroke={1.4} />}
           title="No matching deals"
         />
       );
@@ -228,7 +228,7 @@ export default function MyDealsPage() {
   );
 }
 
-function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
+function DealRow({ deal }: { deal: MyDeal }) {
   const badge = getDealDisplayConfig({
     resolution_type: deal.resolution_type,
     status: deal.status,
@@ -249,7 +249,7 @@ function DealRow({ deal }: { deal: MyDeal; isLast?: boolean }) {
       <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />
       <span className="list-row__trailing">{dealTrailingLabel(deal.status)}</span>
       <span className="list-row__chevron">
-        <Icon name="utility-chevron-right" size={16} />
+        <Icon name="utility-chevron-right" size={16} stroke={1.8} />
       </span>
     </Link>
   );
@@ -259,7 +259,7 @@ const pageHeaderStyle = {
   alignItems: "flex-start",
   display: "flex",
   justifyContent: "space-between",
-  marginBottom: 32,
+  marginBottom: 40,
 } as const;
 
 const tabsRowStyle = {

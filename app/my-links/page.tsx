@@ -142,7 +142,7 @@ export default function MyLinksPage() {
         <EmptyState
           action={createLinkAction}
           description="Create a consultation link to get started."
-          icon={<Icon name="utility-plus" size={28} />}
+          icon={<Icon name="utility-plus" size={28} stroke={1.4} />}
           title="No links yet"
         />
       );
@@ -157,7 +157,7 @@ export default function MyLinksPage() {
             <Btn size="sm" variant="ghost" onClick={() => { setFilter("all"); setPage(0); }}>Show all</Btn>
           )}
           description={query ? `No links match "${query}".` : "Try another filter."}
-          icon={<Icon name="utility-search" size={28} />}
+          icon={<Icon name="utility-search" size={28} stroke={1.4} />}
           title="No matching links"
         />
       );
@@ -174,7 +174,7 @@ export default function MyLinksPage() {
         <EmptyState
           action={<Btn size="sm" variant="ghost" onClick={() => setQuery("")}>Clear search</Btn>}
           description={`No links match "${query}".`}
-          icon={<Icon name="utility-search" size={28} />}
+          icon={<Icon name="utility-search" size={28} stroke={1.4} />}
           title="No matching links"
         />
       );
@@ -273,7 +273,7 @@ export default function MyLinksPage() {
   );
 }
 
-function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
+function LinkRow({ link }: { link: MyLink }) {
   const [origin, setOrigin] = useState("");
 
   useEffect(() => {
@@ -314,7 +314,7 @@ function LinkRow({ link }: { link: MyLink; isLast?: boolean }) {
       <StatusPill bg={badge.bg} color={badge.color} icon={badge.icon} label={badge.label} />
       <span className="list-row__trailing">{trailing}</span>
       <span className="list-row__chevron">
-        <Icon name="utility-chevron-right" size={16} />
+        <Icon name="utility-chevron-right" size={16} stroke={1.8} />
       </span>
     </Link>
   );
@@ -345,7 +345,7 @@ const pageHeaderStyle = {
   alignItems: "flex-start",
   display: "flex",
   justifyContent: "space-between",
-  marginBottom: 32,
+  marginBottom: 40,
 } as const;
 
 const tabsRowStyle = {
