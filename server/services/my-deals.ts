@@ -66,17 +66,42 @@ export class MyDealsServiceError extends Error {
   }
 }
 
-export async function listMyBuyerDeals(
+export interface MyDealsCounts {
+  all: number;
+  upcoming: number;
+  needs_action: number;
+  disputed: number;
+  resolved: number;
+}
+
+export interface MyBuyerDealsPage {
+  counts: MyDealsCounts;
+  deals: MyDealResult[];
+}
+
+// Counts are derived from the already-loaded row set — no extra DB round trip.
+function computeMyDealsCounts(rows: MyDealResult[]): MyDealsCounts {
+  return {
+    all: rows.length,
+    upcoming: rows.filter((deal) => matchMyDealFilter(deal, "upcoming")).length,
+    needs_action: rows.filter((deal) => matchMyDealFilter(deal, "needs_action")).length,
+    disputed: rows.filter((deal) => matchMyDealFilter(deal, "disputed")).length,
+    resolved: rows.filter((deal) => matchMyDealFilter(deal, "resolved")).length,
+  };
+}
+
+export async function listMyBuyerDealsWithCounts(
   currentUser: CurrentUserContext,
   pagination?: Partial<ListPagination>,
   filter: MyDealsFilter = "all",
-): Promise<MyDealResult[]> {
+): Promise<MyBuyerDealsPage> {
   try {
     const rows = await getAllBuyerDealRows(getAddress(currentUser.wallet_address));
+    const counts = computeMyDealsCounts(rows);
     const filteredRows = rows.filter((deal) => matchMyDealFilter(deal, filter));
     const { limit, offset } = normalizeListPagination(pagination);
 
-    return filteredRows.slice(offset, offset + limit);
+    return { counts, deals: filteredRows.slice(offset, offset + limit) };
   } catch (error) {
     if (error instanceof DealsRepositoryError) {
       if (error.code === "CONSULTATION_LINK_MISSING") {
@@ -96,4 +121,14 @@ export async function listMyBuyerDeals(
 
     throw error;
   }
+}
+
+export async function listMyBuyerDeals(
+  currentUser: CurrentUserContext,
+  pagination?: Partial<ListPagination>,
+  filter: MyDealsFilter = "all",
+): Promise<MyDealResult[]> {
+  const result = await listMyBuyerDealsWithCounts(currentUser, pagination, filter);
+
+  return result.deals;
 }

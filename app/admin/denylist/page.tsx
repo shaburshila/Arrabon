@@ -272,14 +272,14 @@ export default function AdminDenylistPage() {
                 <h2 className="h2">Current entries</h2>
                 <p className="lede" style={{ marginTop: 6 }}>Page {page + 1} · {entries.length} shown</p>
               </div>
-              <button
+              <Btn
                 disabled={loading}
                 onClick={loadEntries}
-                style={smallButtonStyle}
-                type="button"
+                size="sm"
+                variant="ghost"
               >
                 Refresh
-              </button>
+              </Btn>
             </div>
 
             {loading && <Notice message="Loading denylist..." tone="muted" />}
@@ -416,17 +416,6 @@ const toolbarStyle = {
   gap: 12,
   justifyContent: "space-between",
   marginBottom: 12,
-} as const;
-
-const smallButtonStyle = {
-  background: "transparent",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--r-2)",
-  color: "var(--ink)",
-  fontSize: 13,
-  fontWeight: 500,
-  minHeight: 36,
-  padding: "0 12px",
 } as const;
 
 const listStyle = {

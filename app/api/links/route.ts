@@ -19,6 +19,7 @@ import {
   ConsultationLinkServiceError,
   createConsultationLink,
   listMyConsultationLinks,
+  listMyConsultationLinksWithCounts,
 } from "@/server/services/consultation-links";
 
 export const runtime = "nodejs";
@@ -53,6 +54,17 @@ export async function GET(request: Request) {
     const searchParams = new URL(request.url).searchParams;
     const pagination = parseListPagination(searchParams);
     const filter = parseMyLinksFilter(searchParams);
+
+    if (searchParams.get("include_counts") === "true") {
+      const page = await listMyConsultationLinksWithCounts(
+        currentUser,
+        new Date(),
+        pagination,
+        filter,
+      );
+      return NextResponse.json(page);
+    }
+
     const links = await listMyConsultationLinks(currentUser, new Date(), pagination, filter);
     return NextResponse.json(links);
   } catch (error) {

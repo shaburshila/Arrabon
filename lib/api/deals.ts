@@ -143,6 +143,32 @@ export async function fetchMyDeals(params?: FetchMyDealsParams): Promise<MyDeal[
   return parseResponse<MyDeal[]>(res);
 }
 
+// Real per-filter counts for the whole buyer dataset (not just the current page).
+export interface MyDealsCounts {
+  all: number;
+  upcoming: number;
+  needs_action: number;
+  disputed: number;
+  resolved: number;
+}
+
+export interface MyDealsPage {
+  counts: MyDealsCounts;
+  deals: MyDeal[];
+}
+
+// GET /api/me/deals?include_counts=true — list page + accurate filter counts in one round trip.
+export async function fetchMyDealsWithCounts(
+  params?: FetchMyDealsParams,
+): Promise<MyDealsPage> {
+  const query = formatListQuery(params);
+  const url = query
+    ? `/api/me/deals${query}&include_counts=true`
+    : "/api/me/deals?include_counts=true";
+  const res = await fetch(url);
+  return parseResponse<MyDealsPage>(res);
+}
+
 // GET /api/deals/:id/meeting-url — requires SIWE session
 export async function fetchMeetingUrl(dealId: string): Promise<string> {
   const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/meeting-url`);

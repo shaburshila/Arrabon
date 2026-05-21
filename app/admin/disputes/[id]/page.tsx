@@ -373,14 +373,14 @@ export default function AdminDisputeDetailPage() {
         <>
           <div style={toolbarStyle}>
             <span className="small">Dispute ID: {dealId}</span>
-            <button
+            <Btn
               disabled={loading || isResolving}
               onClick={loadDeal}
-              style={smallButtonStyle}
-              type="button"
+              size="sm"
+              variant="ghost"
             >
               Refresh
-            </button>
+            </Btn>
           </div>
 
           {loading && <Notice message="Loading dispute..." tone="muted" />}
@@ -685,17 +685,6 @@ const toolbarStyle = {
   alignItems: "center",
   display: "flex",
   justifyContent: "space-between",
-} as const;
-
-const smallButtonStyle = {
-  background: "transparent",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--r-2)",
-  color: "var(--ink)",
-  fontSize: 13,
-  fontWeight: 500,
-  minHeight: 36,
-  padding: "0 12px",
 } as const;
 
 const sectionStyle = {

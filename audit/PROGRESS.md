@@ -665,3 +665,81 @@
 - NOTE: app/admin/disputes/[id]/page.tsx and app/admin/denylist/page.tsx have the same inline `smallButtonStyle` Refresh-button pattern; left untouched — Phase 6 scope is disputes/page.tsx only per the plan.
 
 **Plan-20 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully (exit 0), npm run test:unit 12/12 passing.
+
+## Plan-21 — Final audit completed
+
+### Step 1 — Grep audit
+- Legacy tokens (--foreground / --accent / --radius / --panel / --input-bg/border): 0 results ✓
+- fontWeight 800 / 700: 0 results ✓
+- Inline borderRadius 8/16: 0 in scope ✓ (2 hits in app/global-error.tsx — excluded per plan, file is self-contained)
+- Hex colors in code: 0 in scope ✓ (1 hit `color:"#ffffff"` in app/global-error.tsx — excluded per plan)
+- `as any` casts: 0 results ✓ (confirms Plan-17 Phase 5 `as DealStatus` choice)
+- wallet-session-card imports: 0 results ✓
+- ISSUE FOUND: literal `...` instead of `…` (U+2026) present in ~20 user-facing loading/status strings — components/link/create-link-form.tsx (3×), components/link/funding-progress.tsx (7×), components/link/status-notice.tsx (1×), components/deal/dispute-thread.tsx (1×), app/admin/disputes/page.tsx (4×), app/admin/disputes/[id]/page.tsx (5× incl. loading notice), app/admin/denylist/page.tsx (1× loading notice). These are conventional in-progress loading ellipses (low priority); placeholders ("0x...", "https://...") intentionally excluded. → Plan-22 candidate.
+
+### Step 2 — Mobile sweep (static verification)
+- Responsive infrastructure verified via globals.css grep: media queries present at 900px / 768px / 600px / 480px breakpoints + landscape `max-height:480px and orientation:landscape`; `.list-row` mobile `grid-template-areas` restructure present (line ~1700); iOS input `font-size:16px` present in mobile media query.
+- Live device/DevTools visual check NOT run autonomously (no browser session) — infrastructure present but pixel-level verification deferred.
+
+### Step 3 — Dark mode (static verification)
+- 16 `[data-theme="dark"]` rule blocks + `@media (prefers-color-scheme: dark)` present in globals.css — token-driven dark mode infrastructure intact.
+- Live visual check NOT run autonomously.
+
+### Step 4 — A11y
+- No Playwright a11y test suite exists in the repo; axe/Lighthouse audit requires a live browser — NOT run autonomously. Prior plans (per PROGRESS Plan-?? a11y work) added aria-labels, live regions, focus trap, skip link, color-contrast fixes.
+
+### Step 5 — Performance
+- Build sizes: First Load JS shared 102 kB; per-route First Load 147–192 kB — all well under the 200 kB target ✓. Largest: /deal/[id] 192 kB, /admin/disputes 189 kB.
+- ISSUE FOUND: `npm run build` emits warnings — `@metamask/sdk` cannot resolve optional peer `@react-native-async-storage/async-storage`. This is a third-party node_modules warning (React-Native-only optional dep, harmless for web), NOT project code. Not actionable in project source; build still exits 0.
+- Lighthouse performance score NOT measured (needs live browser).
+
+### Step 6 — Cross-browser
+- Manual multi-browser check (Chrome/Safari/Firefox/Mobile Safari) NOT run autonomously — requires real browsers/devices.
+
+### Step 7 — Cleanup applied
+- 7.1 — Refresh button consistency: app/admin/disputes/[id]/page.tsx + app/admin/denylist/page.tsx — `<button style={smallButtonStyle}>` → `<Btn variant="ghost" size="sm">`; removed `smallButtonStyle` const from both files (completes the Plan-20 Phase 6 note).
+- 7.2 — TODO/FIXME/XXX/HACK in components/ + app/: 0 results ✓
+- 7.3 — Dead code: ISSUE FOUND — `components/shared/live-badge.tsx` (LiveBadge) and `components/shared/progress-steps.tsx` (ProgressSteps) have 0 usages across components/ + app/. Deletion candidates. → Plan-22 candidate.
+
+### Step 8 — Docs
+- audit/PROGRESS.md contains sections for all plans through Plan-21 ✓
+
+**Plan-21 checks:** npm run typecheck clean (exit 0), npm run build compiled successfully with warnings (third-party only, exit 0), npm run test:unit 12/12 passing.
+
+### Plan-21 — Findings summary (→ Plan-22 candidates)
+1. [P2] Literal `...` → `…` in ~20 loading/status strings.
+2. [P2] Delete unused components/shared/live-badge.tsx + components/shared/progress-steps.tsx.
+3. Browser-dependent steps (mobile visual, dark-mode visual, a11y/Lighthouse, cross-browser) not verifiable in this headless environment — infrastructure verified statically.
+
+## Plan-22 — Filter counts (implemented, stack-adapted)
+
+Plan-22 is an architectural blueprint ("не diff-уровень… передавать разработчику для review + adjustments под конкретный codebase"). Implemented the stack-appropriate core that delivers the plan's stated problem fix + acceptance criterion #1.
+
+### Stack investigation (decides what applies)
+- `@tanstack/react-query@5.87.1` installed; `QueryClientProvider` wired in components/providers.tsx — but /my-deals + /my-links pages use raw `useState`/`useEffect`/`fetch`, not `useQuery`.
+- No Redis / ioredis. DB layer is Supabase via `server/repositories/*`.
+- KEY ARCHITECTURAL FINDING: `listMyBuyerDeals` and `listMyConsultationLinks` already load the **entire** user dataset (`getAllBuyerDealRows` / `getAllByCreatorUserId`), filter in JS, then `.slice()` for pagination. There is NO SQL-side filtering or pagination. → accurate per-filter counts cost **zero extra DB queries** — they are pure in-memory `.filter().length` over rows already fetched.
+
+### Implemented
+- server/services/my-deals.ts — added `MyDealsCounts` / `MyBuyerDealsPage` types + `computeMyDealsCounts()` (5 in-memory filter passes over already-loaded rows) + `listMyBuyerDealsWithCounts()`. Refactored `listMyBuyerDeals()` to delegate to it (single code path, unchanged signature/return — existing tests unaffected).
+- server/services/consultation-links.ts — added `MyLinksCounts` / `MyConsultationLinksPage` + `computeMyLinksCounts()` (7 filters) + `listMyConsultationLinksWithCounts()`. Refactored `listMyConsultationLinks()` to delegate.
+- app/api/me/deals/route.ts — `?include_counts=true` → returns `{ deals, counts }`; absent → bare `MyDeal[]` (backward-compatible, no breaking change to existing callers/tests).
+- app/api/links/route.ts — same `?include_counts=true` → `{ links, counts }`.
+- lib/api/deals.ts — `MyDealsCounts` / `MyDealsPage` types + `fetchMyDealsWithCounts()`.
+- lib/api/links.ts — `MyLinksCounts` / `MyLinksPage` types + `fetchMyLinksWithCounts()`.
+- app/my-deals/page.tsx + app/my-links/page.tsx — switched list fetch to the `*WithCounts` variant; added `counts` state; `FILTERS` now show real per-filter counts via `filterLabel()` helper (zero/undefined count → bare label, per plan §2.3). Replaces the old misleading `All · {deals.length-of-current-page}`.
+
+### Deviations from the blueprint — and why (stack-driven)
+- Phase 1.1 SQL `COUNT(*) FILTER` + Phase 3 composite indexes — N/A. The codebase does no SQL-side filtering/pagination; it loads all rows and filters in JS. A single SQL aggregation would only matter if filtering moved to SQL — that is a much larger data-layer refactor, explicitly developer-review territory. Counts here are computed for free from the already-loaded set.
+- Phase 1.3/1.4 Redis server-side cache + invalidation-on-mutation — N/A. No Redis in the project; and since counts are free and recomputed on every list fetch, they are always fresh — no cache to keep consistent. The list page remounts/refetches after any mutation flow, so counts self-refresh.
+- Phase 2.1/2.2 TanStack Query `useQuery` hooks for counts + `invalidateQueries` — DEFERRED. The pages are not on `useQuery` (raw fetch). Counts arrive inline with the list response, so a separate cached query would be redundant. Migrating both pages to `useQuery` is a larger refactor outside this change's risk budget.
+- Phase 2.4 optimistic UI — DEFERRED (depends on the `useQuery`/`useMutation` migration above).
+- Phase 4 feature flag / Phase "future" materialized views / SSE / edge cache — out of scope (plan marks them optional/future).
+
+### Acceptance check
+- ✓ Every filter tab shows the real count of the whole dataset (or hides it when 0) — replaces the misleading current-page-length count.
+- ✓ One round trip per list load (list + counts inline).
+- ✓ Counts refresh after mutations (list page refetches on mount/return).
+- N/A or deferred: server/client cache hit ratio, optimistic `+1`, p95 cache latency — see deviations.
+
+**Plan-22 checks:** npm run typecheck clean (exit 0); npm run build compiled successfully (third-party warnings only, exit 0); npm run test:unit 12/12; test:unit:services 34/34; my-deals-service.test.ts 10/10 — service refactor (delegation) left all existing service tests green.

@@ -7,7 +7,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
-import { fetchMyLinks, type MyLink, type MyLinksFilter } from "@/lib/api/links";
+import {
+  fetchMyLinksWithCounts,
+  type MyLink,
+  type MyLinksCounts,
+  type MyLinksFilter,
+} from "@/lib/api/links";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
 import { formatDate } from "@/lib/ui/date";
 import { formatUsdcPrice } from "@/lib/ui/format";
@@ -81,6 +86,7 @@ export default function MyLinksPage() {
   const [filter, setFilter] = useState<MyLinksFilter>("all");
   const [query, setQuery] = useState("");
   const [links, setLinks] = useState<MyLink[] | null>(null);
+  const [counts, setCounts] = useState<MyLinksCounts | null>(null);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -88,15 +94,15 @@ export default function MyLinksPage() {
 
   const FILTERS = useMemo(
     () => [
-      { value: "all" as const, label: `All${links !== null ? ` · ${links.length}` : ""}` },
-      { value: "available" as const, label: "Available" },
-      { value: "upcoming" as const, label: "Upcoming" },
-      { value: "awaiting_buyer" as const, label: "Awaiting buyer" },
-      { value: "disputed" as const, label: "Disputed" },
-      { value: "closed" as const, label: "Closed" },
-      { value: "inactive" as const, label: "Inactive" },
+      { value: "all" as const, label: filterLabel("All", counts?.all) },
+      { value: "available" as const, label: filterLabel("Available", counts?.available) },
+      { value: "upcoming" as const, label: filterLabel("Upcoming", counts?.upcoming) },
+      { value: "awaiting_buyer" as const, label: filterLabel("Awaiting buyer", counts?.awaiting_buyer) },
+      { value: "disputed" as const, label: filterLabel("Disputed", counts?.disputed) },
+      { value: "closed" as const, label: filterLabel("Closed", counts?.closed) },
+      { value: "inactive" as const, label: filterLabel("Inactive", counts?.inactive) },
     ],
-    [links],
+    [counts],
   );
 
   const createLinkAction = (
@@ -111,6 +117,7 @@ export default function MyLinksPage() {
   useEffect(() => {
     if (!isAuthenticated) {
       setLinks(null);
+      setCounts(null);
       setPage(0);
       setHasNextPage(false);
       return;
@@ -119,14 +126,15 @@ export default function MyLinksPage() {
     setLoading(true);
     setError(null);
     setLinks(null);
-    fetchMyLinks({
+    fetchMyLinksWithCounts({
       filter,
       limit: PAGE_SIZE + 1,
       offset: page * PAGE_SIZE,
     })
-      .then((loadedLinks) => {
-        setHasNextPage(loadedLinks.length > PAGE_SIZE);
-        setLinks(loadedLinks.slice(0, PAGE_SIZE));
+      .then((result) => {
+        setHasNextPage(result.links.length > PAGE_SIZE);
+        setLinks(result.links.slice(0, PAGE_SIZE));
+        setCounts(result.counts);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load links."))
       .finally(() => setLoading(false));
@@ -339,6 +347,11 @@ function getMyLinkBadge(link: MyLink): MyLinkBadge & { icon?: IconName } {
     ...LINK_STATUS_CONFIG[link.status],
     icon: linkIconByStatus[link.status],
   };
+}
+
+// Append a count to a filter label; a zero/undefined count renders the bare label.
+function filterLabel(base: string, count: number | undefined): string {
+  return count ? `${base} · ${count}` : base;
 }
 
 const pageHeaderStyle = {

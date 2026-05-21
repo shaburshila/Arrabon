@@ -179,6 +179,34 @@ export async function fetchMyLinks(params?: FetchMyLinksParams): Promise<MyLink[
   return parseResponse<MyLink[]>(res);
 }
 
+// Real per-filter counts for the whole seller dataset (not just the current page).
+export interface MyLinksCounts {
+  all: number;
+  available: number;
+  upcoming: number;
+  awaiting_buyer: number;
+  disputed: number;
+  closed: number;
+  inactive: number;
+}
+
+export interface MyLinksPage {
+  counts: MyLinksCounts;
+  links: MyLink[];
+}
+
+// GET /api/links?include_counts=true — list page + accurate filter counts in one round trip.
+export async function fetchMyLinksWithCounts(
+  params?: FetchMyLinksParams,
+): Promise<MyLinksPage> {
+  const query = formatListQuery(params);
+  const url = query
+    ? `/api/links${query}&include_counts=true`
+    : "/api/links?include_counts=true";
+  const res = await fetch(url);
+  return parseResponse<MyLinksPage>(res);
+}
+
 // POST /api/links/:id/funding/prepare — requires SIWE session
 export async function prepareFunding(linkId: string): Promise<FundingGrantResult> {
   const res = await fetch(`/api/links/${encodeURIComponent(linkId)}/funding/prepare`, {

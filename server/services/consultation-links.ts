@@ -180,12 +180,40 @@ function matchMyLinkFilter(
   return false;
 }
 
-export async function listMyConsultationLinks(
+export interface MyLinksCounts {
+  all: number;
+  available: number;
+  upcoming: number;
+  awaiting_buyer: number;
+  disputed: number;
+  closed: number;
+  inactive: number;
+}
+
+export interface MyConsultationLinksPage {
+  counts: MyLinksCounts;
+  links: MyLinkResult[];
+}
+
+// Counts are derived from the already-mapped link set — no extra DB round trip.
+function computeMyLinksCounts(links: MyLinkResult[]): MyLinksCounts {
+  return {
+    all: links.length,
+    available: links.filter((link) => matchMyLinkFilter(link, "available")).length,
+    upcoming: links.filter((link) => matchMyLinkFilter(link, "upcoming")).length,
+    awaiting_buyer: links.filter((link) => matchMyLinkFilter(link, "awaiting_buyer")).length,
+    disputed: links.filter((link) => matchMyLinkFilter(link, "disputed")).length,
+    closed: links.filter((link) => matchMyLinkFilter(link, "closed")).length,
+    inactive: links.filter((link) => matchMyLinkFilter(link, "inactive")).length,
+  };
+}
+
+export async function listMyConsultationLinksWithCounts(
   currentUser: CurrentUserContext,
   now: Date = new Date(),
   pagination?: Partial<ListPagination>,
   filter: MyConsultationLinksFilter = "all",
-): Promise<MyLinkResult[]> {
+): Promise<MyConsultationLinksPage> {
   let rows: ConsultationLinkRow[];
 
   try {
@@ -249,9 +277,26 @@ export async function listMyConsultationLinks(
   });
 
   const { limit, offset } = normalizeListPagination(pagination);
+  const counts = computeMyLinksCounts(mappedLinks);
   const filteredLinks = mappedLinks.filter((link) => matchMyLinkFilter(link, filter));
 
-  return filteredLinks.slice(offset, offset + limit);
+  return { counts, links: filteredLinks.slice(offset, offset + limit) };
+}
+
+export async function listMyConsultationLinks(
+  currentUser: CurrentUserContext,
+  now: Date = new Date(),
+  pagination?: Partial<ListPagination>,
+  filter: MyConsultationLinksFilter = "all",
+): Promise<MyLinkResult[]> {
+  const result = await listMyConsultationLinksWithCounts(
+    currentUser,
+    now,
+    pagination,
+    filter,
+  );
+
+  return result.links;
 }
 
 export async function createConsultationLink(

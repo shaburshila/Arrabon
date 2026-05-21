@@ -7,7 +7,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useWalletSessionContext } from "@/contexts/wallet-session-context";
-import { fetchMyDeals, type MyDeal, type MyDealsFilter } from "@/lib/api/deals";
+import {
+  fetchMyDealsWithCounts,
+  type MyDeal,
+  type MyDealsCounts,
+  type MyDealsFilter,
+} from "@/lib/api/deals";
 import { formatDate } from "@/lib/ui/date";
 import { formatUsdcPrice } from "@/lib/ui/format";
 import { getDealDisplayConfig } from "@/lib/ui/deal-status";
@@ -45,6 +50,7 @@ export default function MyDealsPage() {
     session.siweStatus === "authenticated";
 
   const [deals, setDeals] = useState<MyDeal[] | null>(null);
+  const [counts, setCounts] = useState<MyDealsCounts | null>(null);
   const [filter, setFilter] = useState<MyDealsFilter>("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -54,18 +60,19 @@ export default function MyDealsPage() {
 
   const FILTERS = useMemo(
     () => [
-      { value: "all" as const, label: `All${deals !== null ? ` · ${deals.length}` : ""}` },
-      { value: "upcoming" as const, label: "Upcoming" },
-      { value: "needs_action" as const, label: "Needs action" },
-      { value: "disputed" as const, label: "Disputed" },
-      { value: "resolved" as const, label: "Resolved" },
+      { value: "all" as const, label: filterLabel("All", counts?.all) },
+      { value: "upcoming" as const, label: filterLabel("Upcoming", counts?.upcoming) },
+      { value: "needs_action" as const, label: filterLabel("Needs action", counts?.needs_action) },
+      { value: "disputed" as const, label: filterLabel("Disputed", counts?.disputed) },
+      { value: "resolved" as const, label: filterLabel("Resolved", counts?.resolved) },
     ],
-    [deals],
+    [counts],
   );
 
   useEffect(() => {
     if (!isAuthenticated) {
       setDeals(null);
+      setCounts(null);
       setPage(0);
       setHasNextPage(false);
       return;
@@ -74,14 +81,15 @@ export default function MyDealsPage() {
     setLoading(true);
     setError(null);
     setDeals(null);
-    fetchMyDeals({
+    fetchMyDealsWithCounts({
       filter,
       limit: PAGE_SIZE + 1,
       offset: page * PAGE_SIZE,
     })
-      .then((loadedDeals) => {
-        setHasNextPage(loadedDeals.length > PAGE_SIZE);
-        setDeals(loadedDeals.slice(0, PAGE_SIZE));
+      .then((result) => {
+        setHasNextPage(result.deals.length > PAGE_SIZE);
+        setDeals(result.deals.slice(0, PAGE_SIZE));
+        setCounts(result.counts);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load deals."))
       .finally(() => setLoading(false));
@@ -253,6 +261,11 @@ function DealRow({ deal }: { deal: MyDeal }) {
       </span>
     </Link>
   );
+}
+
+// Append a count to a filter label; a zero/undefined count renders the bare label.
+function filterLabel(base: string, count: number | undefined): string {
+  return count ? `${base} · ${count}` : base;
 }
 
 const pageHeaderStyle = {

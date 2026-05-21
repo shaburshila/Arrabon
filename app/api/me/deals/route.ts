@@ -9,6 +9,7 @@ import {
 import {
   type MyDealsFilter,
   listMyBuyerDeals,
+  listMyBuyerDealsWithCounts,
   MyDealsServiceError,
 } from "@/server/services/my-deals";
 
@@ -42,6 +43,13 @@ export async function GET(request: Request) {
     const currentUser = await requireUser();
     const pagination = parseListPagination(searchParams);
     const filter = parseMyDealsFilter(searchParams);
+
+    if (searchParams.get("include_counts") === "true") {
+      const page = await listMyBuyerDealsWithCounts(currentUser, pagination, filter);
+
+      return NextResponse.json(page);
+    }
+
     const deals = await listMyBuyerDeals(currentUser, pagination, filter);
 
     return NextResponse.json(deals);
