@@ -1,257 +1,174 @@
+<p align="center">
+  <img src="public/arrabon-seal-gold-on-graphite.svg" alt="Arrabon" width="180" />
+</p>
+
 # Arrabon
 
-Arrabon is a mobile-first web app for selling a single scheduled consultation slot with USDC escrow on Base.
+Mobile-first сервис для продажи консультаций с некастодиальным USDC-escrow в
+сети Base.
 
-> Project documentation index: [docs/INDEX.md](docs/INDEX.md)
+Эксперт создаёт одноразовую ссылку на конкретный слот, клиент оплачивает
+консультацию в USDC, а смарт-контракт удерживает средства до подтверждения
+оказанной услуги. Ссылка на встречу раскрывается только участникам сделки после
+оплаты.
 
-Current status: backend + frontend MVP implemented. See [docs/INDEX.md](docs/INDEX.md) for full documentation.
+MVP полностью реализован и протестирован. Коммерческий запуск не состоялся
+после прекращения маркетингового направления команды; публичный сервис сейчас
+не работает. Репозиторий сохранён как технический и продуктовый кейс.
 
-Completed:
+## Коротко о проекте
 
-- SIWE auth and server-side sessions
-- Consultation link create/read/cancel
-- Funding prepare + sync boundary
-- Deal read + meeting URL reveal
-- Confirmed chain event sync (Funded, Completed, Released, Disputed, Refunded)
-- Completion, release, dispute, auto-release lifecycle endpoints
-- Dispute messages (offchain thread)
-- AML/Compliance screening (3 providers: Chainalysis oracle, USDC blacklist, local denylist)
-- Admin endpoints: deal management, dispute resolution, denylist CRUD
-- Frontend: 9 pages including admin UI, compliance notices
+| | |
+|---|---|
+| **Роль** | Самостоятельная продуктовая и техническая разработка |
+| **Период** | 26 марта — 21 мая 2026 года, 57 календарных дней |
+| **Результат** | Рабочий end-to-end MVP и контракт в Base Mainnet |
+| **Объём работы** | 225 коммитов одного автора за период активной разработки, 13 страниц и 28 API-маршрутов |
+| **Проверка качества** | 71 тестовый файл и 68 описанных QA-сценариев |
 
-## Local Run
+Я отвечал за продуктовую логику, пользовательские сценарии, UX, frontend,
+backend, базу данных, смарт-контракт, тестирование и подготовку к развёртыванию.
+AI использовался как рабочий инструмент разработки; результат проверялся
+тестами, аудитами и прохождением полных пользовательских сценариев.
 
-1. Install dependencies:
+## Пользовательский сценарий
 
-```bash
-npm install
+```text
+Эксперт создаёт одноразовую ссылку
+              ↓
+Клиент подключает кошелёк и оплачивает консультацию в USDC
+              ↓
+Средства блокируются в ConsultEscrow на Base
+              ↓
+Участникам открывается зашифрованная ссылка на встречу
+              ↓
+Эксперт отмечает консультацию завершённой
+              ↓
+Клиент подтверждает выплату или открывает спор
+              ↓
+При отсутствии ответа доступен auto-release после 48 часов
 ```
 
-2. Copy env values from `.env.example` into `.env.local`.
+## Что реализовано
 
-3. Start the dev server:
+- создание, просмотр и отмена одноразовых ссылок на консультацию;
+- атомарное создание и финансирование escrow-сделки в USDC;
+- подключение кошелька и SIWE-аутентификация с server-side сессиями;
+- шифрование meeting URL через AES-256-GCM и раскрытие только участникам;
+- полный lifecycle сделки: funding, completion, release, dispute, refund и
+  auto-release;
+- EIP-712 авторизация funding-операций и защита от повторного использования;
+- личные кабинеты эксперта и клиента;
+- offchain-переписка участников внутри открытого спора;
+- admin-интерфейс для споров, compliance-проверок и denylist;
+- AML/compliance screening через Chainalysis oracle, USDC blacklist и локальный
+  denylist;
+- фоновая синхронизация подтверждённых onchain-событий с PostgreSQL;
+- юридические страницы, refund policy и уведомления о compliance-ограничениях;
+- mobile-first интерфейс для встроенного браузера Base App.
 
-```bash
-npm run dev
+## Архитектура
+
+```text
+Mobile browser / Base App
+          │
+          ▼
+Next.js application
+  ├─ React frontend + wagmi/viem
+  ├─ Route Handlers API
+  └─ background event-sync worker
+          │
+          ├─ Supabase PostgreSQL
+          ├─ compliance providers
+          └─ Base L2 / ConsultEscrow.sol
 ```
 
-4. Build for verification:
+Frontend и backend работают в одном Next.js-приложении. Критичные переходы
+состояния и хранение средств находятся в смарт-контракте, а приватные данные,
+сессии и продуктовые метаданные — в PostgreSQL. Worker индексирует только
+подтверждённые события и обновляет offchain read model идемпотентно.
 
-```bash
-npm run build
+## Контракт
+
+`ConsultEscrow.sol` развёрнут в Base Mainnet:
+
+- **адрес:**
+  [`0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD`](https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD)
+- **транзакция развёртывания:**
+  [`0x4d0ed8…68fa`](https://basescan.org/tx/0x4d0ed801e47f7dcde43139da2e9a11eb4c53b63ef27e32db1a9998a6d4ed68fa)
+- **сеть:** Base Mainnet, chain ID 8453
+- **блок:** 46201204
+
+Контракт реализует custody USDC, state machine сделки, single-use enforcement,
+EIP-712 funding authorization, dispute flow, legal hold и выплату или возврат
+средств.
+
+## Стек
+
+**Application:** TypeScript, Next.js App Router, React, TanStack Query
+
+**Wallet и blockchain:** wagmi, viem, SIWE, Solidity, Hardhat, OpenZeppelin,
+Base L2, USDC
+
+**Data:** Supabase PostgreSQL, server-side sessions, background event sync
+
+**Security и compliance:** AES-256-GCM, EIP-712, Chainalysis oracle, USDC
+blacklist, local denylist, append-only audit log
+
+## Проверка качества
+
+Проект включает:
+
+- unit-тесты frontend, backend и бизнес-логики;
+- API smoke tests;
+- Hardhat-тесты смарт-контракта;
+- 68 документированных QA-сценариев и 20 критичных инвариантов;
+- threat model и отдельный анализ AML/compliance;
+- последовательные внутренние audit-проходы перед финальной версией MVP.
+
+Проверяются authentication и access control, временные границы сделки,
+escrow-state machine, funding/release flows, шифрование meeting URL,
+идемпотентность indexer, compliance-гейты и административное разрешение споров.
+
+## Структура репозитория
+
+```text
+app/           страницы и Next.js Route Handlers
+components/    UI-компоненты
+contexts/      wallet/session state
+hooks/         продуктовые пользовательские flows
+lib/           auth, database, contracts, compliance и domain logic
+contracts/     ConsultEscrow.sol и вспомогательные контракты
+supabase/      схема и миграции PostgreSQL
+server/        background event-sync worker
+tests/         unit, API и contract tests
+docs/          спецификация, архитектура, threat model и QA
+design-assets/ фирменные SVG-ассеты
 ```
 
-## Required Environment Variables
+## Документация
 
-```env
-NEXT_PUBLIC_RPC_URL=
-NEXT_PUBLIC_PAYMASTER_PROXY_URL=
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_TREASURY_WALLET=
-NEXT_PUBLIC_BASE_CHAIN_ID=
-NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS=
-NEXT_PUBLIC_USDC_ADDRESS=
-NEXT_PUBLIC_BUILDER_CODE=
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-AUTH_DOMAIN=
-ADMIN_WALLETS=
-MEETING_URL_ENCRYPTION_KEY=
-CHAIN_SYNC_START_BLOCK=
-CHAIN_SYNC_CONFIRMATIONS=
-CHAIN_SYNC_MAX_RANGE=
-COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS=
-COMPLIANCE_CB_FAILURE_THRESHOLD=
-COMPLIANCE_CB_WINDOW_MS=
-COMPLIANCE_CB_RESET_MS=
-COMPLIANCE_CHAINALYSIS_DEV_MOCK=
-COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE=
-COMPLIANCE_USDC_DEV_MOCK=
-COMPLIANCE_USDC_DEV_MOCK_MODE=
-```
+| Документ | Содержание |
+|---|---|
+| [Product specification](docs/product-spec.md) | Scope MVP и продуктовые правила |
+| [Architecture](docs/architecture.md) | Границы компонентов и onchain/offchain split |
+| [User flows](docs/flows.md) | Основные и ошибочные пользовательские сценарии |
+| [State machine](docs/state-machine.md) | Состояния ссылок, сделок и compliance |
+| [API contract](docs/api-contract.md) | Контракты Route Handlers |
+| [Auth model](docs/auth-model.md) | SIWE и server-side сессии |
+| [Threat model](docs/threat-model.md) | Активы, угрозы и mitigations |
+| [QA scenarios](docs/qa-scenarios.md) | Проверяемые сценарии и инварианты |
+| [Deployments](docs/deployments.md) | Адреса контрактов и история развёртываний |
 
-`AUTH_DOMAIN` is the preferred host override for SIWE domain validation. If it is not set, auth falls back to the incoming request host.
+Полный индекс находится в [docs/INDEX.md](docs/INDEX.md).
 
-`ADMIN_WALLETS` is a comma-separated wallet allowlist used to compute `is_admin` server-side.
+## Статус
 
-`MEETING_URL_ENCRYPTION_KEY` must be exactly 64 hex characters and is used for server-side encryption/decryption of `meeting_url`.
+MVP завершён. Контракт был развёрнут в Base Mainnet, но полноценный коммерческий
+запуск продукта не состоялся после прекращения маркетингового направления
+команды. Приложение больше не поддерживается и не доступно как публичный сервис.
 
-`NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS` points to the deployed escrow contract used by funding and post-funding lifecycle preparation.
+## Лицензия
 
-`CHAIN_SYNC_START_BLOCK`, `CHAIN_SYNC_CONFIRMATIONS`, and `CHAIN_SYNC_MAX_RANGE` configure the background event-sync worker. `CHAIN_SYNC_MAX_RANGE` must be greater than or equal to `1`.
-
-`NEXT_PUBLIC_BUILDER_CODE` is present in env for future attribution support, but runtime attribution is still intentionally deferred.
-
-`COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS` points to the on-chain Chainalysis sanctions oracle contract used by AML screening.
-
-`COMPLIANCE_CB_FAILURE_THRESHOLD`, `COMPLIANCE_CB_WINDOW_MS`, and `COMPLIANCE_CB_RESET_MS` configure the per-provider compliance circuit breaker. Positive compliance cache TTL is intentionally fixed in code at 5 minutes for the current MVP.
-
-`COMPLIANCE_CHAINALYSIS_DEV_MOCK=true` switches only the Chainalysis provider to a dev-only mock. This is intended for non-production environments such as Base Sepolia when a live sanctions oracle is unavailable. `COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE` accepts `clear`, `blocked`, or `unavailable`; the default is `clear`.
-
-`COMPLIANCE_USDC_DEV_MOCK=true` switches only the USDC blacklist provider to a dev-only mock. This is intended for non-production environments such as Base Sepolia when the configured USDC contract does not implement `isBlacklisted` or when deterministic compliance testing is needed. `COMPLIANCE_USDC_DEV_MOCK_MODE` accepts `clear`, `blocked`, or `unavailable`; the default is `clear`.
-
-Even with `COMPLIANCE_CHAINALYSIS_DEV_MOCK=true`, `COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS` must still be present because the compliance config is loaded for shared circuit-breaker settings. For local dev you can use a valid placeholder such as `0x0000000000000000000000000000000000000000`.
-
-`NEXT_PUBLIC_USDC_ADDRESS` remains the single source of truth for the USDC contract address and is reused by the compliance blacklist provider.
-
-## Base Sepolia Compliance Dev Mode
-
-If you want to test compliance flows on Base Sepolia without a live Chainalysis oracle, add the following to `.env.local`:
-
-```env
-COMPLIANCE_CHAINALYSIS_ORACLE_ADDRESS=0x0000000000000000000000000000000000000000
-COMPLIANCE_CHAINALYSIS_DEV_MOCK=true
-COMPLIANCE_CHAINALYSIS_DEV_MOCK_MODE=clear
-```
-
-Mode guide:
-
-- `clear` — Chainalysis provider returns `NO_HIT`
-- `blocked` — Chainalysis provider returns `OFAC_SANCTIONS`
-- `unavailable` — Chainalysis provider returns `PROVIDER_UNAVAILABLE`
-
-If you also need to bypass live USDC `isBlacklisted` reads on Base Sepolia, add:
-
-```env
-COMPLIANCE_USDC_DEV_MOCK=true
-COMPLIANCE_USDC_DEV_MOCK_MODE=clear
-```
-
-Mode guide:
-
-- `clear` — USDC blacklist provider returns `NO_HIT`
-- `blocked` — USDC blacklist provider returns `USDC_BLACKLISTED`
-- `unavailable` — USDC blacklist provider returns `PROVIDER_UNAVAILABLE`
-
-Chainalysis and USDC dev mocks are independent and can be enabled separately or together. Local denylist continues to run normally.
-
-## Contract Deployment
-
-Base Sepolia deployment is wired through Hardhat.
-
-Required deploy-only env vars:
-
-```env
-BASE_SEPOLIA_RPC_URL=
-DEPLOYER_PRIVATE_KEY=
-USDC_ADDRESS=
-TREASURY_ADDRESS=
-ADMIN_WALLETS=
-```
-
-Recommended testnet app/runtime env after deployment:
-
-```env
-NEXT_PUBLIC_BASE_CHAIN_ID=84532
-NEXT_PUBLIC_RPC_URL=
-NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS=
-NEXT_PUBLIC_TREASURY_WALLET=
-CHAIN_SYNC_START_BLOCK=
-CHAIN_SYNC_CONFIRMATIONS=1
-CHAIN_SYNC_MAX_RANGE=500
-```
-
-If you do not have a test USDC address on Base Sepolia yet, deploy the mock token first:
-
-```bash
-npm run deploy:mock-usdc:base-sepolia
-```
-
-Then deploy the escrow contract:
-
-```bash
-npm run deploy:escrow:base-sepolia
-```
-
-The deploy script prints the contract address and deployment block. Use those values for
-`NEXT_PUBLIC_CONSULT_ESCROW_ADDRESS` and `CHAIN_SYNC_START_BLOCK`.
-
-## Implemented API Surface
-
-- Auth
-  - `POST /api/auth/siwe/nonce`
-  - `POST /api/auth/siwe/verify`
-  - `POST /api/auth/logout`
-  - `GET /api/private/ping`
-- Links
-  - `POST /api/links`
-  - `GET /api/links/:id`
-  - `POST /api/links/:id/cancel`
-  - `POST /api/links/:id/funding/prepare`
-  - `POST /api/links/:id/funding/sync`
-- Deals
-  - `GET /api/deals/:id`
-  - `GET /api/deals/:id/meeting-url`
-  - `GET /api/deals/:id/dispute-messages`
-  - `POST /api/deals/:id/dispute-messages`
-  - `POST /api/deals/:id/complete`
-  - `POST /api/deals/:id/release`
-  - `POST /api/deals/:id/dispute`
-  - `POST /api/deals/:id/auto-release`
-- Me
-  - `GET /api/me/deals`
-- Admin
-  - `GET /api/admin/deals`
-  - `GET /api/admin/deals/:id`
-  - `GET /api/admin/deals/:id/compliance`
-  - `POST /api/admin/deals/:id/resolve`
-  - `GET /api/admin/denylist`
-  - `POST /api/admin/denylist`
-  - `DELETE /api/admin/denylist/:wallet`
-- Operational
-  - `GET /api/health`
-  - `POST /api/internal/deal-events/sync` (x-internal-sync-secret)
-
-## Implemented Backend Capabilities
-
-- `HttpOnly` short-lived SIWE session cookie with `SameSite=Lax`
-- server-side nonce issuance, signature verification, logout, and auth guards
-- encrypted `meeting_url` storage with participant-only server-side reveal
-- consultation link creation, public read, cancel
-- funding preparation and sync for `createAndFundDeal`
-- deal read model with derived `release_deadline_at`
-- confirmed chain event sync for `DealFunded`, `Completed`, `Released`, `Disputed`, and `Refunded`
-- completion, release, dispute, auto-release lifecycle prepare endpoints
-- offchain dispute message thread (buyer / seller / admin visible)
-- AML/Compliance screening: Chainalysis sanctions oracle, USDC blacklist, local denylist; fail-closed; post-funding rescreening; legal hold on payout paths
-- admin dispute resolution, deal compliance history, denylist CRUD
-
-## Auth Smoke Test
-
-1. Request a nonce:
-
-```bash
-curl -i -X POST http://localhost:3000/api/auth/siwe/nonce \
-  -H 'content-type: application/json' \
-  -d '{"wallet":"0xYourWalletAddress"}'
-```
-
-2. Build an EIP-4361 message for the returned nonce using the same domain as `AUTH_DOMAIN` or your local host, sign it with your wallet, then verify:
-
-```bash
-curl -i -X POST http://localhost:3000/api/auth/siwe/verify \
-  -H 'content-type: application/json' \
-  -d '{"message":"<full siwe message>","signature":"0x..."}'
-```
-
-3. Reuse the returned cookie against the protected smoke route:
-
-```bash
-curl -i http://localhost:3000/api/private/ping \
-  --cookie 'bcl_session=<session token>'
-```
-
-4. Logout:
-
-```bash
-curl -i -X POST http://localhost:3000/api/auth/logout \
-  --cookie 'bcl_session=<session token>'
-```
-
-Without a valid cookie, `GET /api/private/ping` returns `401`.
-
-## Not Implemented Yet
-
-- production scheduler/process manager for the deal-events worker
-- runtime Builder Code attribution via `dataSuffix` (intentionally deferred)
+Исходный код опубликован для ознакомления. Открытая лицензия не предоставляется;
+все права защищены.
