@@ -1,538 +1,155 @@
-# ТЗ v1.2 — Arrabon
+# Product rules
 
-> Version: 1.2 | Status: Актуален | Based on: ТЗ v1.2 | Date: 2026-04-28
-> Изменения v1.2: исправлено противоречие fee_snapshot в §6.2, исправлен paymaster fallback в §14, добавлен §24 AML/Compliance Screening, добавлено описание dispute messages в §9.
-> Составил: Arrabon Team | Проверил: — | Утвердил: —
+Arrabon lets an expert sell one scheduled consultation through a single-use
+link. A client funds the deal in USDC, and `ConsultEscrow` holds the funds
+until release or refund.
 
-## 1. Продукт
+The service is offline. These rules describe the completed MVP and the contract
+deployed in May 2026.
 
-**Arrabon** — standard web app для Base App.
-Назначение: продажа одного фиксированного слота консультации за USDC на Base через escrow.
+## Actors
 
-Приложение:
+| Actor | Responsibility |
+|---|---|
+| Expert / seller | Creates the link, provides the session, marks completion |
+| Client / buyer | Funds the deal, confirms release, or opens a dispute |
+| Admin | Reviews disputes and applies or removes payout holds |
+| Owner | Manages contract admins, treasury, and funding authorizer |
+| Funding authorizer | Signs short-lived EIP-712 funding payloads after backend checks |
+| Event worker | Synchronizes confirmed contract events into PostgreSQL |
 
-- mobile-first, работает во встроенном браузере Base App;
-- использует Base Account для wallet connection;
-- использует wagmi + viem для контрактных вызовов;
-- использует SIWE только для приватных backend-операций;
-- регистрируется в Base Build / base.dev и использует Builder Code.
+## Consultation link
 
-## 2. Цель MVP
+A link contains:
 
-Один сценарий:
+- title and description;
+- expert wallet;
+- price in USDC;
+- scheduled time and display timezone;
+- expiry time;
+- duration in minutes;
+- encrypted meeting URL;
+- a unique link hash.
 
-- Эксперт создаёт single-use ссылку на конкретный слот.
-- Клиент открывает ссылку и оплачивает USDC.
-- Onchain создаётся и финансируется escrow (атомарно).
-- Meeting URL раскрывается только после funding.
-- После слота эксперт отмечает завершение.
-- Клиент подтверждает release или открывает dispute.
-- Если клиент молчит 48 часов — происходит auto-release.
-- Если консультация не состоялась — клиент открывает dispute.
+The link status is one of `Draft`, `Open`, `Expired`, `Cancelled`, or
+`Consumed`.
 
-## 3. Scope MVP
+Only an open, unexpired link can be funded. Cancellation is available before
+funding. One link hash can create at most one onchain deal.
 
-### Входит
+## Time and amount rules
 
-- scheduled consultation;
-- single-use link;
-- лимиты сделки: $10–$100000;
-- escrow;
-- seller completion + buyer confirmation;
-- dispute window = 48 часов;
-- seller-initiated auto-release;
-- buyer dispute при no-show;
-- hidden meeting URL;
-- offchain cancel до funding;
-- manual admin dispute;
-- Base Account;
-- Builder Code;
-- sponsored transactions;
-- Base metadata/manifest.
+The deployed contract enforces:
 
-### Не входит
+- price from 10 to 100,000 USDC;
+- a future consultation time;
+- duration from 1 to 1,440 minutes;
+- link expiry later than the current block time;
+- link expiry no later than the scheduled time;
+- a funding authorization deadline that has not passed.
 
-- чат;
-- маркетплейс;
-- multi-use links;
-- подписки;
-- milestones;
-- автоматический арбитраж;
-- встроенные звонки.
+USDC uses six decimal places. Transaction values are prepared as integers
+rather than floating-point display amounts.
 
-## 4. Модель продукта
+## Funding
 
-### 4.1 Тип
+Funding uses a prepare-and-execute flow.
 
-Scheduled consultation
+1. The buyer signs in with Ethereum.
+2. The backend rechecks the link, participants, timing, and compliance state.
+3. The backend issues a short-lived, one-time execution grant.
+4. Exchanging the grant returns final transaction data and an EIP-712
+   authorization.
+5. The buyer approves USDC if required and calls `createAndFundDeal`.
+6. The contract marks the link hash and authorization nonce as used, creates
+   the deal, and transfers the price plus fee into escrow.
+7. Confirmed events update the offchain read model.
 
-### 4.2 Поля ссылки
+The onchain call must come from the buyer named in the signed authorization.
+Seller and buyer cannot be the same wallet.
 
-- title
-- description
-- price_usdc
-- scheduled_at (UTC)
-- timezone (display only)
-- duration_minutes
-- expires_at
-- meeting_url
+## Fee
 
-### 4.3 Инварианты времени
+The contract charges 3% of the consultation price with a floor of 1.50 USDC
+and a cap of 30 USDC.
 
-Все timestamp хранятся в UTC.
+```text
+fee = clamp(floor(price * 300 / 10,000), 1.50 USDC, 30 USDC)
+buyer transfer = price + fee
+```
 
-Обязательные правила:
+The seller receives the consultation price. The treasury receives the fee on
+release or refund.
 
-- scheduled_at > now
-- expires_at < scheduled_at
-- expires_at > now
-- duration_minutes > 0
+## Deal lifecycle
 
-`markCompleted` доступен продавцу с момента начала консультационного слота:
+The onchain deal starts in `Funded`.
 
-- `block.timestamp >= scheduled_at`
+- The seller can mark it complete at or after the scheduled time.
+- Completion moves it to `ConfirmPending`.
+- The buyer can confirm release during the response window.
+- The buyer can open a dispute from `Funded` or from `ConfirmPending` before
+  the deadline.
+- The seller can auto-release after the consultation duration plus the
+  48-hour response window.
+- An admin can resolve a disputed deal by release or refund.
 
-`completed_at` фиксируется onchain в момент `markCompleted` и сохраняется для audit trail.
+`Released` and `Refunded` are terminal states.
 
-48-часовое окно buyer response отсчитывается от момента окончания запланированного слота:
+## Meeting URL
 
-- `autoRelease_deadline = scheduled_at + duration_minutes * 60 + 48h`
+The meeting URL is encrypted with AES-256-GCM before database storage. It is
+not stored onchain.
 
-Deadline фиксирован и не зависит от момента вызова `markCompleted`.
+Reveal requires:
 
-## 5. Single-use модель
+- a valid SIWE session;
+- a wallet matching the buyer or seller;
+- a funded deal in a state where participant access is allowed;
+- request-throttling checks.
 
-### Правило
+Encryption limits database exposure but does not protect against a compromised
+application server with access to both ciphertext and encryption keys.
 
-Одна ссылка = одна сделка
+## Disputes
 
-### 5.1 Onchain enforcement
+The buyer can open a dispute if the seller did not provide the session or if
+the delivered service is contested. Dispute messages and optional evidence
+links are stored offchain and are visible to the participants and admins.
 
-Каждая ссылка имеет:
+An admin prepares and executes either:
 
-- `link_hash`
+- release of the consultation price to the seller; or
+- refund of the consultation price to the buyer.
 
-Контракт хранит:
+In both outcomes, the protocol fee goes to the treasury.
 
-- `usedLinkHashes[link_hash] = true`
+## Compliance state
 
-Правила:
+Wallet and transaction checks can return `Clear`, `Review`, or `Blocked`.
+Providers include:
 
-- при funding `link_hash` помечается использованным;
-- повторный funding с тем же `link_hash` → revert.
+- a Chainalysis oracle;
+- the USDC blacklist;
+- a local wallet denylist.
 
-## 6. Funding архитектура
+Provider failure follows a fail-closed path for protected actions. A blocked
+post-funding result can create an onchain payout hold. The hold blocks buyer
+release and seller auto-release. Admin resolution is gated by the application,
+but the contract still trusts an admin wallet to resolve directly. Deal status
+and risk status remain separate.
 
-### 6.1 Модель
+The compliance layer is an application control, not a claim of legal
+compliance in every jurisdiction.
 
-Funding = contract call через wagmi/viem + paymaster
+## Out of scope
 
-### 6.2 Метод
+The MVP did not provide:
 
-`createAndFundDeal(...)`
-
-Входные параметры:
-
-- consultation_link_id_hash
-- link_hash
-- seller
-- buyer
-- amount
-- scheduled_at
-- duration
-- link_expires_at
-- deadline
-- nonce
-- signature
-
-Примечание: `fee_snapshot` намеренно исключён из ABI в текущей фазе — fee-логика является автономной контрактной логикой. Замороженное решение: `decisions.md` F-08.
-
-Гарантии:
-
-- atomic execution
-- один вызов = одна сделка
-- нет `createDeal + fundDeal`
-- funding требует short-lived onchain authorization от backend signer по EIP-712
-- funding authorization привязана к конкретной DB-ссылке и её approved `Open`-состоянию на момент exchange
-
-Authorization model:
-
-- domain:
-  - `name = "ConsultEscrow"`
-  - `version = "1"`
-  - `chainId = block.chainid`
-  - `verifyingContract = address(this)`
-- struct:
-  - `FundingAuthorization(bytes32 consultationLinkIdHash,address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 linkExpiresAt,uint256 deadline,bytes32 nonce)`
-- encoding rules:
-  - `consultationLinkIdHash = keccak256(stringToBytes(link.id))`
-  - `price = parseUnits(String(link.price_usdc), 6)`
-  - `scheduledAt = Unix seconds`
-  - `linkExpiresAt = Unix seconds`
-  - `deadline = Unix seconds`
-  - `nonce = bytes32`
-- backend подписывает authorization только если effective status ссылки в момент exchange = `Open`
-- onchain funding дополнительно проверяет:
-  - `linkExpiresAt > block.timestamp`
-- replay protection:
-  - `usedFundingNonces[nonce] = true`
-- lifetime policy:
-  - funding grant TTL = 5 минут
-  - onchain authorization deadline = 3 минуты
-- boundary behavior:
-  - `linkExpiresAt == block.timestamp` считается expired и funding ревертит
-  - `deadline == block.timestamp` ещё допустим для authorization deadline check
-
-### 6.3 Base Pay
-
-Не используется в MVP как основной payment rail.
-
-## 7. Статусы
-
-### Ссылка
-
-- Draft
-- Open
-- Expired
-- Cancelled
-- Consumed
-
-### Сделка
-
-- Funded
-- ConfirmPending
-- Released
-  - payout зафиксирован onchain
-  - seller получает `price`, treasury получает `fee`
-- Refunded
-- Disputed
-
-## 8. Flow сделки
-
-### 8.1 Funding
-
-- пользователь вызывает `createAndFundDeal`;
-- calldata выдаётся только backend и уже содержит `deadline`, `nonce`, `signature`;
-- средства lock в контракте;
-- link → Consumed.
-
-### 8.2 Completion
-
-После funding seller может вызвать с момента начала консультационного слота:
-
-- `block.timestamp >= scheduled_at`
-
-`markCompleted(dealId)`
-
-### 8.3 Buyer window
-
-48 часов:
-
-- `confirmRelease`
-- `openDispute`
-
-### 8.4 Auto-release
-
-Execution model:
-
-`autoRelease(dealId)`
-
-Правила:
-
-- вызывать может только seller (deal.seller)
-- контракт проверяет:
-  - msg.sender == deal.seller
-  - статус ConfirmPending
-  - нет dispute
-  - deadline истёк (`block.timestamp > scheduled_at + duration_minutes * 60 + 48h`)
-
-UI:
-
-- seller видит неактивную кнопку с countdown после markCompleted
-- кнопка становится активной после истечения deadline
-- кнопка исчезает если buyer вызвал confirmRelease или openDispute
-
-## 9. Dispute
-
-Клиент может открыть dispute если:
-
-- no-show
-- проблема с услугой
-
-Onchain методы:
-
-- `openDispute(dealId)`
-- `adminResolveRelease`
-- `adminResolveRefund`
-
-### 9.1 Dispute messages (offchain)
-
-После перехода сделки в `Disputed` доступен offchain dispute thread:
-
-- видим buyer, seller и admin одновременно;
-- участники могут добавлять текстовые сообщения (1–3000 символов);
-- поддерживаются внешние evidence links (max 2048 символов); загрузка файлов в MVP не поддерживается;
-- thread становится read-only после `Released` или `Refunded`;
-- endpoint: `GET/POST /api/deals/:id/dispute-messages` (SIWE обязателен).
-
-## 10. Контракт
-
-### Методы
-
-- `createAndFundDeal`
-- `markCompleted`
-- `confirmRelease`
-- `openDispute`
-- `autoRelease`
-- `adminResolveRelease`
-- `adminResolveRefund`
-
-### Требования
-
-- USDC only
-- state machine
-- no double execution
-- reentrancy guard
-- event logging
-
-## 11. Комиссия
-
-- buyer платит `price + fee`
-- seller получает `price` полностью
-- формула: `clamp(price * 3%, $1.50, $30)`
-- фиксируется в момент funding
-- округление вниз
-- при `Released` treasury получает `fee`
-- при `Refunded` buyer получает только `price`, treasury получает `fee`
-
-## 12. Auth и Session
-
-### Public endpoints
-
-не требуют auth
-
-### Private endpoints
-
-require SIWE
-
-### Flow
-
-- wallet connect
-- nonce
-- SIWE подпись
-- backend validation
-- session cookie
-
-### Session
-
-- short-lived
-- привязана к wallet
-- nonce одноразовый
-
-### Admin
-
-- operational `admin` allowlist для:
-  - `adminResolveRelease`
-  - `adminResolveRefund`
-  - `setDealPayoutBlocked`
-- governance `owner` = `2-of-3` multisig
-- multisig управляет `admins` через `addAdmin/removeAdmin`
-- один и тот же адрес может быть и участником multisig, и `admin`, если это осознанный security tradeoff
-
-## 13. Meeting URL security
-
-- хранится encrypted
-- backend-only reveal
-
-Доступ:
-
-- buyer
-- seller
-
-Endpoint требования:
-
-- 401 без session
-- 403 не участник
-- 409 не funded
-- логирование попыток
-
-## 14. Sponsored transactions
-
-### Спонсируются
-
-- `createAndFundDeal`
-- `markCompleted`
-- `confirmRelease`
-- `openDispute`
-- `autoRelease`
-
-### Не спонсируются
-
-- admin actions
-
-### Fallback
-
-- user-paid fallback отсутствует в MVP
-- если paymaster недоступен — UI показывает ошибку, tx не отправляется, состояние не меняется
-
-### Paymaster
-
-- через backend proxy
-- allowlist методов
-
-## 15. Chain sync policy
-
-Backend обязан:
-
-- индексировать events:
-  - Funded
-  - Completed
-  - Released
-  - Refunded
-  - Disputed
-- обновлять state только после confirmed tx
-- поддерживать идемпотентность
-- уметь replay
-- сверять state периодически
-
-## 16. Idempotency
-
-- `tx_hash UNIQUE`
-- один payment → одна сделка
-- повторная обработка не меняет state
-
-## 17. БД
-
-### Constraints
-
-- `consultation_links.id PK`
-- `deals.consultation_link_id UNIQUE`
-- `deals.onchain_deal_id UNIQUE`
-- `processed_transactions.tx_hash UNIQUE`
-- audit log append-only
-
-## 18. UI/UX
-
-- mobile-first
-- 1 primary CTA
-- no external auth
-- avatar + username
-- light/dark
-- <3 screens onboarding
-- touch ≥44px
-
-## 19. Base требования
-
-- standard web app
-- Base Account
-- wagmi + viem
-- Builder Code
-- dataSuffix для web
-- metadata + manifest
-- verify flow
-
-## 20. Builder Code
-
-- внутри Base App → auto attribution
-- web → через dataSuffix
-
-## 21. Аналитика
-
-- links created
-- funded
-- released
-- disputes
-- avg check
-- repeat users
-- auto-release %
-- dispute rate
-
-## 22. Acceptance criteria (QA-ready)
-
-- повторный funding → revert
-- `markCompleted` раньше времени → revert
-- `autoRelease` до дедлайна → revert
-- `autoRelease` после → success
-- reveal доступ только участникам
-- `tx_hash` обрабатывается 1 раз
-- offchain == onchain state
-
-## 23. Этапы разработки
-
-- Model + DB + contract design
-- App shell + Base Account
-- Funding + escrow
-- Scheduling + time logic
-- Dispute + admin
-- Base polish + deploy
-
-## 24. AML / Compliance Screening
-
-Платформа выполняет sanctions screening на трёх уровнях. Детальный анализ: `docs/compliance-aml-analysis.md`. Замороженные инварианты: `decisions.md` §3.1.
-
-### 24.1 Три check points
-
-| Точка | Кто проверяется | Действие при блокировке |
-|---|---|---|
-| `POST /api/links` (create) | seller wallet | `403 COMPLIANCE_BLOCKED`; ссылка не создаётся |
-| `POST /api/links/:id/funding/prepare` | buyer + seller | `403 COMPLIANCE_BLOCKED`; funding grant и onchain authorization не выдаются |
-| Payout-path prepares (`/release`, `/auto-release`, `/admin/deals/:id/resolve`) | получатель выплаты | `403 COMPLIANCE_BLOCKED`; calldata не готовится |
-
-### 24.2 Три MVP-провайдера
-
-- Chainalysis Sanctions Oracle (on-chain, Base)
-- USDC `isBlacklisted(address)` (on-chain)
-- Local `wallet_denylist` (admin-managed DB table)
-
-### 24.3 Поведение при сбое провайдера
-
-Fail-closed: недоступность провайдера → `Blocked / PROVIDER_UNAVAILABLE`. Не кэшируется по адресу.
-
-### 24.4 `risk_status` — отдельная ось
-
-`deals.risk_status` (`Clear | Review | Blocked`) — независима от `deal.status`. Не создаёт новых lifecycle-статусов. `risk_status = Blocked` → legal hold:
-
-- onchain blocked:
-  - `confirmRelease`
-  - `autoRelease`
-- backend buyer/permissionless payout prepares тоже блокируются
-- `adminResolveRelease` и `adminResolveRefund` остаются manual emergency path и не блокируются onchain автоматически
-
-### 24.5 Frontend
-
-`403 COMPLIANCE_BLOCKED` отображается как in-place notice (`ComplianceBlockedNotice`) без редиректа на глобальную страницу ошибки.
-
-### 24.6 Admin compliance UI
-
-- `GET /admin/disputes` — `RiskBadge` на каждой карточке сделки
-- `GET /admin/disputes/[id]` — compliance history, legal hold banner, acknowledge flow для `Review`
-- `GET /admin/denylist` — CRUD для `wallet_denylist`
-
----
-
-## Финальный итог
-
-Это:
-
-**single-use scheduled consultation escrow app на Base**
-
-Не:
-
-- marketplace
-- payment gateway
-- chat
-- video platform
-
-А:
-
-👉 простой инструмент продажи одного консультационного слота через escrow.
-
----
-
-## Лист регистрации изменений
-
-| Версия | Дата | Изменения |
-|---|---|---|
-| 1.0 | 2026-03-25 | Первичный выпуск |
-| 1.1 | 2026-04-01 | Промежуточные правки (детали не зафиксированы) |
-| 1.2 | 2026-04-28 | Исправлено противоречие fee_snapshot в §6.2; исправлен paymaster fallback в §14; добавлен §24 AML/Compliance Screening; добавлен §9.1 dispute messages |
+- custody of user wallet keys;
+- fiat payments;
+- recurring subscriptions;
+- group consultations;
+- file uploads for dispute evidence;
+- guaranteed transaction sponsorship;
+- automatic legal resolution of sanctioned or disputed funds.

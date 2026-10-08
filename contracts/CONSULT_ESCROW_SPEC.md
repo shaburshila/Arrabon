@@ -1,394 +1,214 @@
-# ConsultEscrow Implementation-Ready Spec
+# ConsultEscrow contract reference
 
-## Scope
+`ConsultEscrow.sol` holds USDC for one scheduled consultation and enforces the
+deal lifecycle on Base.
 
-Implement exactly one contract:
+This document describes the final contract. The Solidity source and tests are
+authoritative.
 
-- `ConsultEscrow.sol`
+## Stored state
 
-Do not add:
+Each deal stores:
 
-- factory
-- per-deal contracts
-- alternative funding paths
-- extra lifecycle states
-- fee-waiver logic
+- single-use link hash;
+- seller and buyer;
+- consultation price and fee snapshot;
+- scheduled time and duration;
+- completion time;
+- lifecycle status.
 
-## External Functions
+Contract-level state also stores:
 
-Required public/external methods:
+- used link hashes;
+- used funding nonces;
+- per-deal payout-block flags;
+- owner, treasury, funding authorizer, and admin set;
+- the next deal ID.
 
-- `createAndFundDeal(link_hash, seller, buyer, price, scheduled_at, duration_minutes, deadline, nonce, signature)`
-  - canonical v2 funding ABI:
-    - `createAndFundDeal(consultation_link_id_hash, link_hash, seller, buyer, price, scheduled_at, duration_minutes, link_expires_at, deadline, nonce, signature)`
-- `markCompleted(dealId)`
-- `confirmRelease(dealId)`
-- `openDispute(dealId)`
-- `autoRelease(dealId)`
-- `adminResolveRelease(dealId)`
-- `adminResolveRefund(dealId)`
+The contract does not store the meeting URL, product description, offchain link
+status, dispute messages, or compliance-provider results.
 
-Recommended admin/config methods needed for deployability:
+## Deal status
 
-- constructor/init for:
-  - USDC address
-  - treasury address
-  - owner address (production: `2-of-3` multisig)
-  - initial admin allowlist
-  - funding authorizer address
-- required admin management methods:
-  - `addAdmin(address)`
-  - `removeAdmin(address)`
-  - `transferOwnership(address)`
+```solidity
+enum Status {
+    None,
+    Funded,
+    ConfirmPending,
+    Released,
+    Refunded,
+    Disputed
+}
+```
 
-## Core State
-
-Contract must keep:
-
-- `address owner`
-- `mapping(uint256 => Deal) deals`
-- `mapping(uint256 => bool) dealPayoutBlocked`
-- `mapping(bytes32 => bool) usedLinkHashes`
-- `mapping(bytes32 => bool) usedFundingNonces`
-- `mapping(address => bool) admins`
-- `uint256 adminCount`
-- `uint256 nextDealId`
-
-Deal must store:
-
-- `linkHash`
-- `seller`
-- `buyer`
-- `price`
-- `feeAmount`
-- `scheduledAt`
-- `durationMinutes`
-- `completedAt`
-- `status`
-
-Do not store:
-
-- fee waiver metadata
-- link expiry/cancel metadata
-- backend-only link status
-
-## Lifecycle / State Machine
-
-Valid lifecycle states:
-
-- `Funded`
-- `ConfirmPending`
-- `Released`
-- `Refunded`
-- `Disputed`
-
-Important:
-
-- `None` must not be treated as a business lifecycle state
-- "deal absent" is just missing storage / zero-initialized record
+`None` represents an absent deal rather than a product state.
 
 Allowed transitions:
 
-- absent -> `Funded`
-- `Funded -> ConfirmPending`
-- `Funded -> Disputed`
-- `ConfirmPending -> Released`
-- `ConfirmPending -> Disputed`
-- `Disputed -> Released`
-- `Disputed -> Refunded`
-
-Forbidden transitions:
-
-- anything out of `Released`
-- anything out of `Refunded`
-- direct `Funded -> Released`
-- direct `Funded -> Refunded`
-- direct `ConfirmPending -> Refunded`
-
-## Access Control
-
-Must enforce:
-
-- `createAndFundDeal`: `msg.sender == buyer`
-- `markCompleted`: `msg.sender == deal.seller`
-- `confirmRelease`: `msg.sender == deal.buyer`
-- `openDispute`: `msg.sender == deal.buyer`
-- `addAdmin`: `msg.sender == owner`
-- `removeAdmin`: `msg.sender == owner`
-- `transferOwnership`: `msg.sender == owner`
-- `adminResolveRelease`: `admins[msg.sender] == true`
-- `adminResolveRefund`: `admins[msg.sender] == true`
-- `setDealPayoutBlocked`: `admins[msg.sender] == true`
-- `autoRelease`: `msg.sender == deal.seller`
-
-Admin rotation model:
-
-- `owner` is governance authority and should be a `2-of-3` multisig in production
-- `admins` are operational resolvers for disputes / legal hold operations
-- one address may be both a multisig participant and an `admin`
-- `initialAdmins.length > 0` is required
-- duplicate addresses in `initialAdmins` must revert
-- `removeAdmin` must revert when `adminCount == 1`
-
-## Funding Path
-
-`createAndFundDeal` must enforce:
+- absent to `Funded`;
+- `Funded` to `ConfirmPending` or `Disputed`;
+- `ConfirmPending` to `Released` or `Disputed`;
+- `Disputed` to `Released` or `Refunded`.
 
-- `consultation_link_id_hash` is part of the signed payload
-- `seller != address(0)`
-- `buyer != address(0)`
-- `seller != buyer`
-- `usedLinkHashes[link_hash] == false`
-- `usedFundingNonces[nonce] == false`
-- `price` in `[10 USDC, 100000 USDC]`
-- `scheduled_at > block.timestamp`
-- `duration_minutes > 0`
-- `link_expires_at > block.timestamp`
-- `deadline >= block.timestamp`
-- `signature` recovers to `fundingAuthorizer`
+`Released` and `Refunded` are terminal.
 
-Funding authorization model:
+## Funding authorization
 
-- contract uses EIP-712 domain:
-  - `name = "ConsultEscrow"`
-  - `version = "1"`
-  - `chainId = block.chainid`
-  - `verifyingContract = address(this)`
-- struct:
-  - `FundingAuthorization(bytes32 consultationLinkIdHash,address buyer,address seller,bytes32 linkHash,uint256 price,uint256 scheduledAt,uint256 durationMinutes,uint256 linkExpiresAt,uint256 deadline,bytes32 nonce)`
-- encoding rules:
-  - `consultationLinkIdHash = keccak256(stringToBytes(link.id))` on the TypeScript/backend side
-  - contract receives `consultationLinkIdHash` as `bytes32` input and verifies it only through the signed EIP-712 payload
-  - `price` is the 6-decimal USDC amount passed to the contract
-  - `scheduledAt` is Unix seconds
-  - `linkExpiresAt` is Unix seconds
-  - `deadline` is Unix seconds
-  - `nonce` type is `bytes32`
-- replay protection:
-  - `usedFundingNonces[nonce] = true` after successful authorization checks and before token transfer
+Funding uses this EIP-712 domain:
 
-Accepted v1 limitation:
+```text
+name:              ConsultEscrow
+version:           1
+chainId:           deployment chain ID
+verifyingContract: contract address
+```
 
-- contract does not know live backend link status after authorization issuance
-- cancellation or expiry that happens after authorization issuance is bounded by short-lived `deadline` and `linkExpiresAt`, not by live onchain sync
+Signed type:
 
-Boundary behavior:
+```text
+FundingAuthorization(
+  bytes32 consultationLinkIdHash,
+  address buyer,
+  address seller,
+  bytes32 linkHash,
+  uint256 price,
+  uint256 scheduledAt,
+  uint256 durationMinutes,
+  uint256 linkExpiresAt,
+  uint256 deadline,
+  bytes32 nonce
+)
+```
 
-- `link_expires_at == block.timestamp` is treated as expired and must revert with `LinkExpired`
-- `deadline == block.timestamp` remains valid for the funding authorization deadline check
+The signer must equal `fundingAuthorizer`. The owner can rotate that address.
+Rotation invalidates authorizations signed by the previous key.
 
-Required ordering:
+## createAndFundDeal
 
-1. validate inputs
-2. validate funding authorization signature, deadline and nonce freshness
-3. compute `feeAmount`
-4. allocate new `dealId`
-5. set `usedFundingNonces[nonce] = true`
-6. set `usedLinkHashes[link_hash] = true`
-7. write deal storage
-8. transfer `price + feeAmount` from buyer into contract
-9. emit `DealFunded`
+The call must come from the signed buyer. The contract rejects:
 
-## Fee Logic
+- zero or identical participant addresses;
+- a used link hash or funding nonce;
+- a price outside 10–100,000 USDC;
+- a schedule that is not in the future;
+- zero duration or duration above 1,440 minutes;
+- an expired link;
+- link expiry later than the scheduled time;
+- an expired funding authorization;
+- a signature not produced by the current authorizer.
 
-Locked fee model:
+After validation, the contract:
 
-- fee is paid on top of `price` by buyer
-- no waiver
-- snapshot at funding
-- treasury receives the fee on both release and refund paths
+1. calculates the fee;
+2. allocates a deal ID;
+3. consumes the nonce and link hash;
+4. stores the funded deal;
+5. transfers price plus fee from the buyer;
+6. emits `DealFunded`.
 
-Formula:
+A failed token transfer reverts the state writes.
 
-- `feeAmount = min(max(floor(price * 300 / 10000), 1.50 USDC), 30 USDC)`
+## Fee
 
-Usage:
+```text
+raw fee = floor(price * 300 / 10,000)
+fee     = clamp(raw fee, 1.50 USDC, 30 USDC)
+```
 
-- stored once during funding
-- never recomputed
+The fee is fixed at funding. On release, the seller receives the price and the
+treasury receives the fee. On refund, the buyer receives the price and the
+treasury still receives the fee.
 
-Release paths:
+## Lifecycle functions
 
-- seller receives `price` immediately
-- treasury receives `feeAmount` immediately
+### markCompleted
 
-Refund path:
+- caller must be the seller;
+- status must be `Funded`;
+- current time must be at or after `scheduledAt`.
 
-- buyer gets `price`
-- treasury gets `feeAmount`
+The function records `completedAt` and moves the deal to
+`ConfirmPending`.
 
-## Time Logic
+### confirmRelease
 
-`markCompleted` gate:
+- caller must be the buyer;
+- status must be `ConfirmPending`;
+- current time must be at or before the deadline;
+- payout must not be blocked.
 
-- seller may call only when:
-  - deal is `Funded`
-  - `block.timestamp >= deal.scheduledAt`
-- this records `completedAt = block.timestamp` and starts the buyer response window
+### openDispute
 
-Post-completion window:
+The buyer can dispute from:
 
-- `deadline = deal.scheduledAt + (deal.durationMinutes * 60) + DISPUTE_WINDOW`
-- deadline is fixed and does not depend on when `markCompleted` was called
+- `Funded`, without a separate deadline check; or
+- `ConfirmPending`, at or before the deadline.
 
-Rules:
+### autoRelease
 
-- `confirmRelease`: allowed if `block.timestamp <= deadline`
-- `openDispute` from `ConfirmPending`: allowed if `block.timestamp <= deadline`
-- `autoRelease`: allowed if `block.timestamp > deadline`
-- `openDispute` from `Funded`: always allowed
+- caller must be the seller;
+- status must be `ConfirmPending`;
+- current time must be after the deadline;
+- payout must not be blocked.
 
-Boundary behavior:
+The deadline is:
 
-- exact deadline is valid for buyer release/dispute
-- auto-release only after deadline, not at equality
+```text
+scheduledAt + durationMinutes * 60 + 48 hours
+```
 
-Implementation invariant:
+### Admin resolution
 
-- minute-to-second arithmetic must be done safely
-- no silent wrapping assumptions
+An admin can release or refund only a `Disputed` deal.
 
-## Payout Invariants
+The onchain `dealPayoutBlocked` flag does not block admin resolution. The
+application applies compliance checks before preparing those calls, but an
+admin wallet remains trusted at the contract boundary.
 
-For all token-moving paths:
+## Roles
 
-- `confirmRelease`
-- `autoRelease`
-- `adminResolveRelease`
-- `adminResolveRefund`
+The owner can:
 
-Must hold:
+- add and remove admins;
+- transfer ownership;
+- change the treasury;
+- rotate the funding authorizer;
+- rescue tokens other than the escrow USDC.
 
-- function is `nonReentrant`
-- status becomes terminal before any token transfer
-- after terminal status, no further payout is possible
-- payout can happen only once per deal
+At least one admin must remain. Admins can:
 
-## Legal Hold
+- resolve disputed deals;
+- set or clear a participant payout hold.
 
-Onchain legal hold is separate from `deal.status`.
+Ownership transfer is a single-step assignment in this contract.
 
-- `dealPayoutBlocked[dealId] = true` blocks:
-  - `confirmRelease`
-  - `autoRelease`
-- `dealPayoutBlocked[dealId]` does not block:
-  - `adminResolveRelease`
-  - `adminResolveRefund`
+## Token handling
 
-`setDealPayoutBlocked(dealId, blocked)` rules:
+USDC transfers use OpenZeppelin `SafeERC20`. Funding, release, refund, and
+token rescue use `ReentrancyGuard` where tokens move.
 
-- missing deal → revert `DealNotFound`
-- terminal deal (`Released` / `Refunded`) → revert `InvalidStateTransition`
-- repeated same value → no-op
-- changed value → update mapping and emit `DealPayoutBlockUpdated`
+The owner cannot rescue the configured USDC token because it may include
+escrowed user funds. Other tokens sent to the contract can be rescued to the
+owner.
 
-## Token Handling
+## Events
 
-Must use:
+- `DealFunded`;
+- `Completed`;
+- `Released`;
+- `Disputed`;
+- `Refunded`;
+- `DealPayoutBlockUpdated`;
+- `AdminAdded` and `AdminRemoved`;
+- `OwnershipTransferred`;
+- `TreasuryUpdated`;
+- `FundingAuthorizerUpdated`;
+- `TokenRescued`.
 
-- `SafeERC20`
+## Deployment
 
-Must not use:
+The final mainnet address is
+[`0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD`](https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD).
 
-- raw ERC20 `transfer`
-- raw ERC20 `transferFrom`
-
-Token flows:
-
-- funding: contract pulls full `price + feeAmount` from buyer
-- release: contract pays seller `price` and treasury `feeAmount` immediately
-- refund: contract pays buyer `price` and treasury `feeAmount`
-
-## Event Contract
-
-Implement exactly these events:
-
-- `DealFunded`
-  - `dealId` indexed
-  - `link_hash` indexed
-  - `seller`
-  - `buyer`
-
-- `Completed`
-  - `dealId` indexed
-  - `completedAt`
-
-- `Released`
-  - `dealId` indexed
-  - `releasedAt`
-
-- `Disputed`
-  - `dealId` indexed
-
-- `Refunded`
-  - `dealId` indexed
-
-- `TreasuryUpdated`
-  - `previousTreasury` indexed
-  - `newTreasury` indexed
-
-Event invariants:
-
-- `DealFunded` is the canonical onchain funding event name
-- offchain lifecycle label `Funded` is just mapping from `DealFunded`
-- `Completed.completedAt` must equal exact stored `completedAt`
-- `Released.releasedAt` must equal exact `block.timestamp` of terminal tx
-
-## Recommended Custom Error Coverage
-
-Implementation should have explicit revert paths for:
-
-- deal does not exist
-- unauthorized caller
-- link hash already used
-- invalid price
-- invalid schedule
-- invalid duration
-- invalid state transition
-- completion too early
-- confirm/dispute window expired
-- auto-release too early
-- caller not admin
-- caller not owner
-- empty initial admin list
-- admin already exists
-- admin not found
-- last admin removal forbidden
-- link expired
-- no pending payout
-- no pending treasury fees
-- caller not treasury
-
-## Verification Checklist For Solidity Dev
-
-Before considering contract done, verify:
-
-- duplicate `linkHash` funding fails
-- buyer-only funding enforced
-- seller cannot fund own link
-- `markCompleted` fails before the start of the consultation slot
-- `markCompleted` succeeds at `scheduledAt`
-- `markCompleted` records `completedAt`
-- `confirmRelease` succeeds at exact deadline
-- `autoRelease` fails at exact deadline and succeeds after
-- `openDispute` works from `Funded`
-- `openDispute` works from `ConfirmPending` within deadline
-- `openDispute` fails after release
-- admin-only resolution enforced
-- refund returns `price` while treasury keeps `feeAmount`
-- release pays seller `price` and treasury `feeAmount`
-- terminal states cannot be reopened
-- timestamps in `Completed` and `Released` events are exact
-- no second payout is possible after terminal transition
-
-## Required Follow-Up Outside Solidity
-
-Once contract is implemented, repo must be aligned in:
-
-- ABI bindings in `/home/shaburshila/Documents/Projects/BaseConsultLink/base-consult-link/lib/base/consult-escrow.ts`
-- event worker timestamp handling in `/home/shaburshila/Documents/Projects/BaseConsultLink/base-consult-link/server/workers/deal-events.ts`
-- QA/docs wording for:
-  - `DealFunded` naming
-  - no fee waiver in v1
-  - treasury fees are paid on release and refund paths
-  - accepted offchain funding-validity limitation
+See [deployment records](../docs/deployments.md) and
+[security notes](../docs/security.md).

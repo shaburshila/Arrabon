@@ -4,171 +4,186 @@
 
 # Arrabon
 
-Mobile-first сервис для продажи консультаций с некастодиальным USDC-escrow в
-сети Base.
+Arrabon is a mobile-first consultation platform with non-custodial USDC escrow
+on Base.
 
-Эксперт создаёт одноразовую ссылку на конкретный слот, клиент оплачивает
-консультацию в USDC, а смарт-контракт удерживает средства до подтверждения
-оказанной услуги. Ссылка на встречу раскрывается только участникам сделки после
-оплаты.
+An expert creates a single-use link for a scheduled session. The client funds
+the deal in USDC, and the smart contract holds the funds until release or
+refund. The meeting URL is encrypted offchain and revealed only to the deal
+participants after funding.
 
-MVP полностью реализован и протестирован. Коммерческий запуск не состоялся
-после прекращения маркетингового направления команды; публичный сервис сейчас
-не работает. Репозиторий сохранён как технический и продуктовый кейс.
+The MVP was completed and tested. A commercial launch did not follow after the
+team stopped the marketing direction behind the product. The public service is
+offline, and this repository is kept as a product and engineering case study.
 
-## Коротко о проекте
+## Project facts
 
 | | |
 |---|---|
-| **Роль** | Самостоятельная продуктовая и техническая разработка |
-| **Период** | 26 марта — 21 мая 2026 года, 57 календарных дней |
-| **Результат** | Рабочий end-to-end MVP и контракт в Base Mainnet |
-| **Объём работы** | 225 коммитов одного автора за период активной разработки, 13 страниц и 28 API-маршрутов |
-| **Проверка качества** | 71 тестовый файл и 68 описанных QA-сценариев |
+| **Role** | Solo product and engineering work |
+| **Development period** | March 26–May 21, 2026 — 57 calendar days |
+| **Result** | End-to-end MVP and a Base Mainnet contract |
+| **Development history** | 225 commits by one author during active development |
+| **Product surface** | 13 pages and 28 API route files |
+| **Quality checks** | 71 test files and 68 documented QA scenarios |
 
-Я отвечал за продуктовую логику, пользовательские сценарии, UX, frontend,
-backend, базу данных, смарт-контракт, тестирование и подготовку к развёртыванию.
-AI использовался как рабочий инструмент разработки; результат проверялся
-тестами, аудитами и прохождением полных пользовательских сценариев.
+The work covered product rules, user flows, UX, frontend, backend, database
+design, the smart contract, testing, security review, and deployment
+preparation. AI was used during development, while code, tests, contract
+behavior, and full user flows were used to verify the result.
 
-## Пользовательский сценарий
+## User flow
 
 ```text
-Эксперт создаёт одноразовую ссылку
-              ↓
-Клиент подключает кошелёк и оплачивает консультацию в USDC
-              ↓
-Средства блокируются в ConsultEscrow на Base
-              ↓
-Участникам открывается зашифрованная ссылка на встречу
-              ↓
-Эксперт отмечает консультацию завершённой
-              ↓
-Клиент подтверждает выплату или открывает спор
-              ↓
-При отсутствии ответа доступен auto-release после 48 часов
+Expert creates a single-use consultation link
+                    |
+Client connects a wallet and funds the deal in USDC
+                    |
+ConsultEscrow holds the price and protocol fee on Base
+                    |
+The encrypted meeting URL becomes available to both participants
+                    |
+Expert marks the consultation complete
+                    |
+Client confirms release or opens a dispute
+                    |
+Seller can use auto-release after the 48-hour response window
 ```
 
-## Что реализовано
+## Implemented product surface
 
-- создание, просмотр и отмена одноразовых ссылок на консультацию;
-- атомарное создание и финансирование escrow-сделки в USDC;
-- подключение кошелька и SIWE-аутентификация с server-side сессиями;
-- шифрование meeting URL через AES-256-GCM и раскрытие только участникам;
-- полный lifecycle сделки: funding, completion, release, dispute, refund и
-  auto-release;
-- EIP-712 авторизация funding-операций и защита от повторного использования;
-- личные кабинеты эксперта и клиента;
-- offchain-переписка участников внутри открытого спора;
-- admin-интерфейс для споров, compliance-проверок и denylist;
-- AML/compliance screening через Chainalysis oracle, USDC blacklist и локальный
-  denylist;
-- фоновая синхронизация подтверждённых onchain-событий с PostgreSQL;
-- юридические страницы, refund policy и уведомления о compliance-ограничениях;
-- mobile-first интерфейс для встроенного браузера Base App.
+- creation, listing, cancellation, and public viewing of consultation links;
+- atomic deal creation and USDC funding;
+- wallet connection and SIWE authentication with server-side sessions;
+- AES-256-GCM encryption for meeting URLs;
+- deal funding, completion, release, dispute, refund, and auto-release;
+- EIP-712 funding authorization with nonce and link-hash replay protection;
+- expert and client dashboards;
+- private meeting-link reveal for funded deal participants;
+- offchain dispute messages and evidence links;
+- admin dispute resolution and wallet denylist controls;
+- Chainalysis oracle, USDC blacklist, and local denylist checks;
+- post-funding risk state and onchain payout holds;
+- confirmed-event synchronization into PostgreSQL;
+- dedicated mobile flows for wallet-based browsers.
 
-## Архитектура
+## Architecture
 
 ```text
-Mobile browser / Base App
-          │
-          ▼
+Mobile browser / wallet
+          |
+          v
 Next.js application
-  ├─ React frontend + wagmi/viem
-  ├─ Route Handlers API
-  └─ background event-sync worker
-          │
-          ├─ Supabase PostgreSQL
-          ├─ compliance providers
-          └─ Base L2 / ConsultEscrow.sol
+  |-- React UI, wagmi, and viem
+  |-- Route Handlers and server-side sessions
+  `-- background event-sync worker
+          |
+          |-- Supabase PostgreSQL
+          |-- compliance providers
+          `-- Base L2 / ConsultEscrow
 ```
 
-Frontend и backend работают в одном Next.js-приложении. Критичные переходы
-состояния и хранение средств находятся в смарт-контракте, а приватные данные,
-сессии и продуктовые метаданные — в PostgreSQL. Worker индексирует только
-подтверждённые события и обновляет offchain read model идемпотентно.
+The smart contract owns escrow balances and lifecycle transitions. PostgreSQL
+stores private product data, sessions, encrypted meeting URLs, compliance
+results, dispute messages, and a chain-synced read model. The worker processes
+confirmed events idempotently.
 
-## Контракт
+Users sign funding and lifecycle transactions with their wallets. The
+application does not store wallet private keys.
 
-`ConsultEscrow.sol` развёрнут в Base Mainnet:
+## Smart contract
 
-- **адрес:**
+`ConsultEscrow.sol` is deployed on Base Mainnet:
+
+- **Contract:**
   [`0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD`](https://basescan.org/address/0x2EB0e35AbF9035f7A3B1807B857dc33518D1C5aD)
-- **транзакция развёртывания:**
+- **Deployment transaction:**
   [`0x4d0ed8…68fa`](https://basescan.org/tx/0x4d0ed801e47f7dcde43139da2e9a11eb4c53b63ef27e32db1a9998a6d4ed68fa)
-- **сеть:** Base Mainnet, chain ID 8453
-- **блок:** 46201204
+- **Network:** Base Mainnet, chain ID 8453
+- **Block:** 46201204
 
-Контракт реализует custody USDC, state machine сделки, single-use enforcement,
-EIP-712 funding authorization, dispute flow, legal hold и выплату или возврат
-средств.
+The contract enforces single-use link hashes, EIP-712 funding authorization,
+deal state transitions, a 48-hour response window, dispute resolution, payout
+holds, and USDC settlement.
 
-## Стек
+Current contract constants:
+
+- price range: 10–100,000 USDC;
+- fee: 3%, clamped to 1.50–30 USDC;
+- maximum consultation duration: 1,440 minutes;
+- dispute and response window: 48 hours.
+
+## Stack
 
 **Application:** TypeScript, Next.js App Router, React, TanStack Query
 
-**Wallet и blockchain:** wagmi, viem, SIWE, Solidity, Hardhat, OpenZeppelin,
-Base L2, USDC
+**Wallet and chain:** wagmi, viem, SIWE, Solidity 0.8.26, Hardhat,
+OpenZeppelin, Base, USDC
 
-**Data:** Supabase PostgreSQL, server-side sessions, background event sync
+**Data:** Supabase PostgreSQL, hashed server-side sessions, background event
+sync
 
-**Security и compliance:** AES-256-GCM, EIP-712, Chainalysis oracle, USDC
-blacklist, local denylist, append-only audit log
+**Security and compliance:** AES-256-GCM, EIP-712, Chainalysis oracle, USDC
+blacklist, local denylist, append-only audit records
 
-## Проверка качества
+## Verification
 
-Проект включает:
+The repository contains 71 test files across unit, route, service, API smoke,
+and contract tests. The documented QA set contains 68 scenarios and 20
+cross-layer invariants.
 
-- unit-тесты frontend, backend и бизнес-логики;
-- API smoke tests;
-- Hardhat-тесты смарт-контракта;
-- 68 документированных QA-сценариев и 20 критичных инвариантов;
-- threat model и отдельный анализ AML/compliance;
-- последовательные внутренние audit-проходы перед финальной версией MVP.
+Coverage includes:
 
-Проверяются authentication и access control, временные границы сделки,
-escrow-state machine, funding/release flows, шифрование meeting URL,
-идемпотентность indexer, compliance-гейты и административное разрешение споров.
+- SIWE nonce and session behavior;
+- role and participant authorization;
+- consultation-link timing and single use;
+- meeting URL encryption and reveal rules;
+- escrow funding and lifecycle transitions;
+- fee calculation and EIP-712 authorization;
+- event-indexing idempotency;
+- compliance fail-closed paths and payout holds;
+- admin dispute and denylist operations.
 
-## Структура репозитория
+The security work was internal. The repository does not claim an external
+audit.
+
+## Repository structure
 
 ```text
-app/           страницы и Next.js Route Handlers
-components/    UI-компоненты
-contexts/      wallet/session state
-hooks/         продуктовые пользовательские flows
-lib/           auth, database, contracts, compliance и domain logic
-contracts/     ConsultEscrow.sol и вспомогательные контракты
-supabase/      схема и миграции PostgreSQL
-server/        background event-sync worker
-tests/         unit, API и contract tests
-docs/          спецификация, архитектура, threat model и QA
-design-assets/ фирменные SVG-ассеты
+app/           pages and Next.js Route Handlers
+components/    product UI
+hooks/         wallet and deal flows
+lib/           auth, database, contract, compliance, and validation code
+contracts/     ConsultEscrow and contract tests
+supabase/      PostgreSQL migrations
+server/        repositories, services, and event-sync worker
+tests/         unit, API smoke, and contract tests
+docs/          curated product and engineering documentation
+design-assets/ source and exported brand assets
 ```
 
-## Документация
+## Documentation
 
-| Документ | Содержание |
+| Document | Contents |
 |---|---|
-| [Product specification](docs/product-spec.md) | Scope MVP и продуктовые правила |
-| [Architecture](docs/architecture.md) | Границы компонентов и onchain/offchain split |
-| [User flows](docs/flows.md) | Основные и ошибочные пользовательские сценарии |
-| [State machine](docs/state-machine.md) | Состояния ссылок, сделок и compliance |
-| [API contract](docs/api-contract.md) | Контракты Route Handlers |
-| [Auth model](docs/auth-model.md) | SIWE и server-side сессии |
-| [Threat model](docs/threat-model.md) | Активы, угрозы и mitigations |
-| [QA scenarios](docs/qa-scenarios.md) | Проверяемые сценарии и инварианты |
-| [Deployments](docs/deployments.md) | Адреса контрактов и история развёртываний |
+| [Product rules](docs/product-spec.md) | Scope, actors, pricing, and lifecycle rules |
+| [Architecture](docs/architecture.md) | Component boundaries and onchain/offchain split |
+| [User flows](docs/flows.md) | Funding, completion, release, dispute, and failure paths |
+| [State machine](docs/state-machine.md) | Link, deal, and compliance transitions |
+| [API reference](docs/api-contract.md) | Implemented Route Handler surface |
+| [Authentication](docs/auth-model.md) | SIWE sessions and authorization rules |
+| [Security and compliance](docs/security.md) | Assets, controls, providers, and residual risks |
+| [Testing](docs/testing.md) | Automated coverage, QA scenarios, and limits |
+| [Development process](docs/development-process.md) | Scope, AI-assisted workflow, and verification |
+| [Deployments](docs/deployments.md) | Mainnet and current testnet contract records |
 
-Полный индекс находится в [docs/INDEX.md](docs/INDEX.md).
+## Status
 
-## Статус
+The MVP is complete. The contract was deployed to Base Mainnet, but the
+product did not proceed to a full commercial launch after its marketing
+direction ended. The application is no longer hosted or maintained.
 
-MVP завершён. Контракт был развёрнут в Base Mainnet, но полноценный коммерческий
-запуск продукта не состоялся после прекращения маркетингового направления
-команды. Приложение больше не поддерживается и не доступно как публичный сервис.
+## License
 
-## Лицензия
-
-Исходный код опубликован для ознакомления. Открытая лицензия не предоставляется;
-все права защищены.
+The source is published for review. No open-source license is granted; all
+rights are reserved.
